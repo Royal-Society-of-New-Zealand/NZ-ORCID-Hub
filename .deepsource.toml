@@ -5,7 +5,10 @@ test_patterns = [
 ]
 
 exclude_patterns = [
-  'orcid_api'  
+  'docs',
+  'orcid_api',
+  'tests/test_*.py',
+  'orcid_api_v3'
 ]
 
 [[analyzers]]

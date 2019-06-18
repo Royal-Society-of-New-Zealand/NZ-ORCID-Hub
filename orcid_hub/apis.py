@@ -22,7 +22,8 @@ from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
                      PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User, UserOrg,
                      validate_orcid_id, WorkRecord)
-from .utils import dump_yaml, is_valid_url, register_orcid_webhook, enqueue_task_records
+from .utils import (activate_all_records, dump_yaml, enqueue_task_records, is_valid_url,
+                    register_orcid_webhook, reset_all_records)
 
 ORCID_API_VERSION_REGEX = re.compile(r"^v[2-3].\d+(_rc\d+)?$")
 SCOPE_REGEX = re.compile(r"^(/[a-z\-]+)+(\,(/[a-z\-]+)+)*$")
@@ -95,6 +96,98 @@ class AppResource(Resource):
         """Test if the request body content type is YAML."""
         return request.content_type in ["text/yaml", "application/x-yaml"]
 
+    def handle_user(self, identifier=None):
+        """Create, update or delete user account entry."""
+        login_user(request.oauth.user)
+
+        if request.method != "DELETE":
+            if self.is_yaml_request:
+                try:
+                    data = yaml.load(request.data)
+                except Exception as ex:
+                    return jsonify({
+                        "error": "Invalid request format. Only JSON or YAML are acceptable.",
+                        "message": str(ex)
+                    }), 415
+            else:
+                data = request.get_json()
+            if not data:
+                return jsonify({"error": "Invalid request format. Only JSON or YAML are acceptable."}), 415
+            try:
+                if request.method != "PATCH":
+                    jsonschema.validate(data, schemas.hub_user)
+            except jsonschema.exceptions.ValidationError as ex:
+                return jsonify({"error": "Validation error.", "message": ex.message}), 422
+            except Exception as ex:
+                return jsonify({"error": "Unhandled exception occurred.", "exception": ex}), 400
+
+            org = current_user.organisation
+            email = data.get("email")
+            if email and not validators.email(email):
+                return jsonify({"error": "Validation error.", "message": f"Invalid email address: {email}"}), 422
+            orcid = data.get("orcid")
+            if orcid:
+                try:
+                    models.validate_orcid_id(orcid)
+                except Exception as ex:
+                    return jsonify({"error": f"Incorrect ORCID iD value '{orcid}': {ex}"}), 422
+
+        created = False
+        if identifier:
+            if validators.email(identifier):
+                user = User.select().where(User.email == identifier).first()
+            elif ORCID_ID_REGEX.match(identifier):
+                try:
+                    models.validate_orcid_id(identifier)
+                except Exception as ex:
+                    return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
+                user = User.select().where(User.orcid == identifier).first()
+            else:
+                return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
+            if not user:
+                return jsonify({"error": f"The user ({identifier}) doesn't exist."}), 404
+
+        elif request.method == "POST":
+            user = User.select()
+            if email:
+                user = user.orwhere(User.email == email)
+            if orcid:
+                user = user.orwhere(User.orcid == orcid)
+            user = user.first()
+            if not user:
+                user, created = User.get_or_create(email=email, orcid=orcid)
+            if not created and (user.organisation != org or not UserOrg.select().where(
+                    UserOrg.org == org, UserOrg.user == user).exists()):
+                return jsonify({"error": f"The user ({identifier or email or orcid}) already exists."}), 400
+            if created:
+                user.organisation = org
+                UserOrg.create(user=user, org=org)
+
+        if request.method == "DELETE":
+            try:
+                user.delete_instance()
+                return make_response('', 204)
+            except Exception as ex:
+                return jsonify({"error": "Failed to delete the user.", "message": str(ex)}), 400
+
+        else:
+            for k in ["orcid", "email", "name", "eppn", "confirmed"]:
+                if k in data:
+                    setattr(user, k, data[k])
+            try:
+                user.save()
+            except Exception as ex:
+                return jsonify({"error": "Failed to update the user.", "message": str(ex)}), 400
+
+            data = user.to_dict(
+                    recurse=False, to_dashes=True,
+                    only=[User.email, User.eppn, User.name, User.orcid, User.confirmed, User.updated_at])
+            resp = yamlfy(data) if prefers_yaml() else jsonify(data)
+            resp.headers["Last-Modified"] = self.httpdate(user.updated_at or user.created_at)
+
+            resp.status_code = 201 if created else 200
+            return resp
+
 
 def changed_path(name, value):
     """Create query string with a new parameter value."""
@@ -142,10 +235,16 @@ class AppResourceList(AppResource):
         """Get the first page link of the requested resource."""
         return changed_path("page", 1)
 
-    def api_response(self, query, exclude=None, only=None):
+    def api_response(self, query, exclude=None, only=None, recurse=False):
         """Create and return API response with pagination links."""
         query = query.paginate(self.page, self.page_size)
-        records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude, only=only) for r in query]
+        records = [
+            r.to_dict(
+                recurse=recurse,
+                to_dashes=True,
+                exclude=exclude,
+                only=only) for r in query
+        ]
         resp = yamlfy(records) if prefers_yaml() else jsonify(records)
         resp.headers["Pagination-Page"] = self.page
         resp.headers["Pagination-Page-Size"] = self.page_size
@@ -190,7 +289,7 @@ class TaskResource(AppResource):
             self.task_type = None
         return super().dispatch_request(*args, **kwargs)
 
-    def jsonify_task(self, task):
+    def jsonify_task(self, task, include_records=True):
         """Create JSON response with the task payload."""
         if isinstance(task, int):
             login_user(request.oauth.user)
@@ -205,11 +304,11 @@ class TaskResource(AppResource):
                     TaskType.AFFILIATION, TaskType.FUNDING, TaskType.PEER_REVIEW,
                     TaskType.PROPERTY, TaskType.WORK, TaskType.OTHER_ID
             ]:
-                resp = jsonify(task.to_export_dict())
+                resp = jsonify(task.to_export_dict(include_records=include_records))
             else:
                 raise Exception(f"Suppor for {task} has not yet been implemented.")
         else:
-            resp = Response()
+            resp = make_response('')
         resp.headers["Last-Modified"] = self.httpdate(task.updated_at or task.created_at)
         return resp
 
@@ -367,6 +466,11 @@ class TaskList(TaskResource, AppResourceList):
               completed-at:
                 type: string
                 format: date-time
+              status:
+                type: string
+                enum:
+                - ACTIVE
+                - RESET
         parameters:
           - name: "type"
             in: "query"
@@ -410,7 +514,232 @@ class TaskList(TaskResource, AppResourceList):
         task_type = request.args.get("type")
         if task_type:
             query = query.where(Task.task_type == TaskType[task_type.upper()].value)
-        return self.api_response(query, exclude=[Task.created_by, Task.updated_by, Task.org])
+        return self.api_response(
+            query,
+            exclude=[Task.created_by, Task.updated_by, Task.org],
+            recurse=False)
+
+
+class TaskAPI(TaskList):
+    """Task services."""
+
+    def handle_task(self, task_id=None):
+        """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
+        try:
+            login_user(request.oauth.user)
+            if self.is_yaml_request:
+                data = yaml.load(request.data)
+            else:
+                data = request.json
+
+            if task_id:
+                try:
+                    task = Task.get(id=task_id)
+                except Task.DoesNotExist:
+                    return jsonify({"error": "The task doesn't exist."}), 404
+                if task.created_by != current_user:
+                    return jsonify({"error": "Access denied."}), 403
+            else:
+                task_type = TaskType(data["task-type"]) if "task-type" in data else None
+                task = Task(task_type=task_type, org=current_user.organisaion)
+            if "filename" in data:
+                task.filename = data["filename"]
+            status = data.get("status")
+            status_has_changed = task.status != status
+            if status in ["ACTIVE", "RESET"]:
+                task.status = status
+            task.save()
+            if status_has_changed:
+                if status == "ACTIVE":
+                    activate_all_records(task)
+                elif status == "RESET":
+                    reset_all_records(task)
+        except Exception as ex:
+            app.logger.exception("Failed to handle funding API request.")
+            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
+
+        return self.jsonify_task(task, include_records=False)
+
+    def get(self, task_id, *args, **kwargs):
+        """
+        Retrieve a single task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Retrieve a single task."
+        description: "Retrieve a single task."
+        produces:
+          - "application/json"
+          - "text/yaml"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "Task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/Task"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id, include_records=False)
+
+    def post(self, task_id):
+        """Upload the task and completely override the task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Update the task."
+        description: "Update the task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: task
+            description: "Task."
+            schema:
+              $ref: "#/definitions/Task"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def put(self, task_id):
+        """Update the task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Update the task."
+        description: "Update the task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: task
+            description: "Task."
+            schema:
+              $ref: "#/definitions/Task"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def patch(self, task_id):
+        """Update the task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Update the task."
+        description: "Update the task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: task
+            description: "Task."
+            schema:
+              $ref: "#/definitions/Task"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Delete the specified task."
+        description: "Delete the specified task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.delete_task(task_id)
+
+
+api.add_resource(TaskList, "/api/v1.0/tasks")
+api.add_resource(TaskAPI, "/api/v1.0/tasks/<int:task_id>")
 
 
 class AffiliationListAPI(TaskResource):
@@ -722,7 +1051,6 @@ class AffiliationAPI(TaskResource):
         return self.delete_task(task_id)
 
 
-api.add_resource(TaskList, "/api/v1.0/tasks")
 api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
 api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
 
@@ -1622,6 +1950,27 @@ class UserListAPI(AppResourceList):
         Return the list of the user belonging to the organisation.
 
         ---
+        definitions:
+        - schema:
+            id: HubUser
+            properties:
+              orcid:
+                type: "string"
+                format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
+                description: "User ORCID ID"
+              email:
+                type: "string"
+              eppn:
+                type: "string"
+              confirmed:
+                type: "boolean"
+              updated-at:
+                type: "string"
+                format: date-time
+              name:
+                type: "string"
+            required:
+            - email
         tags:
           - "users"
         summary: "Retrieve the list of all users."
@@ -1667,23 +2016,6 @@ class UserListAPI(AppResourceList):
             $ref: "#/responses/NotFound"
           422:
             description: "Unprocessable Entity"
-        definitions:
-        - schema:
-            id: HubUser
-            properties:
-              orcid:
-                type: "string"
-                format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
-                description: "User ORCID ID"
-              email:
-                type: "string"
-              eppn:
-                type: "string"
-              confirmed:
-                type: "boolean"
-              updated-at:
-                type: "string"
-                format: date-time
         """
         login_user(request.oauth.user)
         users = User.select().where(User.organisation == current_user.organisation)
@@ -1705,6 +2037,42 @@ class UserListAPI(AppResourceList):
         return self.api_response(
             users,
             only=[User.email, User.eppn, User.name, User.orcid, User.confirmed, User.updated_at])
+
+    def post(self):
+        """
+        Create a bare user account that could be used for further ORCID profile management.
+
+        ---
+        tags:
+          - "users"
+        summary: "Create a bare user account."
+        description: "Create a bare user account that could be used for further ORCID profile management."
+        produces:
+          - "application/json"
+        consumes:
+          - "application/json"
+        parameters:
+          - name: "body"
+            in: "body"
+            description: "User data."
+            required: true
+            schema:
+              $ref: "#/definitions/HubUser"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/HubUser"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+          422:
+            description: "Unprocessable Entity"
+        """
+        return self.handle_user()
 
 
 api.add_resource(UserListAPI, "/api/v1.0/users")
@@ -1768,6 +2136,160 @@ class UserAPI(AppResource):
             "orcid": user.orcid,
             "updated-at": user.updated_at,
         }), 200
+
+    def post(self, identifier=None):
+        """
+        Update a user account.
+
+        ---
+        tags:
+          - "users"
+        summary: "Update a user account."
+        description: "Update a user account data."
+        produces:
+          - "application/json"
+        consumes:
+          - "application/json"
+        parameters:
+          - name: "identifier"
+            in: "path"
+            description: "User identifier (either email, eppn or ORCID ID)"
+            required: true
+            type: "string"
+          - name: "body"
+            required: true
+            in: "body"
+            description: "User data."
+            schema:
+              $ref: "#/definitions/HubUser"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/HubUser"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+          422:
+            description: "Unprocessable Entity"
+        """
+        return self.handle_user(identifier)
+
+    def put(self, identifier=None):
+        """
+        Update a user account.
+
+        ---
+        tags:
+          - "users"
+        summary: "Update a user account."
+        description: "Update a user account data."
+        produces:
+          - "application/json"
+        consumes:
+          - "application/json"
+        parameters:
+          - name: "identifier"
+            in: "path"
+            description: "User identifier (either email, eppn or ORCID ID)"
+            required: true
+            type: "string"
+          - name: "body"
+            required: true
+            in: "body"
+            description: "User data."
+            schema:
+              $ref: "#/definitions/HubUser"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/HubUser"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+          422:
+            description: "Unprocessable Entity"
+        """
+        return self.handle_user(identifier)
+
+    def patch(self, identifier=None):
+        """
+        Update a user account.
+
+        ---
+        tags:
+          - "users"
+        summary: "Update a user account."
+        description: "Update a user account data."
+        produces:
+          - "application/json"
+        consumes:
+          - "application/json"
+        parameters:
+          - name: "identifier"
+            in: "path"
+            description: "User identifier (either email, eppn or ORCID ID)"
+            required: true
+            type: "string"
+          - name: "body"
+            required: true
+            in: "body"
+            description: "User data."
+            schema:
+              $ref: "#/definitions/HubUser"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/HubUser"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+          422:
+            description: "Unprocessable Entity"
+        """
+        return self.handle_user(identifier)
+
+    def delete(self, identifier=None):
+        """
+        Delete a user account.
+
+        ---
+        tags:
+          - "users"
+        summary: "Delete a user account."
+        description: "Delete a user account data."
+        consumes:
+          - "application/json"
+        parameters:
+          - name: "identifier"
+            in: "path"
+            description: "User identifier (either email, eppn or ORCID ID)"
+            required: true
+            type: "string"
+        responses:
+          202:
+            description: "successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+          422:
+            description: "Unprocessable Entity"
+        """
+        return self.handle_user(identifier)
 
 
 api.add_resource(UserAPI, "/api/v1.0/users/<identifier>")
@@ -1889,9 +2411,9 @@ class TokenAPI(MethodView):
             type: "string"
           - name: "body"
             in: "body"
+            required: true
             description: "ORCID API access token."
-            type: "object"
-            scheme:
+            schema:
               $ref: "#/definitions/OrcidToken"
         responses:
           200:

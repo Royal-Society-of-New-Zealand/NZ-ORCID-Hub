@@ -256,12 +256,12 @@ class AppModelView(ModelView):
 
         return query
 
-    def get_one(self, id):
+    def get_one(self, rec_id):
         """Handle missing data."""
         try:
-            return super().get_one(id)
+            return super().get_one(rec_id)
         except self.model.DoesNotExist:
-            flash(f"The record with given ID: {id} doesn't exist or it has been deleted.", "danger")
+            flash(f"The record with given ID: {rec_id} doesn't exist or it has been deleted.", "danger")
             abort(404)
 
     def init_search(self):
@@ -450,7 +450,7 @@ class OrganisationAdmin(AppModelView):
                         Organisation.id != model.id).exists():
                 app.logger.info(r"Revoked TECHNICAL from {model.tech_contact}")
                 model.tech_contact.roles &= ~Role.TECHNICAL
-                super(User, model.tech_contact).save()
+                model.tech_contact.save()
 
         return super().update_model(form, model)
 
@@ -1593,16 +1593,16 @@ class ViewMembersAdmin(AppModelView):
             query = query.order_by(*clauses)
         return query, joins
 
-    def get_one(self, id):
+    def get_one(self, rec_id):
         """Limit access only to the userers belonging to the current organisation."""
         try:
-            user = User.get(id=id)
+            user = User.get(id=rec_id)
             if not user.organisations.where(UserOrg.org == current_user.organisation).exists():
                 flash("Access Denied!", "danger")
                 abort(403)
             return user
         except User.DoesNotExist:
-            flash(f"The user with given ID: {id} doesn't exist or it was deleted.", "danger")
+            flash(f"The user with given ID: {rec_id} doesn't exist or it was deleted.", "danger")
             abort(404)
 
     def delete_model(self, model):
@@ -1934,14 +1934,9 @@ def activate_all():
     task_id = request.form.get("task_id")
     task = Task.get(task_id)
     try:
-        status = "The record was activated at " + datetime.now().isoformat(timespec="seconds")
-        count = task.record_model.update(is_active=True, status=status).where(
-            task.record_model.task_id == task_id,
-            task.record_model.is_active == False).execute()  # noqa: E712
-        utils.enqueue_task_records(task)
+        count = utils.activate_all_records(task)
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
-        app.logger.exception("Failed to activate the selected records")
     else:
         flash(f"{count} records were activated for batch processing.")
     return redirect(_url)
@@ -1954,43 +1949,12 @@ def reset_all():
     _url = request.args.get("url") or request.referrer
     task_id = request.form.get("task_id")
     task = Task.get(task_id)
-    count = 0
-    with db.atomic():
-        try:
-            status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            tt = task.task_type
-            if tt in [TaskType.AFFILIATION, TaskType.PROPERTY, TaskType.OTHER_ID]:
-                count = task.record_model.update(
-                    processed_at=None, status=status).where(
-                        task.record_model.task_id == task_id,
-                        task.record_model.is_active == True).execute()  # noqa: E712
-
-            else:
-                for record in task.records.where(
-                        task.record_model.is_active == True):  # noqa: E712
-                    record.processed_at = None
-                    record.status = status
-
-                    invitee_class = record.invitees.model_class
-                    invitee_class.update(
-                        processed_at=None,
-                        status=status).where(invitee_class.record == record.id).execute()
-                    record.save()
-                    count = count + 1
-
-            UserInvitation.delete().where(UserInvitation.task == task).execute()
-            utils.enqueue_task_records(task)
-
-        except Exception as ex:
-            db.rollback()
-            flash(f"Failed to reset the selected records: {ex}")
-            app.logger.exception("Failed to reset the selected records")
-        else:
-            task.expires_at = None
-            task.expiry_email_sent_at = None
-            task.completed_at = None
-            task.save()
-            flash(f"{count} {task.task_type.name} records were reset for batch processing.", "info")
+    try:
+        count = utils.reset_all_records(task)
+    except Exception as ex:
+        flash(f"Failed to reset the selected records: {ex}")
+    else:
+        flash(f"{count} {task.task_type.name} records were reset for batch processing.", "info")
     return redirect(_url)
 
 
@@ -2299,16 +2263,20 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type == "FUN" or section_type == "PRR" or section_type == "WOR":
+            if section_type in ["FUN", "PRR", "WOR"]:
                 grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
                 grant_relationship = request.form.getlist('grant_relationship')
 
-                grant_data_list = [{'grant_number': gn, 'grant_type': gt, 'grant_url': gu, 'grant_relationship': gr} for
-                                   gn, gt, gu, gr in
-                                   zip(grant_number, grant_type, grant_url, grant_relationship)] if list(
-                    filter(None, grant_number)) else []
+                # Skip entries with no grant number:
+                grant_data_list = [{
+                    'grant_number': gn,
+                    'grant_type': gt,
+                    'grant_url': gu,
+                    'grant_relationship': gr
+                } for gn, gt, gu, gr in zip(grant_number, grant_type, grant_url,
+                                            grant_relationship) if gn]
 
                 if section_type == "FUN":
                     put_code, orcid, created = api.create_or_update_individual_funding(
@@ -2329,32 +2297,32 @@ def edit_record(user_id, section_type, put_code=None):
                         **{f.name: f.data
                            for f in form})
             elif section_type == "RUR":
-                put_code, orcid, created = api.create_or_update_researcher_url(
+                put_code, orcid, created, visibility = api.create_or_update_researcher_url(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
             elif section_type == "ONR":
-                put_code, orcid, created = api.create_or_update_other_name(
+                put_code, orcid, created, visibility = api.create_or_update_other_name(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
             elif section_type == "ADR":
-                put_code, orcid, created = api.create_or_update_address(
+                put_code, orcid, created, visibility = api.create_or_update_address(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
             elif section_type == "EXR":
-                put_code, orcid, created = api.create_or_update_person_external_id(
+                put_code, orcid, created, visibility = api.create_or_update_person_external_id(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
             elif section_type == "KWR":
-                put_code, orcid, created = api.create_or_update_keyword(
+                put_code, orcid, created, visibility = api.create_or_update_keyword(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
             else:
-                put_code, orcid, created = api.create_or_update_affiliation(
+                put_code, orcid, created, visibility = api.create_or_update_affiliation(
                     put_code=put_code,
                     affiliation=Affiliation[section_type],
                     **{f.name: f.data
@@ -2595,14 +2563,14 @@ def search_group_id_record():
         group_id = request.form.get('group_id')
         name = request.form.get('name')
         description = request.form.get('description')
-        type = request.form.get('type')
+        id_type = request.form.get('type')
         put_code = request.form.get('put_code')
 
         with db.atomic():
             try:
                 gir, created = GroupIdRecord.get_or_create(organisation=current_user.organisation,
                                                            group_id=group_id, name=name, description=description,
-                                                           type=type)
+                                                           type=id_type)
                 gir.put_code = put_code
 
                 if created:
@@ -3424,24 +3392,7 @@ def update_webhook(user_id):
         user = User.get(user_id)
         user.orcid_updated_at = updated_at
         user.save()
-
-        for org in user.organisations.where(Organisation.webhook_enabled):
-
-            if org.webhook_url:
-                utils.invoke_webhook_handler.queue(
-                    org.webhook_url,
-                    user.orcid,
-                    updated_at,
-                )
-
-            if org.email_notifications_enabled:
-                url = app.config["ORCID_BASE_URL"] + user.orcid
-                utils.send_email(
-                    f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
-                    profile was updated at {updated_at.isoformat(timespec="minutes", sep=' ')}.</p>""",
-                    recipient=org.notification_email or (org.tech_contact.name, org.tech_contact.email),
-                    subject=f"ORCID Profile Update ({user.orcid})",
-                    org=org)
+        utils.notify_about_update(user)
 
     except Exception:
         app.logger.exception(f"Invalid user_id: {user_id}")
@@ -3651,8 +3602,8 @@ class ScheduerView(BaseModelView):
     def scaffold_filters(self, name):  # noqa: D102
         return None
 
-    def is_valid_filter(self, filter):  # noqa: D102
-        return isinstance(filter, filters.BasePeeweeFilter)
+    def is_valid_filter(self, filter_object):  # noqa: D102
+        return isinstance(filter_object, filters.BasePeeweeFilter)
 
     def scaffold_form(self):  # noqa: D102
         from wtforms import Form

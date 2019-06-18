@@ -151,6 +151,13 @@ def lazy_property(fn):
     return _lazy_property
 
 
+def normalize_email(value):
+    """Extact and normalize email value from the given raw data value, eg, 'Name <test@test.edu>'."""
+    if value:
+        value = value.strip().lower()
+        return re.match(r"^(.*\<)?([^\>]*)\>?$", value).group(2) if '<' in value else value
+
+
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
     """Partial date (without month day or both month and month day."""
 
@@ -405,7 +412,7 @@ class BaseModel(Model):
         if self.is_dirty() and hasattr(self, "task") and self.task:
             self.task.updated_at = datetime.utcnow()
             self.task.save()
-        if self.is_dirty() and hasattr(self, "email") and self.email and self.field_is_updated("email"):
+        if self.is_dirty() and getattr(self, "email", False) and self.field_is_updated("email"):
             self.email = self.email.lower()
         return super().save(*args, **kwargs)
 
@@ -730,7 +737,7 @@ class OrgInfo(BaseModel):
             oi.first_name = val(row, 2)
             oi.last_name = val(row, 3)
             oi.role = val(row, 4)
-            oi.email = val(row, 5)
+            oi.email = normalize_email(val(row, 5))
             oi.phone = val(row, 6)
             oi.is_public = val(row, 7) and val(row, 7).upper() == "YES"
             oi.country = val(row, 8) or DEFAULT_COUNTRY
@@ -846,7 +853,7 @@ class User(BaseModel, UserMixin, AuditMixin):
                 return bool(Role[role.upper()] & Role(self.roles))
             except Exception:
                 False
-        elif type(role) is int:
+        elif isinstance(role, int):
             return bool(role & self.roles)
         else:
             return False
@@ -1084,7 +1091,7 @@ class Task(BaseModel, AuditMixin):
         default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
-    completed_count = TextField(null=True, help_text="gives the status of uploaded task")
+    status = CharField(null=True, max_length=10, choices=[(v, v) for v in ["ACTIVE", "RESET"]])
 
     def __repr__(self):
         return ("Synchronization task" if self.task_type == TaskType.SYNC else (
@@ -1126,9 +1133,6 @@ class Task(BaseModel, AuditMixin):
     @property
     def error_count(self):
         """Get error count encountered during processing batch task."""
-        q = self.records
-        _, models = q.get_query_meta()
-        model, = models.keys()
         return self.records.where(self.record_model.status ** "%error%").count()
 
     # TODO: move this one to AffiliationRecord
@@ -1165,7 +1169,7 @@ class Task(BaseModel, AuditMixin):
                        r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
                        r"disambiguat.*source", r"put|code", "orcid.*", "external.*|.*identifier",
-                       "delete(.*record)?", ]
+                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", ]
         ]
 
         def index(rex):
@@ -1212,7 +1216,7 @@ class Task(BaseModel, AuditMixin):
                                 f"Missing put-code. Cannot delete a record without put-code. "
                                 f"#{row_no+2}: {row}. Header: {header}")
 
-                    email = val(row, 2, "").lower()
+                    email = normalize_email(val(row, 2, ""))
                     orcid = val(row, 15)
                     external_id = val(row, 16)
 
@@ -1258,7 +1262,12 @@ class Task(BaseModel, AuditMixin):
                             "Wrong number of fields. Expected at least 4 fields "
                             "(first name, last name, email address or another unique identifier, "
                             f"student/staff): {row}")
-
+                    disambiguation_source = val(row, 13)
+                    if disambiguation_source:
+                        disambiguation_source = disambiguation_source.upper()
+                    visibility = val(row, 18)
+                    if visibility:
+                        visibility = visibility.upper()
                     af = AffiliationRecord(
                         task=task,
                         first_name=first_name,
@@ -1274,11 +1283,12 @@ class Task(BaseModel, AuditMixin):
                         affiliation_type=affiliation_type,
                         country=country,
                         disambiguated_id=val(row, 12),
-                        disambiguation_source=val(row, 13),
+                        disambiguation_source=disambiguation_source,
                         put_code=put_code,
                         orcid=orcid,
                         external_id=external_id,
-                        delete_record=delete_record)
+                        delete_record=delete_record,
+                        visibility=visibility,)
                     validator = ModelValidator(af)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
@@ -1294,10 +1304,13 @@ class Task(BaseModel, AuditMixin):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
         task_dict = super().to_dict(
-            recurse=False if recurse is None else recurse,
+            recurse=bool(False),
             to_dashes=to_dashes,
             exclude=exclude,
-            only=only or [Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at])
+            only=only or [
+                Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at,
+                Task.status
+            ])
         # TODO: refactor for funding task to get records here not in API or export
         if include_records and TaskType(self.task_type) != TaskType.FUNDING:
             task_dict["records"] = [
@@ -1308,10 +1321,10 @@ class Task(BaseModel, AuditMixin):
             ]
         return task_dict
 
-    def to_export_dict(self):
+    def to_export_dict(self, include_records=True):
         """Create a dictionary representation for export."""
         if self.task_type == TaskType.AFFILIATION:
-            task_dict = self.to_dict()
+            task_dict = self.to_dict(recurse=include_records, include_records=include_records)
         else:
             task_dict = self.to_dict(
                 recurse=False,
@@ -1319,7 +1332,8 @@ class Task(BaseModel, AuditMixin):
                 include_records=False,
                 exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
             task_dict["task-type"] = self.task_type.name
-            task_dict["records"] = [r.to_export_dict() for r in self.records]
+            if include_records:
+                task_dict["records"] = [r.to_export_dict() for r in self.records]
         return task_dict
 
     class Meta:  # noqa: D101,D106
@@ -1507,7 +1521,7 @@ class AffiliationRecord(RecordModel):
     status = TextField(null=True, help_text="Record processing status.")
     first_name = CharField(null=True, max_length=120)
     last_name = CharField(null=True, max_length=120)
-    email = CharField(max_length=80)
+    email = CharField(max_length=80, null=True)
     orcid = OrcidIdField(null=True)
     organisation = CharField(null=True, index=True, max_length=200)
     affiliation_type = CharField(null=True, max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
@@ -1526,6 +1540,7 @@ class AffiliationRecord(RecordModel):
         verbose_name="Disambiguation Source",
         choices=disambiguation_source_choices)
     delete_record = BooleanField(null=True)
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
 
     class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
@@ -1585,10 +1600,15 @@ class AffiliationRecord(RecordModel):
                         if k == "id":
                             continue
                         k = k.replace('-', '_')
+                        if k in ["visibility", "disambiguation_source"] and v:
+                            v = v.upper()
                         if k in record_fields and rec._data.get(k) != v:
                             rec._data[k] = PartialDate.create(v) if k.endswith("date") else v
                             rec._dirty.add(k)
                     if rec.is_dirty():
+                        validator = ModelValidator(rec)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid record: {validator.errors}")
                         rec.save()
             except:
                 db.rollback()
@@ -1717,7 +1737,7 @@ class FundingRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
-            orcid, email = val(row, 17), val(row, 18, "").lower()
+            orcid, email = val(row, 17), normalize_email(val(row, 18, ""))
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
@@ -1872,7 +1892,7 @@ class FundingRecord(RecordModel):
                     translated_title = r.get("title", "translated-title", "value")
                     translated_title_language_code = r.get("title", "translated-title",
                                                            "language-code")
-                    type = r.get("type")
+                    rec_type = r.get("type")
                     organization_defined_type = r.get("organization-defined-type", "value")
                     short_description = r.get("short-description")
                     amount = r.get("amount", "value")
@@ -1893,7 +1913,7 @@ class FundingRecord(RecordModel):
                         title=title,
                         translated_title=translated_title,
                         translated_title_language_code=translated_title_language_code,
-                        type=type,
+                        type=rec_type,
                         organization_defined_type=organization_defined_type,
                         short_description=short_description,
                         amount=amount,
@@ -1911,7 +1931,7 @@ class FundingRecord(RecordModel):
                     if invitees:
                         for invitee in invitees:
                             identifier = invitee.get("identifier")
-                            email = invitee.get("email")
+                            email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
                             orcid_id = invitee.get("ORCID-iD")
@@ -1921,7 +1941,7 @@ class FundingRecord(RecordModel):
                             FundingInvitee.create(
                                 record=record,
                                 identifier=identifier,
-                                email=email.lower(),
+                                email=email,
                                 first_name=first_name,
                                 last_name=last_name,
                                 orcid=orcid_id,
@@ -1936,7 +1956,7 @@ class FundingRecord(RecordModel):
                         for contributor in contributors:
                             orcid_id = contributor.get("contributor-orcid", "path")
                             name = contributor.get("credit-name", "value")
-                            email = contributor.get("contributor-email", "value")
+                            email = normalize_email(contributor.get("contributor-email", "value"))
                             role = contributor.get("contributor-attributes", "contributor-role")
 
                             FundingContributor.create(
@@ -1949,13 +1969,13 @@ class FundingRecord(RecordModel):
                     external_ids = r.get("external-ids", "external-id", default=[])
                     if external_ids:
                         for external_id in external_ids:
-                            type = external_id.get("external-id-type")
+                            id_type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
                             url = external_id.get("external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             ExternalId.create(
                                 record=record,
-                                type=type,
+                                type=id_type,
                                 value=value,
                                 url=url,
                                 relationship=relationship)
@@ -2175,7 +2195,7 @@ class PeerReviewRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
-            orcid, email = val(row, 23), val(row, 22, "").lower()
+            orcid, email = val(row, 23), normalize_email(val(row, 22, ""))
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
@@ -2457,18 +2477,18 @@ class PeerReviewRecord(RecordModel):
                     invitee_list = data.get("invitees")
                     if invitee_list:
                         for invitee in invitee_list:
-                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
-                            email = invitee.get("email") if invitee.get("email") else None
-                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
-                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
-                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
-                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+                            identifier = invitee.get("identifier")
+                            email = normalize_email(invitee.get("email"))
+                            first_name = invitee.get("first-name")
+                            last_name = invitee.get("last-name")
+                            orcid_id = invitee.get("ORCID-iD")
+                            put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
 
                             PeerReviewInvitee.create(
                                 record=record,
                                 identifier=identifier,
-                                email=email.lower(),
+                                email=email,
                                 first_name=first_name,
                                 last_name=last_name,
                                 orcid=orcid_id,
@@ -2482,14 +2502,14 @@ class PeerReviewRecord(RecordModel):
                         data.get("review-identifiers") else None
                     if external_ids_list:
                         for external_id in external_ids_list:
-                            type = external_id.get("external-id-type")
+                            id_type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
                             url = external_id.get("external-id-url").get("value") if \
                                 external_id.get("external-id-url") else None
                             relationship = external_id.get("external-id-relationship")
                             PeerReviewExternalId.create(
                                 record=record,
-                                type=type,
+                                type=id_type,
                                 value=value,
                                 url=url,
                                 relationship=relationship)
@@ -2655,7 +2675,7 @@ class PropertyRecord(RecordModel):
                     if len(row) == 1 and row[0].strip() == '':
                         continue
 
-                    email = val(row, 3, "").lower()
+                    email = normalize_email(val(row, 3, ""))
                     orcid = val(row, 6)
 
                     if not (email or orcid):
@@ -2774,9 +2794,7 @@ class PropertyRecord(RecordModel):
                     property_type = r.get("type") or file_property_type
                     if property_type:
                         property_type = property_type.strip().upper()
-                    email = r.get("email")
-                    if email:
-                        email = email.lower()
+                    email = normalize_email(r.get("email"))
                     first_name = r.get("first-name")
                     last_name = r.get("last-name")
                     orcid_id = r.get("ORCID-iD") or r.get("orcid")
@@ -2938,7 +2956,7 @@ class WorkRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
-            orcid, email = val(row, 15), val(row, 16, "").lower()
+            orcid, email = val(row, 15), normalize_email(val(row, 16))
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
@@ -3108,7 +3126,7 @@ class WorkRecord(RecordModel):
                     if citation_type:
                         citation_type = citation_type.strip().upper()
                     citation_value = r.get("citation", "citation-value")
-                    type = r.get("type")
+                    rec_type = r.get("type")
                     publication_media_type = r.get("publication-date", "media-type")
                     url = r.get("url", "value")
                     language_code = r.get("language-code")
@@ -3129,7 +3147,7 @@ class WorkRecord(RecordModel):
                         short_description=short_description,
                         citation_type=citation_type,
                         citation_value=citation_value,
-                        type=type,
+                        type=rec_type,
                         publication_date=publication_date,
                         publication_media_type=publication_media_type,
                         url=url,
@@ -3144,7 +3162,7 @@ class WorkRecord(RecordModel):
                     if invitee_list:
                         for invitee in invitee_list:
                             identifier = invitee.get("identifier")
-                            email = invitee.get("email")
+                            email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
                             orcid_id = invitee.get("ORCID-iD")
@@ -3169,7 +3187,7 @@ class WorkRecord(RecordModel):
                         for contributor in contributor_list:
                             orcid_id = get_val(contributor, "contributor-orcid", "path")
                             name = get_val(contributor, "credit-name", "value")
-                            email = get_val(contributor, "contributor-email", "value")
+                            email = normalize_email(get_val(contributor, "contributor-email", "value"))
                             role = get_val(contributor, "contributor-attributes", "contributor-role")
                             contributor_sequence = get_val(contributor, "contributor-attributes",
                                                            "contributor-sequence")
@@ -3186,13 +3204,13 @@ class WorkRecord(RecordModel):
                         r.get("external-ids") else None
                     if external_ids_list:
                         for external_id in external_ids_list:
-                            type = external_id.get("external-id-type")
+                            id_type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
                             url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             WorkExternalId.create(
                                 record=record,
-                                type=type,
+                                type=id_type,
                                 value=value,
                                 url=url,
                                 relationship=relationship)
@@ -3473,7 +3491,7 @@ class OtherIdRecord(ExternalIdModel):
                     if len(row) == 1 and row[0].strip() == '':
                         continue
 
-                    email = val(row, 5, "").lower()
+                    email = normalize_email(val(row, 5))
                     orcid = val(row, 8)
 
                     if not (email or orcid):
@@ -3488,16 +3506,16 @@ class OtherIdRecord(ExternalIdModel):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
-                    type = val(row, 1, "").lower()
+                    rec_type = val(row, 1, "").lower()
                     value = val(row, 2)
                     url = val(row, 3)
                     relationship = val(row, 4, "").upper()
                     first_name = val(row, 6)
                     last_name = val(row, 7)
 
-                    if type not in EXTERNAL_ID_TYPES:
+                    if rec_type not in EXTERNAL_ID_TYPES:
                         raise ModelException(
-                            f"Invalid External Id Type: '{type}', Use 'doi', 'issn' "
+                            f"Invalid External Id Type: '{rec_type}', Use 'doi', 'issn' "
                             f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
 
                     if not value:
@@ -3511,7 +3529,7 @@ class OtherIdRecord(ExternalIdModel):
 
                     rr = cls(
                         task=task,
-                        type=type,
+                        type=rec_type,
                         url=url,
                         relationship=relationship,
                         value=value,
@@ -3552,14 +3570,12 @@ class OtherIdRecord(ExternalIdModel):
 
                 for r in records:
 
-                    type = r.get("type") or r.get("external-id-type")
+                    id_type = r.get("type") or r.get("external-id-type")
                     value = r.get("value") or r.get("external-id-value")
                     url = r.get("url") or r.get("external-id-url", "value") or r.get("external-id-url")
                     relationship = r.get("relationship") or r.get("external-id-relationship")
                     display_index = r.get("display-index")
-                    email = r.get("email")
-                    if email:
-                        email = email.lower()
+                    email = normalize_email(r.get("email"))
                     first_name = r.get("first-name")
                     last_name = r.get("last-name")
                     orcid_id = r.get("ORCID-iD") or r.get("orcid")
@@ -3568,7 +3584,7 @@ class OtherIdRecord(ExternalIdModel):
 
                     cls.create(
                         task=task,
-                        type=type,
+                        type=id_type,
                         value=value,
                         url=url,
                         relationship=relationship,
@@ -3653,7 +3669,7 @@ class Client(BaseModel, AuditMixin):
     _default_scopes = TextField(null=True)
 
     def save(self, *args, **kwargs):  # noqa: D102
-        if self.is_dirty() and self.user_id is None and current_user:
+        if self.is_dirty() and not getattr(self, "user_id") and current_user:
             self.user_id = current_user.id
         return super().save(*args, **kwargs)
 
@@ -3861,7 +3877,7 @@ def drop_tables():
                 pass
 
 
-def load_yaml_json(filename, source, content_type=None):
+def load_yaml_json(filename=None, source=None, content_type=None):
     """Create a common way of loading JSON or YAML file."""
     if not content_type:
         _, ext = os.path.splitext(filename or '')

@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """Tests for core functions."""
 
-import base64
 from datetime import timedelta
-import pickle
+import json
 import pprint
 import zlib
 from io import BytesIO
@@ -143,6 +142,18 @@ def test_org_switch(client):
     next_user = UserOrg.get(next_ol.id).user
     assert next_user.id != user.id
 
+    # Non-exiting
+    resp = client.get("/select/user_org/9999999", follow_redirects=True)
+    assert b"Your are not related to this organisation" in resp.data
+
+    # Wrong organisations
+    uo = UserOrg.select().where(
+        UserOrg.id.in_([uo.id for uo in user.org_links]).__invert__(),
+        UserOrg.org != user.organisation).order_by(UserOrg.id.desc()).first()
+
+    resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
+    assert b"You cannot switch your user to this organisation" in resp.data
+
 
 def test_access(client):
     """Test access to the app for unauthorized user."""
@@ -183,6 +194,66 @@ def test_tuakiri_login(client):
     assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
 
 
+def test_tuakiri_login_with_orcid(client):
+    """
+    Test logging attempt via Shibboleth.
+
+    After getting logged in a new user entry shoulg be created.
+    """
+    data = {
+        "Auedupersonsharedtoken": "ABC123",
+        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+        'Givenname': "FIRST NAME/GIVEN NAME",
+        "Mail": "user@test.test.net",
+        "O": "ORGANISATION 123",
+        "Displayname": "TEST USER FROM 123",
+        "Unscoped-Affiliation": "staff",
+        "Eppn": "user@test.test.net",
+        "Orcid-Id": "http://orcid.org/ERROR-ERROR-ERROR",
+    }
+
+    # Incorrect ORCID iD
+    resp = client.get("/sso/login", headers=data)
+    assert resp.status_code == 302
+    u = User.get(email="user@test.test.net")
+    assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
+    assert u.first_name == "FIRST NAME/GIVEN NAME"
+    assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
+    assert u.orcid is None
+
+    # Correct ORCID iD, existing user:
+    client.logout()
+    data["Orcid-Id"] = "http://orcid.org/1893-2893-3893-00X3"
+    resp = client.get("/sso/login", headers=data)
+    assert resp.status_code == 302
+    u = User.get(email="user@test.test.net")
+    assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
+    assert u.first_name == "FIRST NAME/GIVEN NAME"
+    assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
+    assert u.orcid == "1893-2893-3893-00X3"
+
+    # A new user with ORCID iD:
+    client.logout()
+    data = {
+        "Auedupersonsharedtoken": "ABC123ABC123",
+        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+        'Givenname': "FIRST NAME/GIVEN NAME",
+        "Mail": "test1234567@test.test.net",
+        "O": "ORGANISATION 123",
+        "Displayname": "TEST USER FROM 123",
+        "Unscoped-Affiliation": "staff",
+        "Eppn": "test1234567@test.test.net",
+        "Orcid-Id": "1965-2965-3965-00X3",
+    }
+    resp = client.get("/sso/login", headers=data)
+    assert resp.status_code == 302
+    u = User.get(email="test1234567@test.test.net")
+    assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
+    assert u.first_name == "FIRST NAME/GIVEN NAME"
+    assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
+    assert u.orcid == "1965-2965-3965-00X3"
+
+
 def test_sso_loging_with_external_sp(client, mocker):
     """Test with EXTERNAL_SP."""
     data = {
@@ -197,11 +268,24 @@ def test_sso_loging_with_external_sp(client, mocker):
     }
 
     client.application.config["EXTERNAL_SP"] = "https://exernal.ac.nz/SP"
+
+    resp = client.get("/sso/login")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == '/'
+
     resp = client.get("/index")
     assert b"https://exernal.ac.nz/SP" in resp.data
+
     get = mocker.patch(
         "requests.get",
-        return_value=Mock(text=base64.b64encode(zlib.compress(pickle.dumps(data)))))
+        return_value=Mock(content=zlib.compress(b"""{"GARBAGE": 123}""")))
+    resp = client.get("/sso/login", follow_redirects=True)
+    assert b"500" in resp.data
+    get.assert_called_once()
+
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(content=zlib.compress(json.dumps(data).encode())))
 
     resp = client.get("/sso/login", follow_redirects=True)
     get.assert_called_once()
@@ -209,6 +293,36 @@ def test_sso_loging_with_external_sp(client, mocker):
     assert b"test_external_sp@test.ac.nz" in resp.data
     u = User.get(email="test_external_sp@test.ac.nz")
     assert u.name == "TEST USER #42"
+
+    resp = client.logout(follow_redirects=False)
+    data["Unscoped-Affiliation"] = "NONSENSE"
+    data["Mail"] = "a_new_user_1234567890@test123.test.edu"
+    data["Eppn"] = "a_new_user_1234567890@test123.test.edu"
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(content=zlib.compress(json.dumps(data).encode())))
+    resp = client.get("/index")
+    resp = client.get("/sso/login", follow_redirects=True)
+    assert b"NONSENSE" in resp.data
+
+    resp = client.logout(follow_redirects=False)
+    data["O"] = "A BRAND NEW ORGANISATION"
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(content=zlib.compress(json.dumps(data).encode())))
+    resp = client.get("/index")
+    resp = client.get("/sso/login", follow_redirects=True)
+    assert b"Your organisation (A BRAND NEW ORGANISATION) is not yet using the Hub" in resp.data
+
+    resp = client.logout(follow_redirects=False)
+    data["O"] = "A COMPLETELY BRAND NEW ORGANISATION"
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(content=zlib.compress(json.dumps(data).encode())))
+    mocker.patch("orcid_hub.models.Organisation.save", side_effect=Exception("FAILURE"))
+    resp = client.get("/index")
+    resp = client.get("/sso/login", follow_redirects=True)
+    assert b"FAILURE" in resp.data
 
 
 def test_tuakiri_login_usgin_eppn(client):
@@ -328,19 +442,6 @@ def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
     assert u.is_tech_contact_of(org)
     assert resp.status_code == 200
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-
-
-def test_confirmation_token(app):
-    """Test generate_confirmation_token and confirm_token."""
-    app.config['SECRET_KEY'] = "SECRET"
-    token = utils.generate_confirmation_token("TEST@ORGANISATION.COM")
-    assert utils.confirm_token(token) == "TEST@ORGANISATION.COM"
-
-    app.config['SECRET_KEY'] = "COMPROMISED SECRET"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
 
 
 def test_login_provider_load_user(request_ctx):  # noqa: D103
@@ -561,6 +662,11 @@ def test_orcid_login(client):
         confirmed=True,
         organisation=org)
     user_org = UserOrg.create(user=u, org=org, is_admin=True)
+
+    resp = client.get("/orcid/login/NOT-EXISTTING", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to login via ORCID using token NOT-EXISTTING" in resp.data
+
     token = "TOKEN-1234567"
     ui = UserInvitation.create(org=org, invitee=u, email=u.email, token=token)
     resp = client.get(f"/orcid/login/{token}")
@@ -830,7 +936,7 @@ def test_shib_sp(client):
 
     resp = client.get("/sp/attributes/123ABC")
     assert resp.status_code == 200
-    data = pickle.loads(zlib.decompress(base64.b64decode(resp.data)))
+    data = json.loads(zlib.decompress(resp.data))
     assert data["User"] == "TEST123ABC"
 
     resp = client.get("/Tuakiri/SP?key=123&url=https://harmfull.one/profile")
@@ -914,7 +1020,6 @@ def test_orcid_callback(client, mocker):
 
 def test_login0(client):
     """Test login from orcid."""
-    from orcid_hub import current_user
     resp = client.get("/login0")
     assert resp.status_code == 401
 

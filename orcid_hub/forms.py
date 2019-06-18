@@ -98,8 +98,8 @@ class PartialDateField(Field):
 
             self.data = models.PartialDate(**new_data)
         try:
-            for filter in self.filters:
-                self.data = filter(self.data)
+            for f in self.filters:
+                self.data = f(self.data)
         except ValueError as e:
             self.process_errors.append(e.args[0])
 
@@ -169,7 +169,7 @@ class BitmapMultipleValueField(SelectMultipleField):
 
     def iter_choices(self):
         """Iterate through the list of choces."""
-        if self.is_bitmap_value and type(self.data) is int:
+        if self.is_bitmap_value and isinstance(self.data, int):
             for value, label in self.choices:
                 yield (value, label, bool(self.data & value))
         else:

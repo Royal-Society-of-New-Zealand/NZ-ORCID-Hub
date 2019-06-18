@@ -45,25 +45,6 @@ def test_append_qs():
         "https://abc.com/bar?p=foo", p2="A&B&C D") == "https://abc.com/bar?p=foo&p2=A%26B%26C+D"
 
 
-def test_generate_confirmation_token():
-    """Test to generate confirmation token."""
-    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=0.00001)
-    data = utils.confirm_token(token)
-    # Test positive testcase
-    assert 'testemail@example.com' == data[0]
-
-    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=-1)
-    is_valid, token = utils.confirm_token(token)
-    assert not is_valid
-
-    _salt = utils.app.config["SALT"]
-    utils.app.config["SALT"] = None
-    token = utils.generate_confirmation_token(["testemail123@example.com"])
-    utils.app.config["SALT"] = _salt
-    data = utils.confirm_token(token)
-    assert 'testemail123@example.com' == data[0]
-
-
 def test_track_event(client, mocker):
     """Test to track event."""
     category = "test"
@@ -153,7 +134,7 @@ def test_send_user_invitation(app, mocker):
         end_date=[2018, 5, 29],
         task_id=task.id)
     send_email.assert_called_once()
-    assert result == UserInvitation.select().order_by(UserInvitation.id.desc()).first().id
+    assert result == UserInvitation.select().order_by(UserInvitation.id.desc()).first()
 
     with pytest.raises(Exception) as excinfo:
         send_email.reset_mock()
@@ -201,7 +182,7 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
 
     server_name = app.config.get("SERVER_NAME")
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
-    utils.send_work_funding_peer_review_invitation(
+    utils.send_user_invitation(
         inviter=inviter, org=org, email=email, name=u.name, user=u, task_id=task.id)
     app.config["SERVER_NAME"] = server_name
     send_email.assert_called_once()
@@ -683,7 +664,7 @@ def test_create_or_update_property_record(app, mocker):
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
         value="dummy name",
-        display_index=0)
+        display_index=1)
 
     PropertyRecord.create(
         task=t,
@@ -695,7 +676,7 @@ def test_create_or_update_property_record(app, mocker):
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
         value="IN",
-        display_index=0)
+        display_index=1)
 
     PropertyRecord.create(
         task=t,
@@ -708,7 +689,7 @@ def test_create_or_update_property_record(app, mocker):
         visibility="PUBLIC",
         name="url name",
         value="https://www.xyz.com",
-        display_index=0)
+        display_index=1)
 
     PropertyRecord.create(
         task=t,
@@ -720,7 +701,7 @@ def test_create_or_update_property_record(app, mocker):
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
         value="dummy name",
-        display_index=0)
+        display_index=1)
 
     UserInvitation.create(
         invitee=u,
@@ -775,7 +756,7 @@ def test_process_other_id_records(app, mocker):
         last_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
-        display_index=0)
+        display_index=1)
 
     UserInvitation.create(
         invitee=u,
@@ -877,7 +858,8 @@ def test_create_or_update_affiliation(app, mocker):
         department="Test",
         city="Test",
         state="Test",
-        country="Test")
+        country="Test",
+        visibility="PUBLIC")
     AffiliationRecord.create(
         is_active=True,
         task=t,

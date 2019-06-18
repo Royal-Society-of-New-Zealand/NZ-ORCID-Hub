@@ -236,6 +236,173 @@ def test_user_and_token_api(client, resource, version):
         assert resp.status_code == 200
         assert len(resp.json) == 2
 
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 415
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=b"thsi doesn't make much sense.")
+        assert resp.status_code == 415
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=json.dumps({"incorrect": "ERROR"}),
+                content_type="application/json")
+        assert resp.status_code == 422
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"incorrect": "ERROR"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 422
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": "ERROR@ERROR"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 422
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"orcid": "ERROR@ERROR"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 422
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"orcid": "1535-2535-3535-00X3"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 201
+        assert resp.json["orcid"] == "1535-2535-3535-00X3"
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": "and_now_something@different.ac.nz"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 201
+        assert resp.json["email"] == "and_now_something@different.ac.nz"
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({
+                    "email": "and_now_something_more@different.ac.nz",
+                    "orcid": "1826-2826-3826-00X3"
+                }),
+                content_type="application/x-yaml")
+        assert resp.status_code == 201
+        assert resp.json["orcid"] == "1826-2826-3826-00X3"
+        assert resp.json["email"] == "and_now_something_more@different.ac.nz"
+
+        # org_user = User.select().where(User.organisation == org, User.orcid.is_null(False)).first()
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": user.email, "orcid": "1906-2906-3906-00X3"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 200
+        assert resp.json["orcid"] == "1906-2906-3906-00X3"
+
+        resp = client.post(f"/api/{version}/users/",
+                           headers=dict(authorization="Bearer TEST"),
+                           data=yaml.dump({
+                               "email": "a_different_email_address@org.ac.nz",
+                               "orcid": "1906-2906-3906-00X3"
+                           }),
+                           content_type="application/x-yaml")
+        assert resp.status_code == 200
+        assert resp.json["email"] == "a_different_email_address@org.ac.nz"
+        assert resp.json["orcid"] == "1906-2906-3906-00X3"
+        assert User.get(orcid="1906-2906-3906-00X3").email == "a_different_email_address@org.ac.nz"
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": org2_user.email, "orcid": "1447-2447-3447-00X3"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 400
+
+        resp = client.put(
+                f"/api/{version}/users/1906-2906-3906-00X3",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": "a_new_different_email_address@org.ac.nz"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 200
+        assert resp.json["email"] == "a_new_different_email_address@org.ac.nz"
+        assert User.get(orcid="1906-2906-3906-00X3").email == "a_new_different_email_address@org.ac.nz"
+
+        User.update(confirmed=True).where(User.orcid == "1906-2906-3906-00X3")
+        resp = client.patch(
+                f"/api/{version}/users/a_new_different_email_address@org.ac.nz",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 200
+        assert resp.json["email"] == "a_new_different_email_address@org.ac.nz"
+        assert not User.get(orcid="1906-2906-3906-00X3").confirmed
+
+        resp = client.patch(
+                f"/api/{version}/users/NON-EXISTING",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 400
+
+        resp = client.patch(
+                f"/api/{version}/users/non-existing@correct.email.com",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 404
+
+        resp = client.patch(
+                f"/api/{version}/users/0000-0001-9436-9121",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 404
+
+        resp = client.patch(
+                f"/api/{version}/users/0000-0001-9436-XXXX",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 400
+
+        resp = client.delete(
+                f"/api/{version}/users/0000-0001-9436-XXXX",
+                headers=dict(authorization="Bearer TEST"),
+                content_type="application/x-yaml")
+        assert resp.status_code == 400
+
+        resp = client.delete(
+                f"/api/{version}/users/0000-0001-9436-9121",
+                headers=dict(authorization="Bearer TEST"),
+                content_type="application/x-yaml")
+        assert resp.status_code == 404
+
+        resp = client.delete(
+                f"/api/{version}/users/1906-2906-3906-00X3",
+                headers=dict(authorization="Bearer TEST"),
+                content_type="application/x-yaml")
+        assert resp.status_code == 204
+
+        resp = client.delete(
+                f"/api/{version}/users/and_now_something@different.ac.nz",
+                headers=dict(authorization="Bearer TEST"),
+                content_type="application/x-yaml")
+        assert resp.status_code == 204
+        assert not User.select().where(User.email == "and_now_something@different.ac.nz").exists()
+
     if resource == "tokens":
         user2 = User.get(email="researcher2@test0.edu")
         for identifier in [
@@ -734,6 +901,50 @@ records:
     task = Task.get(id=task_id)
     assert task.affiliation_records.count() == 3
 
+    resp = client.patch(
+        f"/api/v1.0/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
+        content_type="text/yaml",
+        data="status: ACTIVE\n")
+    assert Task.get(task_id).status == "ACTIVE"
+    assert task.records.where(task.record_model.is_active).count() == 3
+
+    resp = client.put(
+        f"/api/v1.0/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "RESET"}""")
+    assert Task.get(task_id).status == "RESET"
+
+    resp = client.put(
+        f"/api/v1.0/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "INVALID"}""")
+    assert Task.get(task_id).status == "RESET"
+
+    with patch("orcid_hub.models.Task.save", side_effect=Exception("FAILURE")):
+        resp = client.put(
+            f"/api/v1.0/tasks/{task_id}",
+            headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+            content_type="application/json",
+            data="""{"status": "ACTIVE"}""")
+        assert Task.get(task_id).status == "RESET"
+        assert resp.status_code == 400
+        assert resp.json["exception"] == "FAILURE"
+
+    resp = client.post(
+        "/api/v1.0/tasks/999999999999",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "RESET"}""")
+    assert resp.status_code == 404
+
+    resp = client.get(
+        f"/api/v1.0/tasks/{other_task.id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 403
+
     resp = client.put(
         f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
@@ -892,6 +1103,11 @@ def test_funding_api(client):
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 200
     assert Task.select().count() == 2
+
+    resp = client.delete(
+        f"/api/v1.0/tesks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
 
     resp = client.head(
         f"/api/v1.0/funds/{task_id}",
