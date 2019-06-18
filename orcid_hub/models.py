@@ -45,7 +45,7 @@ PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-\.]\d+){,2}")
 
 
 AFFILIATION_TYPES = ["student", "education", "staff", "employment", "distinction", "position", "invited position",
-                     "invitedposition", "qualification", "membership", "service"]
+                     "qualification", "membership", "service"]
 DISAMBIGUATION_SOURCES = ["RINGGOLD", "GRID", "FUNDREF", "ISNI"]
 VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
 visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
@@ -385,11 +385,11 @@ class Affiliation(IntFlag):
     NONE = 0  # NONE
     EDU = 1  # Education
     EMP = 2  # Employment
-    DIST = 3  # Distinction
-    POS = 4   # Invited Position
-    QUA = 5   # Qualification
-    MEM = 6   # Membership
-    SER = 7   # Service
+    DIST = 4  # Distinction
+    POS = 8   # Invited Position
+    QUA = 16   # Qualification
+    MEM = 32   # Membership
+    SER = 64   # Service
 
     def __eq__(self, other):
         if isinstance(other, Affiliation):

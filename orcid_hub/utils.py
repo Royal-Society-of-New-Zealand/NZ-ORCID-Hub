@@ -40,7 +40,7 @@ logger.addHandler(logging.StreamHandler())
 EDU_CODES = {"student", "edu", "education"}
 EMP_CODES = {"faculty", "staff", "emp", "employment"}
 DIST_CODES = {"distinction", "dist"}
-INV_POS_CODES = {"invited position", "position", "invitedposition"}
+INV_POS_CODES = {"invited position", "position"}
 QUA_CODES = {"qualification", "qua"}
 MEM_CODES = {"membership", "mem"}
 SER_CODES = {"service", "ser"}
