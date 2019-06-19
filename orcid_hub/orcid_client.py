@@ -1492,16 +1492,16 @@ class MemberAPIMixin:
     def delete_section(self, section_type, put_code):
         """Delete a section from the researcher profile."""
         method_name = {
-            "ADR": "delete_addresses",
-            "EDU": "delete_educations",
-            "EMP": "delete_employments",
-            "EXR": "delete_external_identifiers",
-            "FUN": "delete_fundings",
-            "KWR": "delete_keywords",
-            "ONR": "delete_other_names",
-            "PRR": "delete_peer_reviews",
-            "RUR": "delete_researcher_urls",
-            "WOR": "delete_works"
+            "ADR": "delete_addresse",
+            "EDU": "delete_education",
+            "EMP": "delete_employment",
+            "EXR": "delete_external_identifier",
+            "FUN": "delete_funding",
+            "KWR": "delete_keyword",
+            "ONR": "delete_other_name",
+            "PRR": "delete_peer_review",
+            "RUR": "delete_researcher_url",
+            "WOR": "delete_work"
         }[section_type]
         return getattr(self, method_name)(self.user.orcid, put_code)
 

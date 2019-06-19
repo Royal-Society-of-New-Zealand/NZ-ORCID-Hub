@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% from "macros.html" import section_button_group %}
+{% set return_url = url_for("section", user_id=user.id, section_type=section_type, url=url) %}
 {% block content %}
   {{ section_button_group(user.id, section_type, url=url) }}
 	<div class="table-responsive">
@@ -103,11 +104,11 @@
               {% if r.get("source", "source-client-id") and org_client_id in r.get("source", "source-client-id", "path") %}
                 <td class="list-buttons-column">
                   <a class="icon"
-             href="{{url_for('edit_record', user_id=user.id, section_type=section_type, put_code=r.get('put-code')) }}?url={{url_for('section', user_id=user.id, section_type=section_type)}}" title="Edit Record">
+             href="{{url_for('edit_record', user_id=user.id, section_type=section_type, put_code=r.get('put-code'), url=return_url) }}" title="Edit Record">
                     <span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
                   </a>
                   <form class="icon" method="POST"
-                             action="{{url_for('delete_record', user_id=user.id, section_type=section_type, put_code=r.get('put-code'))}}">
+                             action="{{url_for('delete_record', user_id=user.id, section_type=section_type, put_code=r.get('put-code'), url=url)}}">
                     <input id="put-code" name="put_code" type="hidden" value="{{r.get('put-code')}}">
                     <input id="section-type" name="section_type" type="hidden" value="{{section_type}}">
                     <button onclick="return safeConfirm('Are you sure you want to delete this record?');"
@@ -184,7 +185,7 @@
 			{% if url %}
 				<a role="button" class="btn btn-danger" href="{{url}}">Cancel</a>
 			{% endif %}
-			<a role="button" class="btn btn-primary" href="{{url_for('edit_record', user_id=user.id, section_type=section_type)}}">New...</a>
+			<a role="button" class="btn btn-primary" href="{{url_for('edit_record', user_id=user.id, section_type=section_type, url=return_url)}}">New...</a>
       {% if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"] %}
         <div style="float: left; width: auto">
                   <form class="icon" method="POST" action="{{url_for('section', user_id=user.id, section_type=section_type)}}">

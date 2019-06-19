@@ -143,7 +143,7 @@ j.get('publication_date', 'year', 'value')%}
 {%- endmacro -%}
 
 {% macro section_button_group(user_id, section_type=None, url=None) -%}
-  <div class="btn-group btn-group-justified">
+  <div class="btn-group btn-group-justified" style="padding-bottom: 5px;">
     {% for (st, sn) in [
       ("EMP", "Employment"),
       ("EDU", "Education"),
