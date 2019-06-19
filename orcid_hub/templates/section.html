@@ -48,19 +48,23 @@
               {% elif section_type == "EMP" %}Institution/Employer
               {% elif section_type == "FUN" %}Institution/Funding Agency
               {% elif section_type == "PRR" %}Institution/Peer Review Agency
+              {% elif section_type == "WOR" %}Institution/Work Source
               {% endif %}
             </th>
-            {% if section_type == "FUN" %}
-              <th class="column-header">Title</th>
+            {% if section_type in ["FUN", "WOR"] %}
+              <th class="column-header">{%if section_type == "FUN"%}Funding{%else%}Work{%endif%} Title</th>
               <th class="column-header">Translated Title</th>
               <th class="column-header">Language</th>
-              <th class="column-header">Funding Type</th>
+              <th class="column-header">{% if section_type == "FUN" %}Funding{% else %}Work{%endif%} Type</th>
+
             {% elif section_type == "PRR" %}
               <th class="column-header">Review Group Id</th>
             {% endif %}
-            <th class="column-header">City</th>
-            <th class="column-header">State/region</th>
-            <th class="column-header">Country</th>
+            {% if section_type != "WOR" %}
+              <th class="column-header">City</th>
+              <th class="column-header">State/region</th>
+              <th class="column-header">Country</th>
+            {% endif %}
             {% if section_type in ["EMP", "EDU"] %}
               <th class="column-header">Department</th>
               <th class="column-header">
@@ -73,8 +77,11 @@
               <th class="column-header">Disambiguated Id</th>
               <th class="column-header">Disambiguation Source</th>
             {% endif %}
-            {% if section_type != "PRR" %}
+            {% if section_type not in ["PRR", "WOR"] %}
               <th class="column-header"></th>
+            {% endif %}
+            {% if section_type == "WOR" %}
+              <th class="column-header">Publication Date</th>
             {% endif %}
           {% endif %}
           <th class="column-header">Put-code</th>
@@ -131,14 +138,13 @@
                 <td>{{r.get("visibility", default='')}}</td>
               {% else %}
                 <td>
-                  {% set org = r.get("convening-organization" if section_type == "PRR" else "organization") %}
-                  {{org.get("name", default='')}}<br/>
-                  <span class="small">
-                    Source: {{r.get("source", "source-name", "value", default='')}}
-                  </span>
+                  {% set org = r.get("convening-organization" if section_type == "PRR" else "source" if section_type == "WRK"  else "organization") %}
+                  {% if org %}{{org.get("name", default='')}}<br/><span class="small">{% endif %}
+                  Source: {{r.get("source", "source-name", "value", default='')}}
+                  {% if org %}</span>{% endif %}
                 </td>
 
-                {% if section_type == "FUN" %}
+                {% if section_type in ["FUN", "WOR"] %}
                   <td>{{r.get("title", "title", "value", default='')}}</td>
                   <td>{{r.get("title", "translated-title", "value", default='')}}</td>
                   <td>{{r.get("title", "translated-title", "language-code", default='')}}</td>
@@ -147,9 +153,12 @@
                   <td>{{r.get("review-group-id", default='')}}</td>
                 {% endif %}
 
-                <td>{{org.get("address", "city", default='')}}</td>
-                <td>{{org.get("address", "region", default='')}}</td>
-                <td>{{org.get("address", "country", default='')}}</td>
+                {% if org %}
+                  <td>{{org.get("address", "city", default='')}}</td>
+                  <td>{{org.get("address", "region", default='')}}</td>
+                  <td>{{org.get("address", "country", default='')}}</td>
+                {% endif %}
+
                 {% if section_type in ["EMP", "EDU"] %}
                   <td>{{r.get("department-name", default='')}}</td>
                   <td>{{r.get("role-title", default='')}}</td>
@@ -157,8 +166,10 @@
 
                 {% if section_type == "PRR" %}
                   <td>{{r.get("completion-date", "year", "value", default='')}}</td>
-                  <td>{{r.get("convening-organization", "disambiguated-organization", "disambiguated-organization-identifier", default="")}}</td>
-              <td>{{r.get("convening-organization", "disambiguated-organization", "disambiguation-source", default="")}}</td>
+                  <td>{{org.get("disambiguated-organization", "disambiguated-organization-identifier", default='')}}</td>
+                  <td>{{org.get("disambiguated-organization", "disambiguation-source", default='')}}</td>
+                {% elif section_type == "WOR" %}
+                  <td>{{r.get("publication-date", "year", "value", default='')}}</td>
                 {% else %}
                   <td>{{r|year_range}}</td>
                 {% endif %}
