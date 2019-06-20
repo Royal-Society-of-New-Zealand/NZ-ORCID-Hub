@@ -78,11 +78,15 @@
                     <li id="load_peer_review"><a href="{{ url_for('load_researcher_peer_review')}}"  data-toggle="tooltip"
                                                                                         title="Import a peer reviews batch file">Upload Peer Reviews</a></li>
                     <li id="load_researcher_urls"><a href="{{ url_for('load_researcher_urls')}}"  data-toggle="tooltip"
-                                                                                        title="Import a researcher urls batch file">Upload Researcher Urls</a></li>
+                                                                    title="Import a researcher urls batch file">Upload Researcher Urls</a></li>
                     <li id="load_other_names"><a href="{{ url_for('load_other_names')}}"  data-toggle="tooltip"
-                                                                                        title="Import researcher other names batch file">Upload Researcher Other Names</a></li>
+                                                                    title="Import researcher other names batch file">Upload Researcher Other Names</a></li>
                     <li id="load_keyword"><a href="{{ url_for('load_keyword')}}"  data-toggle="tooltip"
                                                                                         title="Import researcher keyword batch file">Upload Researcher Keyword</a></li>
+                    <li id="load_country"><a href="{{ url_for('load_country')}}"  data-toggle="tooltip"
+                                                                                        title="Import researcher Country batch file">Upload Researcher Country</a></li>
+                    <li id="load_other_ids"><a href="{{ url_for('load_other_ids')}}"  data-toggle="tooltip"
+                                                                                        title="Import researcher Other IDs batch file">Upload Researcher Other IDs</a></li>
                     <li class="divider"></li>
                     <li id="sync_profiles"><a href="{{ url_for('sync_profiles')}}"  data-toggle="tooltip"
                                                                                         title="Synchronize researcher profiles">Sync Profiles</a></li>
@@ -163,6 +167,17 @@
                   {% endif -%}
                   <li id="userinvitation.index_view"><a data-toggle="tooltip" title="The User Invitations recently sent." href="{{ url_for('userinvitation.index_view')}}">User Invitations</a></li>
                   <li id="orginvitation.index_view"><a data-toggle="tooltip" title="The Organisation On-boarding Invitations recently sent." href="{{ url_for('orginvitation.index_view')}}">Organisation Invitations</a></li>
+                  {% if has_audit_logs() %}
+                  <li class="divider"></li>
+                  <li class="dropdown-submenu">
+                    <a class="dropdown-toggle" tabindex="-1" href="#">Audit Logs<!-- span class="caret"></span --></a>
+                    <ul class="dropdown-menu">
+                      <li id="organisation_log.index_view"><a data-toggle="tooltip" title="Organisation Audit Log" href="{{ url_for('organisation_log.index_view')}}">Organisations</a></li>
+                      <li id="user_log.index_view"><a data-toggle="tooltip" title="User Audit Log" href="{{ url_for('user_log.index_view')}}">Users</a></li>
+                      <li id="task_log.index_view"><a data-toggle="tooltip" title="Task Audit Log" href="{{ url_for('task_log.index_view')}}">Tasks</a></li>
+                    </ul>
+                  </li>
+                  {% endif %}
                 </ul>
               </li>
             {% endif %}

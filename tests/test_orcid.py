@@ -12,7 +12,9 @@ from flask_login import login_user
 
 from orcid_hub.models import (Affiliation, Log, OrcidApiCall, OrcidToken, Organisation, Role, Task,
                               TaskType, User, UserOrg)  # noqa:E404
-from orcid_hub.orcid_client import ApiException, MemberAPI, api_client, configuration, NestedDict  # noqa:E404
+from orcid_hub.orcid_client import (ApiException, MemberAPI, MemberAPIV3, api_client,
+                                    configuration, NestedDict)  # noqa:E404
+import orcid_api_v3 as v3
 
 from tests.utils import get_profile
 fake_time = time.time()
@@ -31,6 +33,7 @@ def test_nested_dict():
 
 def test_member_api(app, mocker):
     """Test MemberAPI extension and wrapper of ORCID API."""
+    configuration.access_token = None
     mocker.patch.multiple("orcid_hub.app.logger", error=DEFAULT, exception=DEFAULT, info=DEFAULT)
     org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
@@ -51,16 +54,54 @@ def test_member_api(app, mocker):
     assert configuration.access_token == 'ACCESS000'
 
     OrcidToken.create(
-        access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update", expires_in='121')
+        access_token="ACCESS123", user=user, org=org, scopes="/read-limited,/activities/update", expires_in='121')
+
     api = MemberAPI(user=user, org=org)
     assert configuration.access_token == "ACCESS123"
 
+    # Test API call auditing:
+    with patch.object(
+            api.api_client.rest_client.pool_manager, "request",
+            return_value=Mock(data=b"""{"mock": "data"}""", status=200)) as request_mock:
+
+        api.get_record()
+        request_mock.assert_called_once_with(
+            "GET",
+            "https://api.sandbox.orcid.org/v2.0/1001-0001-0001-0001",
+            preload_content=False,
+            timeout=None,
+            fields=None,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": "Swagger-Codegen/1.0.0/python",
+                "Authorization": "Bearer ACCESS123"
+            })
+        api_call = OrcidApiCall.select().first()
+        assert api_call.response == '{"mock": "data"}'
+        assert api_call.url == "https://api.sandbox.orcid.org/v2.0/1001-0001-0001-0001"
+
+        with patch.object(OrcidApiCall, "create", side_effect=Exception("FAILURE")) as create:
+            api.get_record()
+            create.assert_called_once()
+
+    with patch.object(
+            api.api_client.rest_client.pool_manager, "request",
+            return_value=Mock(data=b'', status=200)) as request_mock:
+        # api.get_record()
+        OrcidApiCall.delete().execute()
+        api.view_person("1234-XXXX-XXXX-XXXX")
+        api_call = OrcidApiCall.select().first()
+        assert api_call.response is None
+        assert api_call.url == "https://api.sandbox.orcid.org/v2.0/1234-XXXX-XXXX-XXXX/person"
+
+    # API:
     with patch.object(
             api_client.ApiClient, "call_api", side_effect=ApiException(
                 reason="FAILURE", status=401)) as call_api:
         with patch.object(OrcidToken, "delete") as delete:
             api.get_record()
-            app.logger.error.assert_called_with("ApiException Occured: (401)\nReason: FAILURE\n")
+            app.logger.error.assert_called_with("ApiException Occurred: (401)\nReason: FAILURE\n")
             call_api.assert_called_once()
             delete.assert_called_once()
 
@@ -69,17 +110,19 @@ def test_member_api(app, mocker):
             "call_api",
             side_effect=ApiException(reason="FAILURE 999", status=999)) as call_api:
         api.get_record()
-        app.logger.error.assert_called_with("ApiException Occured: (999)\nReason: FAILURE 999\n")
+        app.logger.error.assert_called_with("ApiException Occurred: (999)\nReason: FAILURE 999\n")
 
     with patch.object(
             api_client.ApiClient, "call_api", side_effect=ApiException(
                 reason="FAILURE", status=401)) as call_api:
-        with patch.object(OrcidToken, "get", side_effect=Exception("FAILURE")) as get:
-            api.get_record()
-            app.logger.exception.assert_called_with(
-                "Exception occured while retriving ORCID Token")
-            call_api.assert_called_once()
-            get.assert_called_once()
+        api.get_record()
+        app.logger.error.assert_called_with("ApiException Occurred: (401)\nReason: FAILURE\n")
+        call_api.assert_called_once()
+
+        call_api.reset_mock()
+        api.get_record()
+        app.logger.exception.assert_called_with("Exception occurred while retrieving ORCID Token")
+        call_api.assert_called_once()
 
     with patch.object(
             api_client.ApiClient,
@@ -97,46 +140,6 @@ def test_member_api(app, mocker):
             auth_settings=["orcid_auth"],
             header_params={"Accept": "application/json"},
             response_type=None)
-
-    # Test API call auditing:
-    with patch.object(
-            api_client.RESTClientObject.__base__,
-            "request",
-            return_value=Mock(data=b"""{"mock": "data"}""", status_code=200)) as request_mock:
-
-        api.get_record()
-
-        request_mock.assert_called_once_with(
-            _preload_content=False,
-            _request_timeout=None,
-            body=None,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "Swagger-Codegen/1.0.0/python",
-                "Authorization": "Bearer ACCESS123"
-            },
-            method="GET",
-            post_params=None,
-            query_params=None,
-            url="https://api.sandbox.orcid.org/v2.0/1001-0001-0001-0001")
-        api_call = OrcidApiCall.select().first()
-        assert api_call.response == '{"mock": "data"}'
-        assert api_call.url == "https://api.sandbox.orcid.org/v2.0/1001-0001-0001-0001"
-
-        with patch.object(OrcidApiCall, "create", side_effect=Exception("FAILURE")) as create:
-            api.get_record()
-            create.assert_called_once()
-
-    with patch.object(
-            api_client.RESTClientObject.__base__,
-            "request",
-            return_value=Mock(data=None, status_code=200)) as request_mock:
-        # api.get_record()
-        OrcidApiCall.delete().execute()
-        api.view_person("1234-XXXX-XXXX-XXXX")
-        api_call = OrcidApiCall.select().first()
-        assert api_call.response is None
-        assert api_call.url == "https://api.sandbox.orcid.org/v2.0/1234-XXXX-XXXX-XXXX/person"
 
 
 def test_is_emp_or_edu_record_present(app, mocker):
@@ -261,11 +264,11 @@ def test_link_already_affiliated(request_ctx):
             confirmed=True)
         test_user.save()
         orcidtoken = OrcidToken(
-            user=test_user, org=org, scope="/read-limited", access_token="ABC1234")
+            user=test_user, org=org, scopes="/read-limited", access_token="ABC1234")
         orcidtoken_write = OrcidToken(
             user=test_user,
             org=org,
-            scope="/read-limited,/activities/update",
+            scopes="/read-limited,/activities/update",
             access_token="ABC234")
         orcidtoken.save()
         orcidtoken_write.save()
@@ -279,81 +282,104 @@ def test_link_already_affiliated(request_ctx):
 
 
 @pytest.mark.parametrize("name", ["TEST USER", None])
-@patch.object(requests_oauthlib.OAuth2Session, "fetch_token", lambda self, *args, **kwargs: dict(
-    name="NEW TEST",
-    access_token="ABC123",
-    orcid="ABC-123-456-789",
-    scope=['/read-limited'],
-    expires_in="1212",
-    refresh_token="ABC1235"))
-def test_link_orcid_auth_callback(name, request_ctx):
+def test_link_orcid_auth_callback(name, mocker, client):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    with request_ctx("/auth?state=xyz") as ctx:
-        org = Organisation.get(name="THE ORGANISATION")
-        test_user = User.create(
-            name=name,
-            email="test123@test.test.net",
-            organisation=org,
-            orcid="ABC123",
-            confirmed=True)
-        orcidtoken = OrcidToken.create(
-            user=test_user,
-            org=org,
-            scope="/read-limited,/activities/update",
-            access_token="ABC1234")
-        login_user(test_user, remember=True)
-        session['oauth_state'] = "xyz"
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302, "If the user is already affiliated, the user should be redirected ..."
-        assert "profile" in rv.location, "redirection to 'profile' showing the ORCID"
+    mocker.patch("requests_oauthlib.OAuth2Session.fetch_token", lambda self, *args, **kwargs: dict(
+        name="NEW TEST",
+        access_token="ABC123",
+        orcid="ABC-123-456-789",
+        scope=["/read-limited"],
+        expires_in="1212",
+        refresh_token="ABC1235"))
 
-        u = User.get(id=test_user.id)
-        orcidtoken = OrcidToken.get(user=u)
-        assert u.orcid == "ABC-123-456-789"
-        assert orcidtoken.access_token == "ABC1234"
-        if name:
-            assert u.name == name, "The user name should be changed"
-        else:
-            assert u.name == "NEW TEST", "the user name should be set from record coming from ORCID"
+    org = Organisation.get(name="THE ORGANISATION")
+    test_user = User.create(
+        name=name,
+        email="test123@test.test.net",
+        organisation=org,
+        orcid="ABC123",
+        confirmed=True)
+    UserOrg.create(user=test_user, org=org, affiliations=Affiliation.NONE)
+    client.login(test_user)
+    User.update(name=name).execute()
+    resp = client.get("/link")
+    state = session['oauth_state']
+    resp = client.get(f"/auth?state={state}")
+    assert resp.status_code == 302, "If the user is already affiliated, the user should be redirected ..."
+    assert "profile" in resp.location, "redirection to 'profile' showing the ORCID"
+
+    u = User.get(id=test_user.id)
+    orcidtoken = OrcidToken.get(user=u)
+    assert u.orcid == "ABC-123-456-789"
+    assert orcidtoken.access_token == "ABC123"
+    if name:
+        assert u.name == name, "The user name should be changed"
+    else:
+        assert u.name == "NEW TEST", "the user name should be set from record coming from ORCID"
 
 
 @pytest.mark.parametrize("name", ["TEST USER", None])
-@patch.object(requests_oauthlib.OAuth2Session, "fetch_token", lambda self, *args, **kwargs: dict(
-    name="NEW TEST",
-    access_token="ABC123",
-    orcid="ABC-123-456-789",
-    scope=['/read-limited,/activities/update'],
-    expires_in="1212",
-    refresh_token="ABC1235"))
-def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
+def test_link_orcid_auth_callback_with_affiliation(name, mocker, client):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
-            "orcid_hub.orcid_client.SourceClientId"), request_ctx("/auth?state=xyz") as ctx:
-        org = Organisation.get(name="THE ORGANISATION")
-        test_user = User.create(
-            name=name,
-            email="test123@test.test.net",
-            organisation=org,
-            orcid="ABC123",
-            confirmed=True)
+    mocker.patch("requests_oauthlib.OAuth2Session.fetch_token", lambda self, *args, **kwargs: dict(
+        name="NEW TEST",
+        access_token="ABC123",
+        orcid="ABC-123-456-789",
+        scope=['/read-limited,/activities/update'],
+        expires_in="1212",
+        refresh_token="ABC1235"))
+    m = mocker.patch("orcid_hub.orcid_client.MemberAPI")
+    mocker.patch("orcid_hub.orcid_client.SourceClientId")
 
-        UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
+    org = Organisation.get(name="THE ORGANISATION")
+    test_user = User.create(
+        name=name,
+        email="test123@test.test.net",
+        organisation=org,
+        orcid="ABC123",
+        confirmed=True)
 
-        login_user(test_user, remember=True)
-        session['oauth_state'] = "xyz"
-        api_mock = m.return_value
-        ctx.app.full_dispatch_request()
-        assert test_user.orcid == "ABC-123-456-789"
+    UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
 
-        orcid_token = OrcidToken.get(user=test_user, org=org)
-        assert orcid_token.access_token == "ABC123"
+    client.login(test_user)
+    resp = client.get("/link")
+    state = session['oauth_state']
 
-        api_mock.create_or_update_affiliation.assert_has_calls([
-            call(affiliation=Affiliation.EDU, initial=True),
-            call(affiliation=Affiliation.EMP, initial=True),
-        ])
-        # api_mock.create_employment.assert_called_once()
-        # api_mock.create_education.assert_called_once()
+    resp = client.get(f"/auth?state={state}")
+    api_mock = m.return_value
+    test_user = User.get(test_user.id)
+    assert test_user.orcid == "ABC-123-456-789"
+
+    orcid_token = OrcidToken.get(user=test_user, org=org)
+    assert orcid_token.access_token == "ABC123"
+
+    api_mock.create_or_update_affiliation.assert_has_calls([
+        call(affiliation=Affiliation.EDU, initial=True),
+        call(affiliation=Affiliation.EMP, initial=True),
+    ])
+
+    # User with no Affiliation, should get flash warning.
+    user_org = UserOrg.get(user=test_user, org=org)
+    user_org.affiliations = Affiliation.NONE
+    user_org.save()
+    orcid_token.delete_instance()
+
+    assert OrcidToken.select().where(OrcidToken.user == test_user, OrcidToken.org == org).count() == 0
+    resp = client.get(f"/auth?state={state}")
+    assert resp.status_code == 302
+    assert b"<!DOCTYPE HTML" in resp.data, "Expected HTML content"
+    assert "profile" in resp.location, "redirection to 'profile' showing the ORCID"
+    assert OrcidToken.select().where(OrcidToken.user == test_user, OrcidToken.org == org).count() == 1
+
+    get_person = mocker.patch("requests_oauthlib.OAuth2Session.get", return_value=Mock(status_code=200))
+    resp = client.get(f"/profile", follow_redirects=True)
+    assert b"can create and update research activities" in resp.data
+    get_person.assert_called_once()
+
+    get_person = mocker.patch("requests_oauthlib.OAuth2Session.get", return_value=Mock(status_code=401))
+    resp = client.get(f"/profile", follow_redirects=True)
+    assert b"you'll be taken to ORCID to create or sign into your ORCID record" in resp.data
+    get_person.assert_called_once()
 
 
 def make_fake_response(text, *args, **kwargs):
@@ -377,7 +403,7 @@ def test_profile(client):
     test_user = User.create(
         email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
     OrcidToken.create(
-        user=test_user, org=org, scope="/read-limited,/activities/update", access_token="ABC1234")
+        user=test_user, org=org, scopes="/read-limited,/activities/update", access_token="ABC1234")
     resp = client.login(test_user, follow_redirects=True)
     resp = client.get("/profile", follow_redirects=True)
 
@@ -441,7 +467,7 @@ def test_sync_profile(app, mocker):
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
 
-    OrcidToken.create(user=u, org=org, scope="/read-limited,/activities/update")
+    OrcidToken.create(user=u, org=org, scopes="/read-limited,/activities/update")
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
     assert Log.select().count() > 0
@@ -450,3 +476,102 @@ def test_sync_profile(app, mocker):
     api.sync_profile(task=t, user=u, access_token=access_token)
     last_log = Log.select().order_by(Log.id.desc()).first()
     assert "Successfully update" in last_log.message
+
+
+def test_member_api_v3(app, mocker):
+    """Test MemberAPI extension and wrapper of ORCID API."""
+    mocker.patch.multiple("orcid_hub.app.logger", error=DEFAULT, exception=DEFAULT, info=DEFAULT)
+    org = Organisation.get(name="THE ORGANISATION")
+    user = User.create(
+        orcid="1001-0001-0001-0001",
+        name="TEST USER 123",
+        email="test123@test.test.net",
+        organisation=org,
+        confirmed=True)
+    UserOrg.create(user=user, org=org, affiliation=Affiliation.EDU)
+
+    api = MemberAPIV3(user=user)
+    assert api.api_client.configuration.access_token is None or api.api_client.configuration.access_token == ''
+
+    api = MemberAPIV3(user=user, org=org)
+    assert api.api_client.configuration.access_token is None or api.api_client.configuration.access_token == ''
+
+    api = MemberAPIV3(user=user, org=org, access_token="ACCESS000")
+    assert api.api_client.configuration.access_token == 'ACCESS000'
+
+    OrcidToken.create(access_token="ACCESS123",
+                      user=user,
+                      org=org,
+                      scopes="/read-limited,/activities/update",
+                      expires_in='121')
+    api = MemberAPIV3(user=user, org=org)
+    assert api.api_client.configuration.access_token == "ACCESS123"
+
+    # Test API call auditing:
+    request_mock = mocker.patch.object(
+        api.api_client.rest_client.pool_manager, "request",
+        MagicMock(return_value=Mock(data=b"""{"mock": "data"}""", status=200)))
+
+    api.get_record()
+
+    request_mock.assert_called_once_with(
+        "GET",
+        "https://api.sandbox.orcid.org/v3.0/1001-0001-0001-0001",
+        fields=None,
+        preload_content=False,
+        timeout=None,
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "Swagger-Codegen/1.0.0/python",
+            "Authorization": "Bearer ACCESS123"
+        })
+
+    api_call = OrcidApiCall.select().first()
+    assert api_call.response == '{"mock": "data"}'
+    assert api_call.url == "https://api.sandbox.orcid.org/v3.0/1001-0001-0001-0001"
+
+    create = mocker.patch.object(OrcidApiCall, "create", side_effect=Exception("FAILURE"))
+    api.get_record()
+    create.assert_called_once()
+    app.logger.exception.assert_called_with("Failed to create API call log entry.")
+
+    # Handling of get_record
+    call_api = mocker.patch.object(
+            api.api_client, "call_api",
+            side_effect=v3.rest.ApiException(reason="FAILURE", status=401))
+    delete = mocker.patch.object(OrcidToken, "delete")
+    api.get_record()
+    call_api.assert_called_once()
+    delete.assert_called_once()
+
+    call_api = mocker.patch.object(
+            api.api_client, "call_api",
+            side_effect=v3.rest.ApiException(reason="FAILURE 999", status=999))
+    api.get_record()
+    app.logger.error.assert_called_with("ApiException Occurred: (999)\nReason: FAILURE 999\n")
+
+    call_api = mocker.patch.object(
+            api.api_client, "call_api",
+            side_effect=v3.rest.ApiException(reason="FAILURE", status=401))
+    api.get_record()
+    app.logger.error.assert_called_with("ApiException Occurred: (401)\nReason: FAILURE\n")
+    call_api.assert_called_once()
+
+    call_api = mocker.patch.object(
+            api.api_client,
+            "call_api",
+            return_value=(Mock(data=b"""{"mock": "data"}"""), 200, [],))
+    api.get_record()
+    call_api.assert_called_with(
+        f"/v3.0/{user.orcid}",
+        "GET",
+        _preload_content=False,
+        auth_settings=["orcid_auth"],
+        header_params={"Accept": "application/json"},
+        response_type=None)
+
+    # Failed logging:
+    request_mock = mocker.patch(
+            "orcid_api_v3.rest.RESTClientObject.request",
+            return_value=Mock(data=None, status_code=200))

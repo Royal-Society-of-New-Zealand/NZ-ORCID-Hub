@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """JSON Schemas."""
 
-affiliation_record_schema = {
+affiliation_record = {
     "title": "AffiliationRecord",
     "type": "object",
     "properties": {
@@ -33,7 +33,7 @@ affiliation_record_schema = {
     "required": ["email", "first-name", "last-name", "affiliation-type"]
 }
 
-affiliation_task_schema = {
+affiliation_task = {
     "title": "AffiliationTask",
     "type": "object",
     "properties": {
@@ -45,14 +45,35 @@ affiliation_task_schema = {
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
         "records": {
             "type": "array",
-            "items": affiliation_record_schema
+            "items": affiliation_record
         },
     },
     "required": ["records"]
 }
 
-researcher_url_record_schema = {
-    "title": "ResearcherUrlRecord",
+hub_user = {
+    "title": "HubUser",
+    "type": "object",
+    "properties": {
+        "id": {"type": "integer", "format": "int64"},
+        "name": {"type": ["string", "null"]},
+        "orcid": {
+            "type": ["string", "null"],
+            "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
+        },
+        "email": {"type": ["string", "null"], "format": ".{1,}@.{1,}"},
+        "eppn": {"type": ["string", "null"]},
+        "confirmed": {"type": ["boolean", "null"]},
+        "created-at": {"type": ["string", "null"], "format": "date-time"},
+        "updated-at": {"type": ["string", "null"], "format": "date-time"},
+        "completed-at": {"type": ["string", "null"], "format": "date-time"},
+    },
+    "anyOf": [{"required": ["email"]}, {"required": ["orcid"]}]
+}
+
+
+other_id_record = {
+    "title": "OtherIdRecord",
     "type": "object",
     "properties": {
         "id": {"type": ["integer", "null"]},
@@ -61,8 +82,10 @@ researcher_url_record_schema = {
         "email": {"type": ["string", "null"]},
         "first-name": {"type": ["string", "null"]},
         "last-name": {"type": ["string", "null"]},
-        "url-name": {"type": ["string", "null"]},
-        "url-value": {"type": ["string", "null"]},
+        "type": {"type": ["string", "null"]},
+        "value": {"type": ["string", "null"]},
+        "url": {"type": ["string", "null"]},
+        "relationship": {"type": ["string", "null"]},
         "display-index": {"type": ["string", "null", "integer"]},
         "visibility": {"type": ["string", "null"]},
         "processed-at": {"type": ["string", "null"], "format": "date-time"},
@@ -72,29 +95,46 @@ researcher_url_record_schema = {
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
         }
     },
-    "required": ["email", "first-name", "last-name", "url-name", "url-value"]
+    "anyOf": [
+        {
+            "required": ["type", "value", "url", "relationship", "email"]
+        },
+        {
+            "required": ["type", "value", "url", "relationship", "orcid"]
+        },
+        {
+            "required": ["external-id-type", "external-id-value", "external-id-url", "external-id-relationship",
+                         "email"]
+        },
+        {
+            "required": ["external-id-type", "external-id-value", "external-id-url", "external-id-relationship",
+                         "orcid"]
+        }
+    ]
 }
 
-researcher_url_task_schema = {
-    "title": "ResearcherUrlTask",
+other_id_record_list = {
+    "type": "array",
+    "items": other_id_record
+}
+
+other_id_task = {
+    "title": "OtherIDTask",
     "type": "object",
     "properties": {
         "id": {"type": "integer", "format": "int64"},
         "filename": {"type": ["string", "null"]},
-        "task-type": {"type": ["string", "null"], "enum": ["RESEARCHER_URL", "RESEARCHER URL", ]},
+        "task-type": {"type": ["string", "null"], "enum": ["OTHER_ID", "OTHER ID", ]},
         "created-at": {"type": ["string", "null"], "format": "date-time"},
         "updated-at": {"type": ["string", "null"], "format": "date-time"},
         "expires-at": {"type": ["string", "null"], "format": "date-time"},
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
-        "records": {
-            "type": "array",
-            "items": researcher_url_record_schema
-        },
+        "records": other_id_record_list,
     },
     "required": ["records"]
 }
 
-other_name_keyword_record_schema = {
+other_name_keyword_record = {
     "title": "OtherNameRecord",
     "type": "object",
     "properties": {
@@ -114,10 +154,22 @@ other_name_keyword_record_schema = {
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
         }
     },
-    "required": ["email", "first-name", "last-name", "content"]
+    "anyOf": [
+        {
+            "required": ["content", "email"]
+        },
+        {
+            "required": ["content", "orcid"]
+        }
+    ]
 }
 
-other_name_keyword_task_schema = {
+other_name_keyword_record_list = {
+    "type": "array",
+    "items": other_name_keyword_record,
+}
+
+other_name_keyword_task = {
     "title": "OtherNameTask",
     "type": "object",
     "properties": {
@@ -128,10 +180,91 @@ other_name_keyword_task_schema = {
         "updated-at": {"type": ["string", "null"], "format": "date-time"},
         "expires-at": {"type": ["string", "null"], "format": "date-time"},
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
-        "records": {
-            "type": "array",
-            "items": other_name_keyword_record_schema
+        "records": other_name_keyword_record_list,
+    },
+    "required": ["records"]
+}
+
+property_record = {
+    "title": "PropertyRecord",
+    "type": "object",
+    "properties": {
+        "id": {"type": ["integer", "null"]},
+        "type": {
+            "type": ["string", "null", "integer"],
+            "enum": ["URL", "NAME", "KEYWORD", "COUNTRY", "url", "name", "keyword", "country", None]
         },
+        "put-code": {"type": ["string", "null", "integer"]},
+        "is-active": {"type": "boolean"},
+        "email": {"type": ["string", "null"]},
+        "first-name": {"type": ["string", "null"]},
+        "last-name": {"type": ["string", "null"]},
+        "name": {"type": ["string", "null"]},
+        "value": {"type": ["string", "null"]},
+        "content": {"type": ["string", "null"]},
+        "display-index": {"type": ["string", "null", "integer"]},
+        "visibility": {"type": ["string", "null"]},
+        "processed-at": {"type": ["string", "null"], "format": "date-time"},
+        "status": {"type": ["string", "null"]},
+        "orcid": {
+            "type": ["string", "null"],
+            "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
+        }
+    },
+    "anyOf": [
+        {
+            "required": ["url-name", "url-value", "email"]
+        },
+        {
+            "required": ["url-name", "url-value", "orcid"]
+        },
+        {
+            "required": ["type", "value", "email"]
+        },
+        {
+            "required": ["type", "value", "orcid"]
+        },
+        {
+            "required": ["content", "email"]
+        },
+        {
+            "required": ["content", "orcid"]
+        },
+        {
+            "required": ["name", "value", "email"]
+        },
+        {
+            "required": ["name", "value", "orcid"]
+        },
+        {
+            "required": ["country", "email"]
+        },
+        {
+            "required": ["country", "orcid"]
+        },
+    ]
+}
+
+property_record_list = {
+    "type": "array",
+    "items": property_record,
+}
+
+property_task = {
+    "title": "OtherNameTask",
+    "type": "object",
+    "properties": {
+        "id": {"type": "integer", "format": "int64"},
+        "filename": {"type": ["string", "null"]},
+        "task-type": {
+            "type": ["string", "null"],
+            "enum": ["PROPERTY", "OTHER_NAME", "OTHER NAME", "KEYWORD"]
+        },
+        "created-at": {"type": ["string", "null"], "format": "date-time"},
+        "updated-at": {"type": ["string", "null"], "format": "date-time"},
+        "expires-at": {"type": ["string", "null"], "format": "date-time"},
+        "completed-at": {"type": ["string", "null"], "format": "date-time"},
+        "records": property_record_list,
     },
     "required": ["records"]
 }

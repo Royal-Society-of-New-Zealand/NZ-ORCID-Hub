@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-  # noqa
 """Quequeing."""
 
+import logging
 from time import sleep, time
 
 from flask import abort
+from flask_login import current_user
 
 from . import app, models
-from flask_login import current_user
 
 REDIS_URL = app.config["REDIS_URL"] = app.config.get("RQ_REDIS_URL")
 __redis_available = bool(REDIS_URL)
@@ -54,7 +55,7 @@ if not __redis_available:
             """Create a fake wrapper."""
             pass
 
-        def job(*args, **kwargs):  # noqa: D202
+        def job(self, *args, **kwargs):  # noqa: D202
             """Docorate a function to emulate queueing into a queue."""
 
             def wrapper(fn):
@@ -80,5 +81,6 @@ if __redis_available:
             abort(403)
 
     app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
+    logging.getLogger("rq.worker").addHandler(logging.StreamHandler())
 else:
     app.config["REDIS_URL"] = None

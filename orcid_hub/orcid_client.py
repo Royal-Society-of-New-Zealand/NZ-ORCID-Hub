@@ -13,6 +13,7 @@ from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor a
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
                        OrganizationAddress, DisambiguatedOrganization, Employment, Education,
                        Organization)
+import orcid_api_v3 as v3
 from orcid_api.rest import ApiException
 from time import time
 from urllib.parse import urlparse
@@ -20,7 +21,9 @@ from . import app
 import json
 
 url = urlparse(ORCID_API_BASE)
-configuration.host = url.scheme + "://" + url.hostname
+host = url.scheme + "://" + url.hostname
+configuration.host = host
+
 
 # ORCID API Scopes:
 ACTIVITIES_UPDATE = "/activities/update"
@@ -29,7 +32,7 @@ AUTHENTICATE = "/authenticate"
 PERSON_UPDATE = "/person/update"
 
 
-class OrcidRESTClientObject(rest.RESTClientObject):
+class OrcidRESTClientObjectMixing:
     """REST Client with call logging."""
 
     def request(self,
@@ -76,23 +79,47 @@ class OrcidRESTClientObject(rest.RESTClientObject):
         return res
 
 
-class MemberAPI(MemberAPIV20Api):
+class OrcidRESTClientObject(OrcidRESTClientObjectMixing, rest.RESTClientObject):
+    """REST Client with call logging."""
+
+    pass
+
+
+class OrcidRESTClientObjectV3(OrcidRESTClientObjectMixing, v3.rest.RESTClientObject):
+    """REST Client with call logging."""
+
+    def __init__(self, *args, **kwargs):
+        """Override the default host."""
+        super().__init__(*args, **kwargs)
+        self.host = host
+
+
+class MemberAPIMixin:
     """ORCID Mmeber API extension."""
 
+    DEFAULT_VERSION = "v2.0"
     content_type = "application/json"
 
-    def __init__(self, org=None, user=None, access_token=None, *args, **kwargs):
+    def __init__(self, org=None, user=None, access_token=None, version=DEFAULT_VERSION, *args, **kwargs):
         """Set up the configuration with the access token given to the org. by the user."""
         super().__init__(*args, **kwargs)
-        self.set_config(org, user, access_token)
+        self.set_config(org, user, access_token, version)
 
-    def set_config(self, org=None, user=None, access_token=None):
+    def get_token(self, scopes=READ_LIMITED + "," + ACTIVITIES_UPDATE):
+        """Retrieve the user ORCID API access token given the the organisation."""
+        return OrcidToken.select().where(
+            OrcidToken.user_id == self.user.id,
+            OrcidToken.org_id == self.org.id,
+            OrcidToken.scopes.contains(scopes)).first()
+
+    def set_config(self, org=None, user=None, access_token=None, version=DEFAULT_VERSION):
         """Set up clietn configuration."""
         # global configuration
         if org is None:
             org = user.organisation
         self.org = org
         self.user = user
+        self.version = version
 
         url = urlparse(ORCID_BASE_URL)
         self.source_clientid = SourceClientId(
@@ -103,42 +130,38 @@ class MemberAPI(MemberAPIV20Api):
             source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
 
         if access_token is None and user:
-            try:
-                orcid_token = OrcidToken.get(
-                    user_id=user.id,
-                    org_id=org.id,
-                    scope=READ_LIMITED + "," + ACTIVITIES_UPDATE)
-            except Exception:
-                configuration.access_token = None
-                app.logger.exception("Exception occured while retriving ORCID Token")
-                return None
+            orcid_token = self.get_token()
+            if not orcid_token:
+                access_token = None
+                app.logger.error("Failed to find an ORCID API access token.")
+            else:
+                access_token = orcid_token.access_token
 
-            configuration.access_token = orcid_token.access_token
-        elif access_token:
-            configuration.access_token = access_token
+        if access_token:
+            if hasattr(self.api_client, "configuration"):
+                self.api_client.configuration.access_token = access_token
+            else:
+                configuration.access_token = access_token
 
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
         try:
             resp, code, headers = self.api_client.call_api(
-                f"/v2.0/{self.user.orcid}",
+                f"/{self.version}/{self.user.orcid}",
                 "GET",
                 header_params={"Accept": self.content_type},
                 response_type=None,
                 auth_settings=["orcid_auth"],
                 _preload_content=False)
-        except ApiException as ex:
+        except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 401:
-                try:
-                    orcid_token = OrcidToken.get(
-                        user_id=self.user.id,
-                        org_id=self.org.id,
-                        scope=READ_LIMITED + "," + ACTIVITIES_UPDATE)
+                orcid_token = self.get_token()
+                if orcid_token:
                     orcid_token.delete_instance()
-                except Exception:
-                    app.logger.exception("Exception occured while retriving ORCID Token")
+                else:
+                    app.logger.exception("Exception occurred while retrieving ORCID Token")
                     return None
-            app.logger.error(f"ApiException Occured: {ex}")
+            app.logger.error(f"ApiException Occurred: {ex}")
             return None
 
         if code != 200:
@@ -166,13 +189,13 @@ class MemberAPI(MemberAPIV20Api):
             records = data.get("employment-summary"
                                if affiliation_type == Affiliation.EMP else "education-summary")
             for r in records:
-                if (r.get("source", "source-client-id") and self.org.orcid_client_id == r.get(
+                if (r.get("source").get("source-client-id") and self.org.orcid_client_id == r.get(
                         "source").get("source-client-id").get("path")):
                     app.logger.info(f"For {self.user} there is {affiliation_type!s} "
                                     "present on ORCID profile.")
                     return r["put-code"]
 
-        except ApiException as apiex:
+        except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.error(
                 f"For {self.user} while checking for employment and education records, Encountered Exception: {apiex}"
             )
@@ -212,7 +235,7 @@ class MemberAPI(MemberAPIV20Api):
                 except:
                     app.logger.exception("Failed to get put-code from the response.")
                     raise Exception("Failed to get put-code from the response.")
-        except ApiException as ex:
+        except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
                 app.logger.exception(
                     f"For {self.user} encountered exception, So updating related put_code")
@@ -224,8 +247,8 @@ class MemberAPI(MemberAPIV20Api):
 
     def create_or_update_peer_review(self, task_by_user, *args, **kwargs):
         """Create or update peer review record of a user."""
-        pr = task_by_user.peer_review_record
-        pi = pr.peer_review_invitee
+        pr = task_by_user.record
+        pi = pr.invitee
 
         rec = PeerReview()    # noqa: F405
 
@@ -300,12 +323,13 @@ class MemberAPI(MemberAPIV20Api):
         if put_code:
             rec.put_code = pi.put_code
 
-        if pi.visibility:
-            rec.visibility = pi.visibility
+        visibility = pi.visibility
+        if visibility:
+            rec.visibility = visibility
 
         external_id_list = []
         external_ids = PeerReviewExternalId.select().where(
-            PeerReviewExternalId.peer_review_record_id == pr.id).order_by(PeerReviewExternalId.id)
+            PeerReviewExternalId.record_id == pr.id).order_by(PeerReviewExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type
@@ -341,15 +365,15 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
-                    pi.put_code = put_code
-                    pi.save()
+                    visibility = None
                 except:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
-        except ApiException as ex:
+        except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
                 pi.put_code = None
                 pi.save()
@@ -359,20 +383,20 @@ class MemberAPI(MemberAPIV20Api):
         except:
             app.logger.exception(f"For {self.user} encountered exception")
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
 
     def create_or_update_work(self, task_by_user, *args, **kwargs):
         """Create or update work record of a user."""
-        wr = task_by_user.work_record
-        wi = task_by_user.work_record.work_invitees
+        wr = task_by_user.record
+        wi = wr.invitee
 
         rec = Work()    # noqa: F405
         title = None
         if wr.title:
             title = Title(value=wr.title)  # noqa: F405
         subtitle = None
-        if wr.sub_title:
-            subtitle = Subtitle(value=wr.sub_title)     # noqa: F405
+        if wr.subtitle:
+            subtitle = Subtitle(value=wr.subtitle)     # noqa: F405
         translated_title = None
         if wr.translated_title and wr.translated_title_language_code:
             translated_title = TranslatedTitle(value=wr.translated_title,  # noqa: F405
@@ -404,8 +428,9 @@ class MemberAPI(MemberAPIV20Api):
         if put_code:
             rec.put_code = wi.put_code
 
-        if wi.visibility:
-            rec.visibility = wi.visibility
+        visibility = wi.visibility
+        if visibility:
+            rec.visibility = visibility
 
         if wr.language_code:
             rec.language_code = wr.language_code
@@ -419,7 +444,7 @@ class MemberAPI(MemberAPIV20Api):
         if wr.citation_type and wr.citation_value:
             rec.citation = Citation(citation_type=wr.citation_type, citation_value=wr.citation_value)  # noqa: F405
 
-        work_contributors = WorkCont.select().where(WorkCont.work_record_id == wr.id).order_by(
+        work_contributors = WorkCont.select().where(WorkCont.record_id == wr.id).order_by(
             WorkCont.contributor_sequence)
 
         work_contributor_list = []
@@ -464,7 +489,7 @@ class MemberAPI(MemberAPIV20Api):
         rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
 
         external_id_list = []
-        external_ids = WorkExternalId.select().where(WorkExternalId.work_record_id == wr.id).order_by(WorkExternalId.id)
+        external_ids = WorkExternalId.select().where(WorkExternalId.record_id == wr.id).order_by(WorkExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type
@@ -500,15 +525,15 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
-                    wi.put_code = put_code
-                    wi.save()
+                    visibility = None
                 except:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
-        except ApiException as ex:
+        except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
                 wi.put_code = None
                 wi.save()
@@ -518,12 +543,12 @@ class MemberAPI(MemberAPIV20Api):
         except:
             app.logger.exception(f"For {self.user} encountered exception")
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
 
     def create_or_update_funding(self, task_by_user, *args, **kwargs):
         """Create or update funding record of a user."""
-        fr = task_by_user.funding_record
-        fi = task_by_user.funding_record.funding_invitees
+        fr = task_by_user.record
+        fi = fr.invitee
 
         if not fr.title:
             title = None
@@ -531,7 +556,7 @@ class MemberAPI(MemberAPIV20Api):
         city = fr.city
         country = fr.country
         region = fr.region
-        disambiguated_id = fr.disambiguated_org_identifier
+        disambiguated_id = fr.disambiguated_id
         disambiguation_source = fr.disambiguation_source
         org_name = fr.org_name
         funding_type = fr.type
@@ -579,9 +604,10 @@ class MemberAPI(MemberAPIV20Api):
         rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
         rec.short_description = short_description
         rec.amount = Amount(value=amount, currency_code=currency_code)  # noqa: F405
+        visibility = fi.visibility
 
-        if fi.visibility:
-            rec.visibility = fi.visibility
+        if visibility:
+            rec.visibility = visibility
 
         if put_code:
             rec.put_code = put_code
@@ -591,7 +617,7 @@ class MemberAPI(MemberAPIV20Api):
         if end_date:
             rec.end_date = end_date.as_orcid_dict()
 
-        funding_contributors = FundingCont.select().where(FundingCont.funding_record_id == fr.id).order_by(
+        funding_contributors = FundingCont.select().where(FundingCont.record_id == fr.id).order_by(
             FundingCont.id)
 
         funding_contributor_list = []
@@ -633,7 +659,7 @@ class MemberAPI(MemberAPIV20Api):
             rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
         external_id_list = []
 
-        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id).order_by(
+        external_ids = ExternalIdModel.select().where(ExternalIdModel.record_id == fr.id).order_by(
             ExternalIdModel.id)
 
         for exi in external_ids:
@@ -671,15 +697,15 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
-                    fi.put_code = put_code
-                    fi.save()
+                    visibility = None
                 except:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
-        except ApiException as ex:
+        except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
                 fi.put_code = None
                 fi.save()
@@ -689,7 +715,7 @@ class MemberAPI(MemberAPIV20Api):
         except:
             app.logger.exception(f"For {self.user} encountered exception")
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
 
     def create_or_update_individual_funding(self, funding_title=None, funding_translated_title=None,
                                             translated_title_language=None, funding_type=None, funding_subtype=None,
@@ -784,7 +810,7 @@ class MemberAPI(MemberAPIV20Api):
             elif resp.status == 200:
                 orcid = self.user.orcid
 
-        except ApiException as apiex:
+        except (ApiException, v3.rest.ApiException) as apiex:
             if apiex.status == 404:
                 app.logger.exception(
                     f"For {self.user} encountered exception, So updating related put_code")
@@ -920,7 +946,7 @@ class MemberAPI(MemberAPIV20Api):
             elif resp.status == 200:
                 orcid = self.user.orcid
 
-        except ApiException as apiex:
+        except (ApiException, v3.rest.ApiException) as apiex:
             if apiex.status == 404:
                 app.logger.exception(
                     f"For {self.user} encountered exception, So updating related put_code")
@@ -945,14 +971,13 @@ class MemberAPI(MemberAPIV20Api):
 
         if title:
             title = Title(value=title)  # noqa: F405
-            sub_title = None
             work_translated_title = None
             if subtitle:
-                sub_title = Subtitle(value=subtitle)  # noqa: F405
+                subtitle = Subtitle(value=subtitle)  # noqa: F405
             if translated_title and translated_title_language_code:
                 work_translated_title = TranslatedTitle(value=translated_title,  # noqa: F405
                                                         language_code=translated_title_language_code)  # noqa: F405
-            rec.title = WorkTitle(title=title, subtitle=sub_title, translated_title=work_translated_title)  # noqa: F405
+            rec.title = WorkTitle(title=title, subtitle=subtitle, translated_title=work_translated_title)  # noqa: F405
 
         if journal_title:
             rec.journal_title = Title(value=journal_title)  # noqa: F405
@@ -1021,7 +1046,7 @@ class MemberAPI(MemberAPIV20Api):
             elif resp.status == 200:
                 orcid = self.user.orcid
 
-        except ApiException as apiex:
+        except (ApiException, v3.rest.ApiException) as apiex:
             if apiex.status == 404:
                 app.logger.exception(
                     f"For {self.user} encountered exception, So updating related put_code")
@@ -1051,6 +1076,7 @@ class MemberAPI(MemberAPIV20Api):
             end_date=None,
             put_code=None,
             initial=False,
+            visibility=None,
             *args,
             **kwargs):
         """Create or update affiliation record of a user.
@@ -1113,6 +1139,9 @@ class MemberAPI(MemberAPIV20Api):
         if put_code:
             rec.put_code = put_code
 
+        if visibility:
+            rec.visibility = visibility
+
         rec.department_name = department
         rec.role_title = role or course_or_role
 
@@ -1140,32 +1169,34 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
+                    visibility = None
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
-        except ApiException as apiex:
+        except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
             raise apiex
         except Exception as ex:
             app.logger.exception(f"For {self.user} encountered exception")
             raise ex
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
 
-    def create_or_update_researcher_url(self, url_name=None, url_value=None, display_index=None, orcid=None,
+    def create_or_update_researcher_url(self, name=None, value=None, display_index=None, orcid=None,
                                         put_code=None, visibility=None, *args, **kwargs):
         """Create or update researcher url record of a user."""
         rec = ResearcherUrl()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
-        if url_name:
-            rec.url_name = url_name
-        if url_value:
-            rec.url = Url(value=url_value)      # noqa: F405
+        if name:
+            rec.url_name = name
+        if value:
+            rec.url = Url(value=value)      # noqa: F405
         if visibility:
             rec.visibility = visibility
         if display_index:
@@ -1184,28 +1215,31 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
+                    visibility = None
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
-        except ApiException as apiex:
+        except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
             raise apiex
         except Exception as ex:
             app.logger.exception(f"For {self.user} encountered exception")
             raise ex
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
 
-    def create_or_update_other_name(self, content=None, display_index=None, orcid=None, put_code=None,
+    def create_or_update_other_name(self, content=None, value=None, display_index=None, orcid=None, put_code=None,
                                     visibility=None, *args, **kwargs):
         """Create or update other name record of a user."""
         rec = OtherName()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
+        content = content or value
         if content:
             rec.content = content
         if visibility:
@@ -1226,28 +1260,128 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
+                    visibility = None
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
-        except ApiException as apiex:
+        except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
             raise apiex
         except Exception as ex:
             app.logger.exception(f"For {self.user} encountered exception")
             raise ex
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
 
-    def create_or_update_keyword(self, content=None, display_index=None, orcid=None, put_code=None,
+    def create_or_update_address(self, country=None, value=None, display_index=None, orcid=None, put_code=None,
+                                 visibility=None, *args, **kwargs):
+        """Create or update address record of an user."""
+        rec = Address()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+        country = country or value
+        if country:
+            rec.country = Country(value=country)      # noqa: F405
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_address if put_code else self.create_address
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created, visibility)
+
+    def create_or_update_person_external_id(self, type=None, value=None, url=None, relationship=None,
+                                            display_index=None, orcid=None, put_code=None, visibility=None,
+                                            *args, **kwargs):
+        """Create or update person external identifier record of an user."""
+        rec = PersonExternalIdentifier()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+        if type:
+            rec.external_id_type = type
+        if value:
+            rec.external_id_value = value
+        if url:
+            rec.external_id_url = Url(value=url)      # noqa: F405
+        if relationship:
+            rec.external_id_relationship = relationship
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_external_identifier if put_code else self.create_external_identifier
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created, visibility)
+
+    def create_or_update_keyword(self, content=None, value=None, display_index=None, orcid=None, put_code=None,
                                  visibility=None, *args, **kwargs):
         """Create or update Keyword record of a user."""
         rec = Keyword()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
+
+        content = content or value
         if content:
             rec.content = content
         if visibility:
@@ -1268,20 +1402,22 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
+                    visibility = None
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
-        except ApiException as apiex:
+        except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
             raise apiex
         except Exception as ex:
             app.logger.exception(f"For {self.user} encountered exception")
             raise ex
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
 
     def get_webhook_access_token(self):
         """Retrieve the ORCID webhook access tonke and store it."""
@@ -1330,7 +1466,7 @@ class MemberAPI(MemberAPIV20Api):
     def get_keywords(self):
         """Retrieve all the keywords of a record."""
         resp, status, _ = self.api_client.call_api(
-            f"/v2.1/{self.user.orcid}/keywords",
+            f"/{self.version}/{self.user.orcid}/keywords",
             "GET",
             header_params={"Accept": self.content_type},
             auth_settings=["orcid_auth"],
@@ -1338,7 +1474,23 @@ class MemberAPI(MemberAPIV20Api):
         return json.loads(resp.data) if status == 200 else None
 
 
+class MemberAPI(MemberAPIMixin, MemberAPIV20Api):
+    """ORCID Mmeber API extension."""
+
+    pass
+
+
+class MemberAPIV3(MemberAPIMixin, v3.api.DevelopmentMemberAPIV30Api):
+    """ORCID Mmeber API V3 extension."""
+
+    def __init__(self, org=None, user=None, access_token=None, *args, **kwargs):
+        """Overwrite the default host."""
+        super().__init__(org=org, user=user, access_token=access_token, version="v3.0", *args, **kwargs)
+        self.api_client.configuration.host = host
+
+
 # yapf: disable
 from orcid_api import *  # noqa: F401,F403,F405
 
 api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405
+v3.rest.RESTClientObject = OrcidRESTClientObjectV3  # noqa: F405

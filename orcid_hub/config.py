@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application configuration."""
 
-from os import environ, getenv, path
+from os import environ, getenv, path, getcwd
 
 ENV = getenv("ENV", "dev")
 SHIBBOLETH_DISABLED = getenv("SHIBBOLETH_DISABLED")
@@ -126,11 +126,15 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
-DKIP_KEY_PATH = path.join(path.dirname(path.relpath(path.relpath(__file__))), ".keys", "dkim.key")
+DKIM_KEY_PATH = path.join(getcwd(), ".keys", "dkim.key")
 
 # RQ:
 RQ_REDIS_URL = getenv("RQ_REDIS_URL")
 RQ_QUEUE_CLASS = "orcid_hub.queuing.ThrottledQueue"
+RQ_CONNECTION_CLASS = getenv("RQ_CONNECTION_CLASS", "redis.StrictRedis")
+RQ_ASYNC = getenv("RQ_ASYNC", True)
+if isinstance(RQ_ASYNC, str):
+    RQ_ASYNC = RQ_ASYNC.lower() in ["true", "1", "yes", "on"]
 
 # rq-dashboard config:
 RQ_POLL_INTERVAL = 5000  #: Web interface poll period for updates in ms

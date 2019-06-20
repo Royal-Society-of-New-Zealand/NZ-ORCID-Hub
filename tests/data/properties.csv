@@ -1,0 +1,20 @@
+Type,Display Index,Name,Value,Email,First Name,Last Name,ORCID iD,Put Code,Visibility
+NAME,0,,DUMMY NAME,rad42@mailinator.com,sdsd,sds1,,,PUBLIC
+NAME,0,,DUMMY NAME #2,rad42@mailinator.com,sdsd,sds1,,,PUBLIC
+NAME,0,,DUMMY NAME,test12345@mailinator.com,sdsd,sds1,0000-0002-0146-7409,16878,PUBLIC
+KEYWORD,0,sdsnewed,keyword 1220,rad12345@mailinator.com,sdsnewed,sds1sdsds,0000-0003-1245-2541,5699,PUBLIC
+KEYWORD,0,sdsd,keyword 10,test123@mailinator.com,sdsd,sds1,0000-0002-0146-7409,5696,PUBLIC
+KEYWORD,0,sdsnewed,keyword 1220,rad12345@mailinator.com,sdsnewed,sds1sdsds,0000-0003-1245-2541,5699,PUBLIC
+KEYWORD,0,sdsd,keyword 10,test12345@mailinator.com,sdsd,sds1,0000-0002-0146-7409,5696,PUBLIC
+KEYWORD,1111,,keyword #123,nad2000@gmail.com,,,,,PUBLIC
+KEYWORD,2222,,keyword #222,,,,0000-0001-8228-7153,,PUBLIC
+URL,,myhome,http://my.home.com,,,,0000-0001-8228-7153,,PUBLIC
+URL,,myhome2,https://www.my.home.ac.nz,,,,0000-0001-8228-7153,,
+COUNTRY,0,sdsd,IN,new_user_for_test101@mailinator.com,sdsd,sds1,0000-0002-0146-7409,5696,PUBLIC
+COUNTRY,0,,IN,,sdsd,sds1,0000-0000-0000-00X3,5696,PUBLIC
+COUNTRY,0,,NZ,,sdsd,sds1,0000-0000-0000-00X3,,PUBLIC
+NAME,,,OTHER NAME,,,,0000-0000-0000-00X3,,PUBLIC
+KEYWORD,,,KEYWORD,,,,0000-0000-0000-00X3,,PUBLIC
+URL,,website,http://www.www.edu,,,,0000-0000-0000-00X3,,PUBLIC
+COUNTRY,0,sdsd,IN,,sdsd,sds1,0000-0000-0000-11X2,7777,PUBLIC
+COUNTRY,0,sdsd,NZ,,sdsd,sds1,0000-0000-0000-11X2,,PUBLIC

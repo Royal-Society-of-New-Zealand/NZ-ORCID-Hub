@@ -1,7 +1,7 @@
 <SPConfig xmlns="urn:mace:shibboleth:2.0:native:sp:config"
     xmlns:conf="urn:mace:shibboleth:2.0:native:sp:config"
     xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
-    xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"    
+    xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
     xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
     clockSkew="180">
 
@@ -14,7 +14,7 @@
     To customize behavior for specific resources on Apache, and to link vhosts or
     resources to ApplicationOverride settings below, use web server options/commands.
     See https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPConfigurationElements for help.
-    
+
     For examples with the RequestMap XML syntax instead, see the example-shibboleth2.xml
     file, and the https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPRequestMapHowTo topic.
     -->
@@ -48,7 +48,7 @@
 
             <!-- SAML and local-only logout. -->
             <Logout>SAML2 Local</Logout>
-            
+
             <!-- Extension service that generates "approximate" metadata based on SP configuration. -->
             <Handler type="MetadataGenerator" Location="/Metadata" signing="false"/>
 
@@ -69,7 +69,7 @@
         <Errors supportContact="root@localhost"
             helpLocation="/about.html"
             styleSheet="/shibboleth-sp/main.css"/>
-        
+
         <!-- Example of remotely supplied batch of signed metadata. -->
         <!--
         <MetadataProvider type="XML" uri="http://federation.org/federation-metadata.xml"
@@ -90,8 +90,8 @@
         -->
 
         <!-- Map to extract attributes from SAML assertions. -->
-        <AttributeExtractor type="XML" validate="true" reloadChanges="true" path="attribute-map.xml"/>
-        
+        <AttributeExtractor type="XML" validate="true" reloadChanges="true" path="/conf/attribute-map.xml"/>
+
         <!-- Use a SAML query if no attributes are supplied during SSO. -->
         <AttributeResolver type="Query" subjectMatch="true"/>
 
@@ -106,7 +106,7 @@
         the https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPApplicationOverride topic).
         Resource requests are mapped by web server commands, or the RequestMapper, to an
         applicationId setting.
-        
+
         Example of a second application (for a second vhost) that has a different entityID.
         Resources on the vhost would map to an applicationId of "admin":
         -->
@@ -114,7 +114,7 @@
         <ApplicationOverride id="admin" entityID="https://admin.example.org/shibboleth"/>
         -->
     </ApplicationDefaults>
-    
+
     <!-- Policies that determine how to process and authenticate runtime messages. -->
     <SecurityPolicyProvider type="XML" validate="true" path="security-policy.xml"/>
 

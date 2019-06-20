@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1>{{title}}</h1>
+  <h3>Unconfirmed invitations</h3>
+  <table class="table table-striped table-bordered table-hover model-list">
+    <thead>
+      <tr>
+        <th class="column-header">
+          Called on
+        </th>
+        <th class="column-header">
+          Count
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for (d, c) in data %}
+      <tr>
+        <td class="col-name">{{d | isodate(no_time=True) }}</td>
+        <td class="col-name">{{c}}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application views for reporting."""
 
+import json
 import re
 import zipstream
 
@@ -12,7 +13,7 @@ from peewee import JOIN, SQL, fn
 from . import app, cache
 from .forms import DateRangeForm
 from .login_provider import roles_required
-from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg
+from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg, NestedDict
 from .orcid_client import MemberAPI
 
 
@@ -144,7 +145,7 @@ def user_cv(op=None):
     if not record:
         token = OrcidToken.select(OrcidToken.access_token).where(
             OrcidToken.user_id == user.id, OrcidToken.org_id == user.organisation_id,
-            OrcidToken.scope.contains("read-limited")).first()
+            OrcidToken.scopes.contains("read-limited")).first()
         if token is None:
             flash("You haven't granted your organisation necessary access to your profile..",
                   "danger")
@@ -152,6 +153,14 @@ def user_cv(op=None):
         api = MemberAPI(user=user, access_token=token.access_token)
         try:
             record = api.get_record()
+            works = [w for g in record.get("activities-summary", "works", "group") for w in g.get("work-summary")]
+            combine_detail_works_summary = []
+            for w in works:
+                work_api_response = api.view_work(user.orcid, w.get("put-code"))
+                work_data = json.loads(json.dumps(work_api_response.to_dict()), object_pairs_hook=NestedDict)
+                combine_detail_works_summary.append(work_data)
+
+            record['detail-works-summary'] = combine_detail_works_summary
             cache.set(user.orcid, record)
         except Exception as ex:
             flash(f"Failed to retrieve the profile: {ex}", "danger")
@@ -177,8 +186,7 @@ def user_cv(op=None):
         researcher_urls = []
 
         if record:
-            works = [w for g in record.get("activities-summary", "works", "group") for w in g.get("work-summary")]
-
+            works = record.get("detail-works-summary")
             for w in works:
                 if w.get("type") in ['JOURNAL_ARTICLE', 'JOURNAL_ISSUE']:
                     work_type_journal.append(w)
