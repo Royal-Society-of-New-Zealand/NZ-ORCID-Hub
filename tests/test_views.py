@@ -1578,7 +1578,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD
         f"/admin/affiliationrecord/new/?url={url}",
         follow_redirects=True,
         data={
-            "external_id": "EX1234567890",
+            "local_id": "EX1234567890",
             "first_name": "TEST FN",
             "last_name": "TEST LN",
             "email": "test@test.test.test.org",
@@ -2723,7 +2723,7 @@ def test_reset_all(client):
     AffiliationRecord.create(
         is_active=True,
         task=task1,
-        external_id="Test",
+        local_id="Test",
         first_name="Test",
         last_name="Test",
         email="test1234456@mailinator.com",
@@ -2734,7 +2734,7 @@ def test_reset_all(client):
         department="Test",
         city="Test",
         state="Test",
-        country="Test",
+        country="NZ",
         disambiguated_id="Test",
         disambiguation_source="Test")
 
@@ -2758,7 +2758,7 @@ def test_reset_all(client):
         task=task2,
         title="Test titile",
         translated_title="Test title",
-        translated_title_language_code="Test",
+        translated_title_language_code="en",
         type="GRANT",
         organization_defined_type="Test org",
         short_description="Test desc",
@@ -2767,11 +2767,11 @@ def test_reset_all(client):
         org_name="Test_orgname",
         city="Test city",
         region="Test",
-        country="Test",
+        country="NZ",
         disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
         is_active=True,
-        visibility="Test_visibity")
+        visibility="self")
 
     task3 = Task.create(
         org=org,
@@ -3150,7 +3150,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
             "file_": (
                 BytesIO(
                     """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship
-THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
+THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD		2025	Royal Society Te Apārangi	Wellington		NZ	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
 THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900962	https://www.grant-url2.com	PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.tsv",
@@ -3214,7 +3214,7 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
             "file_": (
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
 
 """.encode()  # noqa: E501
                 ),  # noqa: E501
@@ -3265,7 +3265,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi, CONTRACT,MY TYPE,Minerals unde.,90
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -3282,7 +3282,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
