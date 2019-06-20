@@ -7,7 +7,7 @@ affiliation_record = {
     "properties": {
         "id": {"type": "integer", "format": "int64"},
         "put-code": {"type": ["string", "null", "integer"]},
-        "external-id": {"type": ["string", "null"]},
+        "local-id": {"type": ["string", "null"]},
         "is-active": {"type": "boolean"},
         "email": {"type": ["string", "null"]},
         "first-name": {"type": ["string", "null"]},
@@ -25,6 +25,9 @@ affiliation_record = {
         "end-date": {"type": ["string", "null"]},
         "processed-at": {"type": ["string", "null"], "format": "date-time"},
         "status": {"type": ["string", "null"]},
+        "url": {"type": ["string", "null"]},
+        "visibility": {"type": ["string", "null"]},
+        "display_index": {"type": ["string", "null"]},
         "orcid": {
             "type": ["string", "null"],
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",

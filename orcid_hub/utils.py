@@ -39,6 +39,11 @@ logger.addHandler(logging.StreamHandler())
 
 EDU_CODES = {"student", "edu", "education"}
 EMP_CODES = {"faculty", "staff", "emp", "employment"}
+DIST_CODES = {"distinction", "dist"}
+INV_POS_CODES = {"invited position", "position"}
+QUA_CODES = {"qualification", "qua"}
+MEM_CODES = {"membership", "mem"}
+SER_CODES = {"service", "ser"}
 
 ENV = app.config.get("ENV")
 EXTERNAL_SP = app.config.get("EXTERNAL_SP")
@@ -923,17 +928,53 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
     profile_record = api.get_record()
     if profile_record:
         activities = profile_record.get("activities-summary")
 
-        employments = [
-            r for r in (activities.get("employments").get("employment-summary")) if is_org_rec(org, r)
-        ]
-        educations = [
-            r for r in (activities.get("educations").get("education-summary")) if is_org_rec(org, r)
-        ]
+        employments = []
+        educations = []
+        distinctions = []
+        invited_positions = []
+        qualifications = []
+        memberships = []
+        services = []
+
+        for r in activities.get("employments").get("affiliation-group"):
+            es = r.get("summaries")[0].get("employment-summary")
+            if is_org_rec(org, es):
+                employments.append(es)
+
+        for r in activities.get("educations").get("affiliation-group"):
+            es = r.get("summaries")[0].get("education-summary")
+            if is_org_rec(org, es):
+                educations.append(es)
+
+        for r in activities.get("distinctions").get("affiliation-group"):
+            es = r.get("summaries")[0].get("distinction-summary")
+            if is_org_rec(org, es):
+                distinctions.append(es)
+
+        for r in activities.get("memberships").get("affiliation-group"):
+            es = r.get("summaries")[0].get("membership-summary")
+            if is_org_rec(org, es):
+                memberships.append(es)
+
+        for r in activities.get("services").get("affiliation-group"):
+            es = r.get("summaries")[0].get("service-summary")
+            if is_org_rec(org, es):
+                services.append(es)
+
+        for r in activities.get("qualifications").get("affiliation-group"):
+            es = r.get("summaries")[0].get("qualification-summary")
+            if is_org_rec(org, es):
+                qualifications.append(es)
+
+        for r in activities.get("invited-positions").get("affiliation-group"):
+            es = r.get("summaries")[0].get("invited-position-summary")
+            if is_org_rec(org, es):
+                invited_positions.append(es)
 
         taken_put_codes = {
             r.record.put_code
@@ -942,6 +983,11 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
         edu_put_codes = [e["put-code"] for e in educations]
         emp_put_codes = [e["put-code"] for e in employments]
+        dist_put_codes = [e["put-code"] for e in distinctions]
+        qua_put_codes = [e["put-code"] for e in qualifications]
+        mem_put_codes = [e["put-code"] for e in memberships]
+        ser_put_codes = [e["put-code"] for e in services]
+        invited_pos_put_codes = [e["put-code"] for e in invited_positions]
 
         def match_put_code(records, record):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
@@ -968,6 +1014,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                                 "disambiguation-source") == record.disambiguation_source):
                     record.put_code = put_code
                     record.orcid = orcid
+                    record.visibility = r.get("visibility")
                     return True
 
                 if record.put_code:
@@ -980,6 +1027,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     "department-name") is None and r.get("role-title") is None)
                     or (r.get("start-date") == start_date and r.get("department-name") == record.department
                         and r.get("role-title") == record.role)):
+                    record.visibility = r.get("visibility")
                     record.put_code = put_code
                     record.orcid = orcid
                     taken_put_codes.add(put_code)
@@ -997,6 +1045,16 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if ar.delete_record and profile_record:
                     if ar.put_code in emp_put_codes:
                         affiliation = Affiliation.EMP
+                    elif ar.put_code in dist_put_codes:
+                        affiliation = Affiliation.DIST
+                    elif ar.put_code in mem_put_codes:
+                        affiliation = Affiliation.MEM
+                    elif ar.put_code in ser_put_codes:
+                        affiliation = Affiliation.SER
+                    elif ar.put_code in invited_pos_put_codes:
+                        affiliation = Affiliation.POS
+                    elif ar.put_code in qua_put_codes:
+                        affiliation = Affiliation.QUA
                     elif ar.put_code in edu_put_codes:
                         affiliation = Affiliation.EDU
                     else:
@@ -1014,9 +1072,19 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     try:
                         if affiliation:
                             if affiliation == Affiliation.EDU:
-                                api.delete_education(user.orcid, ar.put_code)
+                                api.delete_educationv3(user.orcid, ar.put_code)
+                            elif affiliation == Affiliation.DIST:
+                                api.delete_distinctionv3(user.orcid, ar.put_code)
+                            elif affiliation == Affiliation.MEM:
+                                api.delete_membershipv3(user.orcid, ar.put_code)
+                            elif affiliation == Affiliation.SER:
+                                api.delete_servicev3(user.orcid, ar.put_code)
+                            elif affiliation == Affiliation.QUA:
+                                api.delete_qualificationv3(user.orcid, ar.put_code)
+                            elif affiliation == Affiliation.POS:
+                                api.delete_invited_positionv3(user.orcid, ar.put_code)
                             else:
-                                api.delete_employment(user.orcid, ar.put_code)
+                                api.delete_employmentv3(user.orcid, ar.put_code)
                             ar.add_status_line(f"Record was sucessfully deleted.")
                             app.logger.info(f"ORCID record of {user} with put-code {ar.put_code} was deleted.")
                         else:
@@ -1032,6 +1100,21 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if at in EMP_CODES:
                     no_orcid_call = match_put_code(employments, ar)
                     affiliation = Affiliation.EMP
+                elif at in DIST_CODES:
+                    no_orcid_call = match_put_code(distinctions, ar)
+                    affiliation = Affiliation.DIST
+                elif at in MEM_CODES:
+                    no_orcid_call = match_put_code(memberships, ar)
+                    affiliation = Affiliation.MEM
+                elif at in SER_CODES:
+                    no_orcid_call = match_put_code(services, ar)
+                    affiliation = Affiliation.SER
+                elif at in QUA_CODES:
+                    no_orcid_call = match_put_code(qualifications, ar)
+                    affiliation = Affiliation.QUA
+                elif at in INV_POS_CODES:
+                    no_orcid_call = match_put_code(invited_positions, ar)
+                    affiliation = Affiliation.POS
                 elif at in EDU_CODES:
                     no_orcid_call = match_put_code(educations, ar)
                     affiliation = Affiliation.EDU

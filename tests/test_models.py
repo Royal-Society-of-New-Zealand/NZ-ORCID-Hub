@@ -106,7 +106,7 @@ def models(testdb):
         is_active=False,
         task=Task.get(id=1),
         put_code=90,
-        external_id="Test_%d" % i,
+        local_id="Test_%d" % i,
         status="Test_%d" % i,
         first_name="Test_%d" % i,
         last_name="Test_%d" % i,
