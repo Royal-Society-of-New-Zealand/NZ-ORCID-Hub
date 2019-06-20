@@ -144,9 +144,18 @@ j.get('publication_date', 'year', 'value')%}
 
 {% macro section_button_group(user_id, section_type=None, url=None) -%}
   <div class="btn-group btn-group-justified" style="padding-bottom: 5px;">
+    <div class="btn-group">
+      <button type="button" class="btn btn-{{'light' if section_type in ['EMP', 'EDU'] else 'primary'}} dropdown-toggle" data-toggle="dropdown">
+        Affiliations <span class="caret"></span></button>
+      <ul class="dropdown-menu" role="menu">
+        {% for (st, sn) in [
+          ("EMP", "Employment"),
+          ("EDU", "Education"),] %}
+          <li class="{{'' if section_type != st else 'active'}}"><a href="{{ url_for('section', user_id=user_id, section_type=st, url=url) if section_type != st else '#' }}">{{ sn }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
     {% for (st, sn) in [
-      ("EMP", "Employment"),
-      ("EDU", "Education"),
       ("FUN", "Fundings"),
       ("PRR", "Peer Reviews"),
       ("WOR", "Works"),
@@ -156,7 +165,7 @@ j.get('publication_date', 'year', 'value')%}
       ("ADR", "Addresses"),
       ("EXR", "External IDs"),] %}
       <a href="{{ url_for('section', user_id=user_id, section_type=st, url=url) if section_type != st else '#' }}"
-         class="{{'btn btn-primary' if section_type != st else 'btn btn-light'}}">{{ sn }}</a>
+         class="btn btn-{{'primary' if section_type != st else 'light'}}">{{ sn }}</a>
     {% endfor %}
   </div>
 {%- endmacro -%}
