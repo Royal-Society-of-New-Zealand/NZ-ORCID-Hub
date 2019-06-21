@@ -1525,6 +1525,38 @@ class MemberAPIMixin:
             _preload_content=False)
         return json.loads(resp.data) if status == 200 else None
 
+    def get_section(self, section_type):
+        """Retrieve researcher profile section by the section type."""
+        method_name = {
+            "ADR": "view_addresses",
+            "EDU": "view_educations",
+            "EMP": "view_employments",
+            "EXR": "view_external_identifiers",
+            "FUN": "view_fundings",
+            "KWR": "view_keywords",
+            "ONR": "view_other_names",
+            "PRR": "view_peer_reviews",
+            "RUR": "view_researcher_urls",
+            "WOR": "view_works"
+        }[section_type]
+        return getattr(self, method_name)(self.user.orcid, _preload_content=False)
+
+    def delete_section(self, section_type, put_code):
+        """Delete a section from the researcher profile."""
+        method_name = {
+            "ADR": "delete_addresse",
+            "EDU": "delete_education",
+            "EMP": "delete_employment",
+            "EXR": "delete_external_identifier",
+            "FUN": "delete_funding",
+            "KWR": "delete_keyword",
+            "ONR": "delete_other_name",
+            "PRR": "delete_peer_review",
+            "RUR": "delete_researcher_url",
+            "WOR": "delete_work"
+        }[section_type]
+        return getattr(self, method_name)(self.user.orcid, put_code)
+
 
 class MemberAPI(MemberAPIMixin, MemberAPIV20Api):
     """ORCID Mmeber API extension."""
