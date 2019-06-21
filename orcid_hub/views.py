@@ -1559,6 +1559,7 @@ class ViewMembersAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "viewMembers.html"
+    edit_template = "admin/member_edit.html"
     form_columns = ["name", "orcid", "email", "eppn"]
     form_widget_args = {c: {"readonly": True} for c in form_columns if c != "email"}
     column_list = ["email", "orcid", "created_at", "updated_at", "orcid_updated_at"]
@@ -1991,30 +1992,10 @@ def delete_record(user_id, section_type, put_code):
             flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to delete this record", "warning")
             return redirect(_url)
 
-    api_instance = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
+    api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
     try:
-        # Delete an Employment
-        if section_type == "EMP":
-            api_instance.delete_employment(user.orcid, put_code)
-        elif section_type == "FUN":
-            api_instance.delete_funding(user.orcid, put_code)
-        elif section_type == "PRR":
-            api_instance.delete_peer_review(user.orcid, put_code)
-        elif section_type == "WOR":
-            api_instance.delete_work(user.orcid, put_code)
-        elif section_type == "RUR":
-            api_instance.delete_researcher_url(user.orcid, put_code)
-        elif section_type == "ADR":
-            api_instance.delete_address(user.orcid, put_code)
-        elif section_type == "EXR":
-            api_instance.delete_external_identifier(user.orcid, put_code)
-        elif section_type == "ONR":
-            api_instance.delete_other_name(user.orcid, put_code)
-        elif section_type == "KWR":
-            api_instance.delete_keyword(user.orcid, put_code)
-        else:
-            api_instance.delete_education(user.orcid, put_code)
+        api.delete_section(section_type, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
         flash("The record was successfully deleted.", "success")
     except ApiException as e:
@@ -2049,22 +2030,16 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     orcid_token = None
-    if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
-        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                       OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scopes.contains(
-                                                                           orcid_client.PERSON_UPDATE)).first()
-        if not orcid_token:
-            flash("The user hasn't given 'PERSON/UPDATE' permission to you to Add/Update these records", "warning")
-            return redirect(_url)
-    else:
-        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                       OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scopes.contains(
-                                                                           orcid_client.ACTIVITIES_UPDATE)).first()
-        if not orcid_token:
-            flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to you to Add/Update these records", "warning")
-            return redirect(_url)
+    is_person_update = section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]
+    orcid_token = OrcidToken.select(OrcidToken.access_token).where(
+        OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
+        OrcidToken.scopes.contains(orcid_client.PERSON_UPDATE if is_person_update else orcid_client
+                                   .ACTIVITIES_UPDATE)).first()
+    if not orcid_token:
+        flash(
+            f"""The user hasn't given '{"PERSON/UPDATE" if is_person_update else "ACTIVITIES/UPDATE"}' """
+            "permission to you to Add/Update these records", "warning")
+        return redirect(_url)
 
     api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
@@ -2391,10 +2366,9 @@ def section(user_id, section_type="EMP"):
     orcid_token = None
     if request.method == "POST" and section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         try:
-            orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                           OrcidToken.org_id == user.organisation_id,
-                                                                           OrcidToken.scopes.contains(
-                                                                               orcid_client.PERSON_UPDATE)).first()
+            orcid_token = OrcidToken.select(OrcidToken.access_token).where(
+                OrcidToken.user_id == user.id, OrcidToken.org_id == user.organisation_id,
+                OrcidToken.scopes.contains(orcid_client.PERSON_UPDATE)).first()
             if orcid_token:
                 flash(
                     "There is no need to send an invite as you already have the token with 'PERSON/UPDATE' permission",
@@ -2438,32 +2412,10 @@ def section(user_id, section_type="EMP"):
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(_url)
 
-    orcid_client.configuration.access_token = orcid_token.access_token
-    # create an instance of the API class
-    api_instance = orcid_client.MemberAPIV20Api()
+    api = orcid_client.MemberAPI(
+            user=user, org=current_user.organisation, access_token=orcid_token.access_token)
     try:
-        # Fetch all entries
-        # NB! need to add _preload_content=False to get raw response
-        if section_type == "EMP":
-            api_response = api_instance.view_employments(user.orcid, _preload_content=False)
-        elif section_type == "EDU":
-            api_response = api_instance.view_educations(user.orcid, _preload_content=False)
-        elif section_type == "RUR":
-            api_response = api_instance.view_researcher_urls(user.orcid, _preload_content=False)
-        elif section_type == "ONR":
-            api_response = api_instance.view_other_names(user.orcid, _preload_content=False)
-        elif section_type == "ADR":
-            api_response = api_instance.view_addresses(user.orcid, _preload_content=False)
-        elif section_type == "EXR":
-            api_response = api_instance.view_external_identifiers(user.orcid, _preload_content=False)
-        elif section_type == "KWR":
-            api_response = api_instance.view_keywords(user.orcid, _preload_content=False)
-        elif section_type == "FUN":
-            api_response = api_instance.view_fundings(user.orcid)
-        elif section_type == "WOR":
-            api_response = api_instance.view_works(user.orcid)
-        else:
-            api_response = api_instance.view_peer_reviews(user.orcid)
+        api_response = api.get_section(section_type)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
@@ -2479,68 +2431,36 @@ def section(user_id, section_type="EMP"):
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
     try:
-        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR", "ADR", "EXR"]:
-            data = json.loads(api_response.data, object_pairs_hook=NestedDict)
-        else:
-            data = api_response.to_dict()
+        data = json.loads(api_response.data, object_pairs_hook=NestedDict)
     except Exception as ex:
         flash("User didn't give permissions to update his/her records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
-    # TODO: transform data for presentation:
 
-    records = []
-    if section_type == 'FUN':
-        if data and data.get("group"):
-            for k in data.get("group"):
-                fs = k.get("funding_summary")[0]
-                records.append(fs)
-        return render_template(
-            "funding_section.html",
-            url=_url,
-            records=records,
-            section_type=section_type,
-            user_id=user_id,
-            org_client_id=user.organisation.orcid_client_id)
-    elif section_type == 'PRR':
-        if data and data.get("group"):
-            for k in data.get("group"):
-                for ps in k.get("peer-review-summary"):
-                    records.append(ps)
-        return render_template(
-            "peer_review_section.html",
-            url=_url,
-            records=records,
-            section_type=section_type,
-            user_id=user_id,
-            org_client_id=user.organisation.orcid_client_id)
-    elif section_type == 'WOR':
-        if data and data.get("group"):
-            for k in data.get("group"):
-                for ps in k.get("work-summary"):
-                    records.append(ps)
-        return render_template(
-            "work_section.html",
-            url=_url,
-            records=records,
-            section_type=section_type,
-            user_id=user_id,
-            org_client_id=user.organisation.orcid_client_id)
+    if section_type in ["FUN", "PRR", "WOR"]:
+        records = (fs for g in data.get("group", default=[]) for fs in g.get({
+            "FUN": "funding-summary",
+            "WOR": "work-summary",
+            "PRR": "peer-review-summary",
+        }[section_type]))
     else:
-        records = data.get("education-summary" if section_type == "EDU" else
-                           "employment-summary" if section_type == "EMP" else
-                           "researcher-url" if section_type == "RUR" else
-                           "keyword" if section_type == "KWR" else
-                           "address" if section_type == "ADR" else
-                           "external-identifier" if section_type == "EXR" else "other-name")
+        records = data.get({
+            "EDU": "education-summary",
+            "EMP": "employment-summary",
+            "RUR": "researcher-url",
+            "KWR": "keyword",
+            "ADR": "address",
+            "ONR": "other-name",
+            "EXR": "external-identifier",
+        }[section_type])
 
     return render_template(
         "section.html",
+        user=user,
         url=_url,
         records=records,
         section_type=section_type,
-        user_id=user_id,
         org_client_id=user.organisation.orcid_client_id)
 
 
