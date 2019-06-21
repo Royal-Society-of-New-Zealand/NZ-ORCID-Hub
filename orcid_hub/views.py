@@ -2030,22 +2030,16 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     orcid_token = None
-    if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
-        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                       OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scopes.contains(
-                                                                           orcid_client.PERSON_UPDATE)).first()
-        if not orcid_token:
-            flash("The user hasn't given 'PERSON/UPDATE' permission to you to Add/Update these records", "warning")
-            return redirect(_url)
-    else:
-        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                       OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scopes.contains(
-                                                                           orcid_client.ACTIVITIES_UPDATE)).first()
-        if not orcid_token:
-            flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to you to Add/Update these records", "warning")
-            return redirect(_url)
+    is_person_update = section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]
+    orcid_token = OrcidToken.select(OrcidToken.access_token).where(
+        OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
+        OrcidToken.scopes.contains(orcid_client.PERSON_UPDATE if is_person_update else orcid_client
+                                   .ACTIVITIES_UPDATE)).first()
+    if not orcid_token:
+        flash(
+            f"""The user hasn't given '{"PERSON/UPDATE" if is_person_update else "ACTIVITIES/UPDATE"}' """
+            "permission to you to Add/Update these records", "warning")
+        return redirect(_url)
 
     api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
@@ -2444,9 +2438,8 @@ def section(user_id, section_type="EMP"):
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
 
-    records = []
     if section_type in ["FUN", "PRR", "WOR"]:
-        records = (fs for g in data.get("group") for fs in g.get({
+        records = (fs for g in data.get("group", default=[]) for fs in g.get({
             "FUN": "funding-summary",
             "WOR": "work-summary",
             "PRR": "peer-review-summary",
