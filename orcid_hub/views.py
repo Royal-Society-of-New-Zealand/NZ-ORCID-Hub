@@ -3080,7 +3080,7 @@ def invite_user():
                 & (OrcidToken.scopes.contains("/activities/update"))).exists()):
             try:
                 if affiliations & (Affiliation.EMP | Affiliation.EDU):
-                    api = orcid_client.MemberAPI(org, invited_user)
+                    api = orcid_client.MemberAPIV3(org, invited_user)
                     params = {f.name: f.data for f in form if f.data != ""}
                     for a in Affiliation:
                         if a & affiliations:

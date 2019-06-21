@@ -1290,7 +1290,7 @@ class Task(BaseModel, AuditMixin):
                         organisation=val(row, 3),
                         department=val(row, 4),
                         city=val(row, 5),
-                        region=val(row, 6),
+                        state=val(row, 6),
                         role=val(row, 7),
                         start_date=PartialDate.create(val(row, 8)),
                         end_date=PartialDate.create(val(row, 9)),
@@ -1551,7 +1551,7 @@ class AffiliationRecord(RecordModel):
     local_id = CharField(
         max_length=100,
         null=True,
-        verbose_name="External ID",
+        verbose_name="Local ID",
         help_text="Record identifier used in the data source system.")
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")

@@ -180,14 +180,16 @@ class MemberAPIMixin:
         """
         try:
             if affiliation_type == Affiliation.EMP:
-                resp = self.view_employments(self.user.orcid, _preload_content=False)
+                resp = self.view_employmentsv3(self.user.orcid, _preload_content=False)
             else:
-                resp = self.view_educations(self.user.orcid, _preload_content=False)
+                resp = self.view_educationsv3(self.user.orcid, _preload_content=False)
 
             data = json.loads(resp.data)
-            records = data.get("employment-summary"
-                               if affiliation_type == Affiliation.EMP else "education-summary")
-            for r in records:
+
+            for record in data.get("affiliation-group"):
+                r = record.get("summaries")[0].get("employment-summary") if affiliation_type == Affiliation.EMP \
+                    else record.get("summaries")[0].get("education-summary")
+
                 if (r.get("source").get("source-client-id") and self.org.orcid_client_id == r.get(
                         "source").get("source-client-id").get("path")):
                     app.logger.info(f"For {self.user} there is {affiliation_type!s} "
