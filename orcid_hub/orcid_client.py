@@ -1164,9 +1164,9 @@ class MemberAPIMixin:
         rec.department_name = department
         rec.role_title = role or course_or_role
 
-        if start_date:
+        if start_date and start_date.as_orcid_dict():
             rec.start_date = start_date.as_orcid_dict()
-        if end_date:
+        if end_date and end_date.as_orcid_dict():
             rec.end_date = end_date.as_orcid_dict()
 
         if id:
@@ -1544,9 +1544,9 @@ class MemberAPIMixin:
     def delete_section(self, section_type, put_code):
         """Delete a section from the researcher profile."""
         method_name = {
-            "ADR": "delete_addresse",
-            "EDU": "delete_education",
-            "EMP": "delete_employment",
+            "ADR": "delete_address",
+            "EDU": "delete_educationv3",
+            "EMP": "delete_employmentv3",
             "EXR": "delete_external_identifier",
             "FUN": "delete_funding",
             "KWR": "delete_keyword",

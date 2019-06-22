@@ -971,7 +971,7 @@ class UserOrg(BaseModel, AuditMixin):
         null=True, default=False, help_text="User is an administrator for the organisation")
 
     # Affiliation bit-map:
-    affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
+    affiliations = SmallIntegerField(default=Affiliation.NONE, null=True, verbose_name="EDU Person Affiliations")
     created_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="created_user_orgs")
     updated_by = ForeignKeyField(
@@ -1426,7 +1426,7 @@ class UserInvitation(BaseModel, AuditMixin):
     course_or_role = TextField(verbose_name="Course or Job title", null=True)
     start_date = PartialDateField(verbose_name="Start date", null=True)
     end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
-    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
+    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True, default=Affiliation.NONE)
     disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
     disambiguation_source = TextField(
         verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)

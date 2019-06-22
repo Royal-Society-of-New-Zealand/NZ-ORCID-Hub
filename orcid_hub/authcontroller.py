@@ -1170,6 +1170,8 @@ def orcid_login_callback(request):
 
         if not user.orcid and orcid_id:
             user.orcid = orcid_id
+            if org:
+                user.organisation = org
             if user.organisation.webhook_enabled:
                 register_orcid_webhook.queue(user)
         elif user.orcid != orcid_id and email:

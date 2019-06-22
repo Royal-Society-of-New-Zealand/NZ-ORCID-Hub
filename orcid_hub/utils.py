@@ -542,7 +542,7 @@ def send_user_invitation(inviter,
                          course_or_role=None,
                          start_date=None,
                          end_date=None,
-                         affiliations=None,
+                         affiliations=Affiliation.NONE,
                          disambiguated_id=None,
                          disambiguation_source=None,
                          cc_email=None,
@@ -625,14 +625,12 @@ def send_user_invitation(inviter,
                 user=user)
 
         user.save()
-
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
         if user_org_created:
             user_org.created_by = inviter.id
-            if affiliations is None and affiliation_types:
-                affiliations = 0
+            if not affiliations and affiliation_types:
                 if affiliation_types & EMP_CODES:
-                    affiliations = Affiliation.EMP
+                    affiliations |= Affiliation.EMP
                 if affiliation_types & EDU_CODES:
                     affiliations |= Affiliation.EDU
             user_org.affiliations = affiliations
