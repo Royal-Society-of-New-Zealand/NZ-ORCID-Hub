@@ -120,11 +120,18 @@ class NestedDict(dict):
             d = super(NestedDict, d).get(k, default)
         return d
 
+    def get_orcid(self, *keys, default=None):
+        """Get the ORCID iD value, sanize and validate it."""
+        return validate_orcid_id(self.get(*keys, default=default))
+
 
 def validate_orcid_id(value):
-    """Validate ORCID iD (both format and the check-sum)."""
+    """Sanitize and validate ORCID iD (both format and the check-sum)."""
     if not value:
         return
+
+    if '/' in value:
+        value = value.split('/')[-1]
 
     if not ORCID_ID_REGEX.match(value):
         raise ValueError(
@@ -137,6 +144,8 @@ def validate_orcid_id(value):
         check = (2 * check + int(10 if n == 'X' else n)) % 11
     if check != 1:
         raise ValueError(f"Invalid ORCID iD {value} checksum. Make sure you have entered correct ORCID iD.")
+
+    return value
 
 
 def lazy_property(fn):
@@ -1175,7 +1184,7 @@ class Task(BaseModel, AuditMixin):
         def index(rex):
             """Return first header column index matching the given regex."""
             for i, column in enumerate(header):
-                if rex.match(column):
+                if column and rex.match(column.strip()):
                     return i
             else:
                 return None
@@ -1217,7 +1226,7 @@ class Task(BaseModel, AuditMixin):
                                 f"#{row_no+2}: {row}. Header: {header}")
 
                     email = normalize_email(val(row, 2, ""))
-                    orcid = val(row, 15)
+                    orcid = validate_orcid_id(val(row, 15))
                     external_id = val(row, 16)
 
                     if not email and not orcid and external_id and validators.email(external_id):
@@ -1238,9 +1247,6 @@ class Task(BaseModel, AuditMixin):
                         raise ModelException(
                             f"Missing user identifier (email address or ORCID iD) in the row "
                             f"#{row_no+2}: {row}. Header: {header}")
-
-                    if orcid:
-                        validate_orcid_id(orcid)
 
                     if email and not validators.email(email):
                         raise ValueError(
@@ -1738,8 +1744,7 @@ class FundingRecord(RecordModel):
                 continue
 
             orcid, email = val(row, 17), normalize_email(val(row, 18, ""))
-            if orcid:
-                validate_orcid_id(orcid)
+            orcid = validate_orcid_id(orcid)
             if email and not validators.email(email):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
@@ -1934,7 +1939,7 @@ class FundingRecord(RecordModel):
                             email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
-                            orcid_id = invitee.get("ORCID-iD")
+                            orcid = invitee.get_orcid("ORCID-iD")
                             put_code = invitee.get("put-code")
                             visibility = invitee.get("visibility")
 
@@ -1944,7 +1949,7 @@ class FundingRecord(RecordModel):
                                 email=email,
                                 first_name=first_name,
                                 last_name=last_name,
-                                orcid=orcid_id,
+                                orcid=orcid,
                                 visibility=visibility,
                                 put_code=put_code)
                     else:
@@ -1954,14 +1959,14 @@ class FundingRecord(RecordModel):
                     contributors = r.get("contributors", "contributor", default=[])
                     if contributors:
                         for contributor in contributors:
-                            orcid_id = contributor.get("contributor-orcid", "path")
+                            orcid = contributor.get_orcid("contributor-orcid", "path")
                             name = contributor.get("credit-name", "value")
                             email = normalize_email(contributor.get("contributor-email", "value"))
                             role = contributor.get("contributor-attributes", "contributor-role")
 
                             FundingContributor.create(
                                 record=record,
-                                orcid=orcid_id,
+                                orcid=orcid,
                                 name=name,
                                 email=email,
                                 role=role)
@@ -2196,8 +2201,7 @@ class PeerReviewRecord(RecordModel):
                 continue
 
             orcid, email = val(row, 23), normalize_email(val(row, 22, ""))
-            if orcid:
-                validate_orcid_id(orcid)
+            orcid = validate_orcid_id(orcid)
             if email and not validators.email(email):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
@@ -2676,15 +2680,12 @@ class PropertyRecord(RecordModel):
                         continue
 
                     email = normalize_email(val(row, 3, ""))
-                    orcid = val(row, 6)
+                    orcid = validate_orcid_id(val(row, 6))
 
                     if not (email or orcid):
                         raise ModelException(
                             f"Missing user identifier (email address or ORCID iD) in the row "
                             f"#{row_no+2}: {row}. Header: {header}")
-
-                    if orcid:
-                        validate_orcid_id(orcid)
 
                     if email and not validators.email(email):
                         raise ValueError(
@@ -2797,7 +2798,7 @@ class PropertyRecord(RecordModel):
                     email = normalize_email(r.get("email"))
                     first_name = r.get("first-name")
                     last_name = r.get("last-name")
-                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    orcid = r.get_orcid("ORCID-iD") or r.get_orcid("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
                     is_active = bool(r.get("is-active"))
@@ -2829,7 +2830,7 @@ class PropertyRecord(RecordModel):
                         email=email,
                         first_name=first_name,
                         last_name=last_name,
-                        orcid=orcid_id,
+                        orcid=orcid,
                         visibility=visibility,
                         put_code=put_code)
 
@@ -2958,7 +2959,7 @@ class WorkRecord(RecordModel):
 
             orcid, email = val(row, 15), normalize_email(val(row, 16))
             if orcid:
-                validate_orcid_id(orcid)
+                orcid = validate_orcid_id(orcid)
             if email and not validators.email(email):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
@@ -3165,7 +3166,7 @@ class WorkRecord(RecordModel):
                             email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
-                            orcid_id = invitee.get("ORCID-iD")
+                            orcid = invitee.get_orcid("ORCID-iD")
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
 
@@ -3175,7 +3176,7 @@ class WorkRecord(RecordModel):
                                 email=email.lower(),
                                 first_name=first_name,
                                 last_name=last_name,
-                                orcid=orcid_id,
+                                orcid=orcid,
                                 visibility=visibility,
                                 put_code=put_code)
                     else:
@@ -3185,7 +3186,7 @@ class WorkRecord(RecordModel):
                     contributor_list = r.get("contributors", "contributor")
                     if contributor_list:
                         for contributor in contributor_list:
-                            orcid_id = get_val(contributor, "contributor-orcid", "path")
+                            orcid = contributor.get_orcid("contributor-orcid", "path")
                             name = get_val(contributor, "credit-name", "value")
                             email = normalize_email(get_val(contributor, "contributor-email", "value"))
                             role = get_val(contributor, "contributor-attributes", "contributor-role")
@@ -3194,7 +3195,7 @@ class WorkRecord(RecordModel):
 
                             WorkContributor.create(
                                 record=record,
-                                orcid=orcid_id,
+                                orcid=orcid,
                                 name=name,
                                 email=email,
                                 role=role,
@@ -3492,15 +3493,12 @@ class OtherIdRecord(ExternalIdModel):
                         continue
 
                     email = normalize_email(val(row, 5))
-                    orcid = val(row, 8)
+                    orcid = validate_orcid_id(val(row, 8))
 
                     if not (email or orcid):
                         raise ModelException(
                             f"Missing user identifier (email address or ORCID iD) in the row "
                             f"#{row_no+2}: {row}. Header: {header}")
-
-                    if orcid:
-                        validate_orcid_id(orcid)
 
                     if email and not validators.email(email):
                         raise ValueError(
@@ -3578,7 +3576,7 @@ class OtherIdRecord(ExternalIdModel):
                     email = normalize_email(r.get("email"))
                     first_name = r.get("first-name")
                     last_name = r.get("last-name")
-                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    orcid = r.get_orcid("ORCID-iD") or r.get_orcid("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
 
@@ -3592,7 +3590,7 @@ class OtherIdRecord(ExternalIdModel):
                         email=email,
                         first_name=first_name,
                         last_name=last_name,
-                        orcid=orcid_id,
+                        orcid=orcid,
                         visibility=visibility,
                         put_code=put_code)
 

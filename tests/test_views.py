@@ -1608,11 +1608,11 @@ Roshan,researcher.010@mailinator.com
             "save":
             "Upload",
             "file_": (
-                BytesIO(b"""First Name,Last Name,Email,Affiliation Type, Visibility, Disambiguated Id, Disambiguation Source
-Roshan,Pawar,researcher.010@mailinator.com,Student,PRIVate,3232,RINGGOLD
-Roshan,Pawar,researcher.010@mailinator.com,Staff,PRIVate,3232,RINGGOLD
-Rad,Cirskis,researcher.990@mailinator.com,Staff,PRIVate,3232,RINGGOLD
-Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD
+                BytesIO(b"""First Name,Last Name,Email,Affiliation Type, Visibility, Disambiguated Id, Disambiguation Source, ORCID
+Roshan,Pawar,researcher.010@mailinator.com,Student,PRIVate,3232,RINGGOLD,https://orcid.org/0000-0002-0359-5519
+Roshan,Pawar,researcher.010@mailinator.com,Staff,PRIVate,3232,RINGGOLD,
+Rad,Cirskis,researcher.990@mailinator.com,Staff,PRIVate,3232,RINGGOLD,
+Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
 """),
                 "affiliations.csv",
             ),
@@ -3949,7 +3949,7 @@ def test_peer_reviews(client):
     "identifier":"00001",
     "email": "contributor1@mailinator.com",
     "first-name": "Alice", "last-name": "Contributor 1",
-    "ORCID-iD": "0000-0002-9207-4933"},
+    "ORCID-iD": "https://orcid.org/0000-0002-9207-4933"},
   {
     "identifier":"00002",
     "email": "contributor2@mailinator.com",
