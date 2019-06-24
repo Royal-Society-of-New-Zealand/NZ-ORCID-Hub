@@ -154,8 +154,7 @@ def test_is_emp_or_edu_record_present(app, mocker):
         confirmed=True)
     UserOrg.create(user=user, org=org, affiliation=Affiliation.EDU)
 
-    api = MemberAPI(user=user, org=org)
-
+    api = MemberAPIV3(user=user, org=org)
     test_responses = [
         None,
         """{"mock": "data"}""",
@@ -168,40 +167,40 @@ def test_is_emp_or_edu_record_present(app, mocker):
 
     for data in test_responses:
         with patch.object(
-                api_client.ApiClient,
+                v3.api_client.ApiClient,
                 "call_api",
                 return_value=Mock(data=data)) as call_api:
             api.is_emp_or_edu_record_present(Affiliation.EDU)
             call_api.assert_called_with(
-                "/v2.0/{orcid}/educations",
-                "GET", {"orcid": "1001-0001-0001-0001"}, {}, {"Accept": "application/json"},
+                "/v3.0/{orcid}/educations",
+                "GET", {"orcid": "1001-0001-0001-0001"}, [], {"Accept": "application/json"},
                 _preload_content=False,
                 _request_timeout=None,
                 _return_http_data_only=True,
+                async_req=None,
                 auth_settings=["orcid_auth"],
                 body=None,
-                callback=None,
                 collection_formats={},
                 files={},
                 post_params=[],
-                response_type="Educations")
+                response_type="EducationsSummaryV30")
             api.is_emp_or_edu_record_present(Affiliation.EMP)
             call_api.assert_called_with(
-                "/v2.0/{orcid}/employments",
-                "GET", {"orcid": "1001-0001-0001-0001"}, {}, {"Accept": "application/json"},
+                "/v3.0/{orcid}/employments",
+                "GET", {"orcid": "1001-0001-0001-0001"}, [], {"Accept": "application/json"},
                 _preload_content=False,
                 _request_timeout=None,
                 _return_http_data_only=True,
+                async_req=None,
                 auth_settings=["orcid_auth"],
                 body=None,
-                callback=None,
                 collection_formats={},
                 files={},
                 post_params=[],
-                response_type="Employments")
+                response_type="EmploymentsSummaryV30")
 
     with patch.object(
-            api_client.ApiClient, "call_api", side_effect=ApiException(
+            v3.api_client.ApiClient, "call_api", side_effect=ApiException(
                 reason="FAILURE", status=401)) as call_api:
         api.is_emp_or_edu_record_present(Affiliation.EDU)
         app.logger.error.assert_called_with(
@@ -209,7 +208,7 @@ def test_is_emp_or_edu_record_present(app, mocker):
             "and education records, Encountered Exception: (401)\nReason: FAILURE\n")
 
     with patch.object(
-            api_client.ApiClient, "call_api", side_effect=Exception("EXCEPTION")) as call_api:
+            v3.api_client.ApiClient, "call_api", side_effect=Exception("EXCEPTION")) as call_api:
         api.is_emp_or_edu_record_present(Affiliation.EDU)
         app.logger.exception.assert_called_with(
             "Failed to verify presence of employment or education record.")
@@ -328,7 +327,7 @@ def test_link_orcid_auth_callback_with_affiliation(name, mocker, client):
         scope=['/read-limited,/activities/update'],
         expires_in="1212",
         refresh_token="ABC1235"))
-    m = mocker.patch("orcid_hub.orcid_client.MemberAPI")
+    m = mocker.patch("orcid_hub.orcid_client.MemberAPIV3")
     mocker.patch("orcid_hub.orcid_client.SourceClientId")
 
     org = Organisation.get(name="THE ORGANISATION")
@@ -435,10 +434,10 @@ def test_profile_wo_orcid(request_ctx):
 def test_sync_profile(app, mocker):
     """Test sync_profile."""
     mocker.patch(
-        "orcid_api.MemberAPIV20Api.update_employment",
+        "orcid_hub.orcid_client.MemberAPIV3.update_employmentv3",
         return_value=Mock(status=201, headers={'Location': '12344/XYZ/54321'}))
     mocker.patch(
-        "orcid_api.MemberAPIV20Api.update_education",
+        "orcid_hub.orcid_client.MemberAPIV3.update_educationv3",
         return_value=Mock(status=201, headers={'Location': '12344/XYZ/12345'}))
 
     org = Organisation.create(
@@ -462,17 +461,17 @@ def test_sync_profile(app, mocker):
     access_token = "ACCESS-TOKEN"
 
     t = Task.create(org=org, task_type=TaskType.SYNC)
-    api = MemberAPI(org=org)
+    api = MemberAPIV3(org=org)
 
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
 
     OrcidToken.create(user=u, org=org, scopes="/read-limited,/activities/update")
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
     assert Log.select().count() > 0
 
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
     api.sync_profile(task=t, user=u, access_token=access_token)
     last_log = Log.select().order_by(Log.id.desc()).first()
     assert "Successfully update" in last_log.message
