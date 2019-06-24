@@ -2189,7 +2189,7 @@ def sync_profile(task_id, delay=0.1):
     org = task.org
     if not org.disambiguated_id:
         return
-    api = orcid_client.MemberAPI(org=org)
+    api = orcid_client.MemberAPIV3(org=org)
     count = 0
     for u in task.org.users.select(User, OrcidToken.access_token.alias("access_token")).where(
             User.orcid.is_null(False)).join(

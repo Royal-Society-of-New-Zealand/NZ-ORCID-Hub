@@ -1481,17 +1481,21 @@ class MemberAPIMixin:
 
     def sync_profile(self, task, user, access_token):
         """Synchronize the user profile."""
-        self.set_config(user=user, org=self.org, access_token=access_token)
+        self.set_config(user=user, org=self.org, access_token=access_token, version=self.version)
         profile = self.get_record()
 
         if not profile:
             Log.create(task=task, message=f"The user {user} doesn't have ORCID profile.")
             return
+
         for k, s in [
             ["educations", "education-summary"],
             ["employments", "employment-summary"],
         ]:
-            entries = profile.get("activities-summary", k, s)
+            entries = []
+            affiliation_group = profile.get("activities-summary", k, "affiliation-group")
+            for a in affiliation_group:
+                entries.append(a.get("summaries")[0].get(s))
             if not entries:
                 continue
             for e in entries:
@@ -1507,7 +1511,7 @@ class MemberAPIMixin:
                             "disambiguated-organization-identifier": self.org.disambiguated_id,
                             "disambiguation-source": self.org.disambiguation_source,
                         }
-                        api_call = self.update_employment if k == "employments" else self.update_education
+                        api_call = self.update_employmentv3 if k == "employments" else self.update_educationv3
 
                         try:
                             api_call(orcid=user.orcid, put_code=e.get("put-code"), body=e)
