@@ -4366,13 +4366,13 @@ def test_export_affiliations(client, mocker):
     mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
     client.login_root()
     resp = client.post("/admin/viewmembers/action/",
-                       data=dict(action="export_affiations",
+                       data=dict(action="export_affiliations",
                                  rowid=[
                                      u.id for u in User.select().join(Organisation).where(
                                          Organisation.orcid_client_id.is_null(False))
                                  ]))
     assert b"First Name" in resp.data
-    # assert b"0000-0003-1255-9023" in resp.data
+    assert b"0000-0003-1255-9023" in resp.data
 
 
 def test_delete_affiliations(client, mocker):
@@ -4386,7 +4386,7 @@ def test_delete_affiliations(client, mocker):
     admin = org.admins.first()
     client.login(admin)
     resp = client.post("/admin/viewmembers/action/",
-                       data=dict(action="export_affiations",
+                       data=dict(action="export_affiliations",
                                  rowid=[
                                      u.id for u in User.select().join(Organisation).where(
                                          Organisation.orcid_client_id.is_null(False))

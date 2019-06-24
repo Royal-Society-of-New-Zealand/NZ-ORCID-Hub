@@ -1679,7 +1679,7 @@ class ViewMembersAdmin(AppModelView):
             flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'danger')
 
     @action(
-        "export_affiations", "Expoert Affiliation Records",
+        "export_affiliations", "Export Affiliation Records",
         "Are you sure you want to retrieve and export selected records affiliation entries from ORCID?"
     )
     def action_export_affiliations(self, ids):
@@ -1695,7 +1695,7 @@ class ViewMembersAdmin(AppModelView):
         for t in tokens:
 
             try:
-                api = orcid_client.MemberAPI(user=t.user, access_token=t.access_token)
+                api = orcid_client.MemberAPIV3(user=t.user, access_token=t.access_token)
                 profile = api.get_record()
                 if not profile:
                     continue
@@ -1711,11 +1711,9 @@ class ViewMembersAdmin(AppModelView):
                 abort(500, ex)
 
             records = itertools.chain(
-                records,
-                [(t.user, r)
-                 for r in profile.get("activities-summary", "employments", "employment-summary")],
-                [(t.user, r)
-                 for r in profile.get("activities-summary", "educations", "education-summary")])
+                *[[(t.user, s.get(f"{rt}-summary")) for ag in
+                   profile.get("activities-summary", f"{rt}s", "affiliation-group", default=[])
+                   for s in ag.get("summaries")] for rt in ["employment", "education"]])
 
         # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
         class Echo(object):

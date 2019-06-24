@@ -1062,7 +1062,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                             affiliation = Affiliation.EMP
                             break
                     if not affiliation:
-                        for a in employments:
+                        for a in educations:
                             if a["put-code"] == ar.put_code:
                                 affiliation = Affiliation.EDU
                                 break
