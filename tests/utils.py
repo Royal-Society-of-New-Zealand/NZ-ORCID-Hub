@@ -181,8 +181,8 @@ def get_profile(org=None, user=None):
                                         }
                                     },
                                     "visibility": "PUBLIC",
-                                    "put-code": 31136,
-                                    "path": f"/{orcid}/education/31136"
+                                    "put-code": 1,
+                                    "path": f"/{orcid}/education/1"
                                 }
                             }
                         ]
@@ -221,8 +221,8 @@ def get_profile(org=None, user=None):
                                         "disambiguated-organization": None
                                     },
                                     "visibility": "PUBLIC",
-                                    "put-code": 29272,
-                                    "path": f"/{orcid}/employment/29272"
+                                    "put-code": 2,
+                                    "path": f"/{orcid}/employment/2"
                                 }
                             }
                         ]
