@@ -675,7 +675,7 @@ def test_validate_orcid_id():
     assert validate_orcid_id(None) is None
     assert validate_orcid_id(0) is None
     assert validate_orcid_id("") is None
-    assert validate_orcid_id("0000-0000-0000-00X3") is None
+    assert validate_orcid_id("0000-0000-0000-00X3") == "0000-0000-0000-00X3"
     with pytest.raises(ValueError):
         validate_orcid_id("123")
     with pytest.raises(ValueError):

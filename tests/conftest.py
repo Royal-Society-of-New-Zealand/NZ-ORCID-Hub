@@ -151,6 +151,12 @@ def no_mailing(mocker):
     yield mocker.patch("emails.html")
 
 
+@pytest.fixture(autouse=True)
+def no_sentry(mocker):
+    """Subpress sentry."""
+    yield mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+
+
 @pytest.fixture
 def app():
     """Session-wide test `Flask` application."""
