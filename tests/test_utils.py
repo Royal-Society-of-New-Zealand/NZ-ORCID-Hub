@@ -459,7 +459,7 @@ def test_create_or_update_funding(app, mocker):
         org_name="Test_orgname",
         city="Test city",
         region="Test",
-        country="Test",
+        country="NZ",
         disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
         is_active=True)
@@ -526,7 +526,7 @@ def test_create_or_update_work(app, mocker):
         type="BOOK_CHAPTER",
         url="Test org",
         language_code="en",
-        country="Test",
+        country="NZ",
         org_name="Test_orgname",
         city="Test city",
         region="Test",
@@ -777,10 +777,10 @@ def test_process_other_id_records(app, mocker):
 def test_create_or_update_affiliation(app, mocker):
     """Test create or update affiliation."""
     mocker.patch(
-        "orcid_api.MemberAPIV20Api.update_employment",
+        "orcid_api_v3.api.DevelopmentMemberAPIV30Api.update_employmentv3",
         return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
     mocker.patch(
-        "orcid_api.MemberAPIV20Api.create_employment",
+        "orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_employmentv3",
         return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
     send_email = mocker.patch("orcid_hub.utils.send_email")
     capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
@@ -815,7 +815,7 @@ def test_create_or_update_affiliation(app, mocker):
     AffiliationRecord.create(
         is_active=True,
         task=t,
-        external_id="Test",
+        local_id="Test",
         first_name="Test",
         last_name="Test",
         email="test1234456@mailinator.com",
@@ -826,13 +826,13 @@ def test_create_or_update_affiliation(app, mocker):
         department="Test",
         city="Test",
         state="Test",
-        country="Test",
+        country="NZ",
         disambiguated_id="Test",
         disambiguation_source="Test")
     AffiliationRecord.create(
         is_active=True,
         task=t,
-        external_id="Test",
+        local_id="Test",
         first_name="Test",
         last_name="Test",
         email="test1234456@mailinator.com",
@@ -843,11 +843,11 @@ def test_create_or_update_affiliation(app, mocker):
         department="Test",
         city="Test",
         state="Test",
-        country="Test")
+        country="NZ")
     AffiliationRecord.create(
         is_active=True,
         task=t,
-        external_id="Test",
+        local_id="Test",
         first_name="Test",
         last_name="Test",
         email="test1234456@mailinator.com",
@@ -858,12 +858,12 @@ def test_create_or_update_affiliation(app, mocker):
         department="Test",
         city="Test",
         state="Test",
-        country="Test",
+        country="NZ",
         visibility="PUBLIC")
     AffiliationRecord.create(
         is_active=True,
         task=t,
-        external_id="Test#2",
+        local_id="Test#2",
         first_name="Test2",
         last_name="Test2",
         email="test1234456_2@mailinator.com",
@@ -893,7 +893,7 @@ def test_create_or_update_affiliation(app, mocker):
             t.org_id,
             t.record.user, )):
         with patch(
-                "orcid_hub.orcid_client.MemberAPI.get_record",
+                "orcid_hub.orcid_client.MemberAPIV3.get_record",
                 return_value=get_profile() if user.orcid else None) as get_record:
             utils.create_or_update_affiliations(user=user, org_id=org_id, records=tasks_by_user)
             get_record.assert_any_call()
@@ -963,7 +963,7 @@ def test_send_email(app):
                 orcid_secret="Client Secret",
                 city="CITY",
                 logo=logo_file,
-                country="COUNTRY",
+                country="NZ",
                 disambiguation_org_id="ID",
                 disambiguation_org_source="SOURCE")
             utils.send_email(
@@ -1038,10 +1038,10 @@ def test_is_valid_url():
 def test_sync_profile(app, mocker):
     """Test sync_profile."""
     mocker.patch(
-        "orcid_api.MemberAPIV20Api.update_employment",
+        "orcid_api_v3.api.DevelopmentMemberAPIV30Api.update_employmentv3",
         return_value=Mock(status=201, headers={'Location': '12344/XYZ/54321'}))
     mocker.patch(
-        "orcid_api.MemberAPIV20Api.update_education",
+        "orcid_api_v3.api.DevelopmentMemberAPIV30Api.update_educationv3",
         return_value=Mock(status=201, headers={'Location': '12344/XYZ/12345'}))
 
     def sync_profile_mock(*args, **kwargs):
@@ -1056,7 +1056,7 @@ def test_sync_profile(app, mocker):
         orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
         orcid_secret="Client Secret",
         city="CITY",
-        country="COUNTRY",
+        country="NZ",
         disambiguated_id="ID",
         disambiguation_source="SOURCE")
     u = User.create(
@@ -1072,24 +1072,26 @@ def test_sync_profile(app, mocker):
 
     t = Task.create(org=org, task_type=TaskType.SYNC)
 
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", lambda *args: None)
     utils.sync_profile(task_id=t.id, delay=0)
 
     resp = get_profile()
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", lambda *args: resp)
     utils.sync_profile(task_id=t.id, delay=0)
 
-    resp["activities-summary"]["educations"]["education-summary"] = []
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
+    resp["activities-summary"]["educations"]["affiliation-group"] = []
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", lambda *args: resp)
     utils.sync_profile(task_id=t.id, delay=0)
 
     mocker.patch(
-        "orcid_hub.orcid_client.MemberAPI.update_employment", side_effect=Exception("FAILED"))
+        "orcid_hub.orcid_client.MemberAPIV3.update_employmentv3", side_effect=Exception("FAILED"))
     utils.sync_profile(task_id=t.id, delay=0)
 
-    resp["activities-summary"]["employments"]["employment-summary"][0]["source"] = None
-    resp["activities-summary"]["employments"]["employment-summary"][0]["source"] = None
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
+    resp["activities-summary"]["employments"]["affiliation-group"][0]["summaries"][0]["employment-summary"][
+        "source"] = None
+    resp["activities-summary"]["employments"]["affiliation-group"][0]["summaries"][0]["employment-summary"][
+        "source"] = None
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", lambda *args: resp)
     utils.sync_profile(task_id=t.id, delay=0)
 
     org.disambiguated_id = None

@@ -7,12 +7,11 @@ isort:skip_file
 
 from .config import ORCID_API_BASE, ORCID_BASE_URL
 from flask_login import current_user
-from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, Log,
-                     ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
+from .models import (OrcidApiCall, Affiliation, AffiliationExternalId, OrcidToken, FundingContributor as FundingCont,
+                     Log, ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
                      WorkExternalId, PeerReviewExternalId)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
-                       OrganizationAddress, DisambiguatedOrganization, Employment, Education,
-                       Organization)
+                       OrganizationAddress, DisambiguatedOrganization, Organization)
 import orcid_api_v3 as v3
 from orcid_api.rest import ApiException
 from time import time
@@ -181,14 +180,16 @@ class MemberAPIMixin:
         """
         try:
             if affiliation_type == Affiliation.EMP:
-                resp = self.view_employments(self.user.orcid, _preload_content=False)
+                resp = self.view_employmentsv3(self.user.orcid, _preload_content=False)
             else:
-                resp = self.view_educations(self.user.orcid, _preload_content=False)
+                resp = self.view_educationsv3(self.user.orcid, _preload_content=False)
 
             data = json.loads(resp.data)
-            records = data.get("employment-summary"
-                               if affiliation_type == Affiliation.EMP else "education-summary")
-            for r in records:
+
+            for record in data.get("affiliation-group"):
+                r = record.get("summaries")[0].get("employment-summary") if affiliation_type == Affiliation.EMP \
+                    else record.get("summaries")[0].get("education-summary")
+
                 if (r.get("source").get("source-client-id") and self.org.orcid_client_id == r.get(
                         "source").get("source-client-id").get("path")):
                     app.logger.info(f"For {self.user} there is {affiliation_type!s} "
@@ -1077,6 +1078,9 @@ class MemberAPIMixin:
             put_code=None,
             initial=False,
             visibility=None,
+            url=None,
+            display_index=None,
+            id=None,
             *args,
             **kwargs):
         """Create or update affiliation record of a user.
@@ -1106,7 +1110,7 @@ class MemberAPIMixin:
             if put_code:
                 return put_code, self.user.orcid, False
 
-        organisation_address = OrganizationAddress(
+        organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
             region=state or region or self.org.state)
@@ -1116,22 +1120,31 @@ class MemberAPIMixin:
         elif self.org.disambiguation_source:
             disambiguation_source = self.org.disambiguation_source.upper()
 
-        disambiguated_organization_details = DisambiguatedOrganization(
+        disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
             disambiguation_source=disambiguation_source) if disambiguation_source else None
 
         if affiliation == Affiliation.EMP:
-            rec = Employment()
+            rec = v3.EmploymentV30()
         elif affiliation == Affiliation.EDU:
-            rec = Education()
+            rec = v3.EducationV30()
+        elif affiliation == Affiliation.DIST:
+            rec = v3.DistinctionV30()
+        elif affiliation == Affiliation.MEM:
+            rec = v3.MembershipV30()
+        elif affiliation == Affiliation.SER:
+            rec = v3.ServiceV30()
+        elif affiliation == Affiliation.QUA:
+            rec = v3.QualificationV30()
+        elif affiliation == Affiliation.POS:
+            rec = v3.InvitedPositionV30()
         else:
             app.logger.info(
                 f"For {self.user} not able to determine affiliaton type with {self.org}")
             raise Exception(
                 f"Unsupported affiliation type '{affiliation}' for {self.user} affiliaton type with {self.org}"
             )
-
-        rec.organization = Organization(
+        rec.organization = v3.OrganizationV30(
             name=organisation or org_name or self.org.name,
             address=organisation_address,
             disambiguated_organization=disambiguated_organization_details)
@@ -1140,21 +1153,59 @@ class MemberAPIMixin:
             rec.put_code = put_code
 
         if visibility:
-            rec.visibility = visibility
+            rec.visibility = visibility.lower()
+
+        if display_index:
+            rec.display_index = display_index
+
+        if url:
+            rec.url = v3.UrlV30(value=url)  # noqa: F405
 
         rec.department_name = department
         rec.role_title = role or course_or_role
 
-        if start_date:
+        if start_date and start_date.as_orcid_dict():
             rec.start_date = start_date.as_orcid_dict()
-        if end_date:
+        if end_date and end_date.as_orcid_dict():
             rec.end_date = end_date.as_orcid_dict()
+
+        if id:
+            external_id_list = []
+            external_ids = AffiliationExternalId.select().where(AffiliationExternalId.record_id == id).order_by(
+                AffiliationExternalId.id)
+
+            for exi in external_ids:
+                external_id_type = exi.type
+                external_id_value = exi.value
+                external_id_url = None
+                if exi.url:
+                    external_id_url = v3.UrlV30(value=exi.url)  # noqa: F405
+                # Currently ORCID is not supporting external_id_relationship in upper case
+                external_id_relationship = exi.relationship.replace('_', '-').lower() if exi.relationship else None
+                external_id_list.append(
+                    v3.ExternalIDV30(  # noqa: F405
+                        external_id_type=external_id_type,
+                        external_id_value=external_id_value,
+                        external_id_url=external_id_url,
+                        external_id_relationship=external_id_relationship))
+
+            rec.external_ids = v3.ExternalIDsV30(external_id=external_id_list)  # noqa: F405
 
         try:
             if affiliation == Affiliation.EMP:
-                api_call = self.update_employment if put_code else self.create_employment
+                api_call = self.update_employmentv3 if put_code else self.create_employmentv3
+            elif affiliation == Affiliation.DIST:
+                api_call = self.update_distinctionv3 if put_code else self.create_distinctionv3
+            elif affiliation == Affiliation.MEM:
+                api_call = self.update_membershipv3 if put_code else self.create_membershipv3
+            elif affiliation == Affiliation.SER:
+                api_call = self.update_servicev3 if put_code else self.create_servicev3
+            elif affiliation == Affiliation.QUA:
+                api_call = self.update_qualificationv3 if put_code else self.create_qualificationv3
+            elif affiliation == Affiliation.POS:
+                api_call = self.update_invited_positionv3 if put_code else self.create_invited_positionv3
             else:
-                api_call = self.update_education if put_code else self.create_education
+                api_call = self.update_educationv3 if put_code else self.create_educationv3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code
@@ -1175,7 +1226,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                visibility = json.loads(resp.data).get("visibility").upper() if hasattr(resp, "data") and json.loads(
+                    resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1429,17 +1481,21 @@ class MemberAPIMixin:
 
     def sync_profile(self, task, user, access_token):
         """Synchronize the user profile."""
-        self.set_config(user=user, org=self.org, access_token=access_token)
+        self.set_config(user=user, org=self.org, access_token=access_token, version=self.version)
         profile = self.get_record()
 
         if not profile:
             Log.create(task=task, message=f"The user {user} doesn't have ORCID profile.")
             return
+
         for k, s in [
             ["educations", "education-summary"],
             ["employments", "employment-summary"],
         ]:
-            entries = profile.get("activities-summary", k, s)
+            entries = []
+            affiliation_group = profile.get("activities-summary", k, "affiliation-group")
+            for a in affiliation_group:
+                entries.append(a.get("summaries")[0].get(s))
             if not entries:
                 continue
             for e in entries:
@@ -1455,7 +1511,7 @@ class MemberAPIMixin:
                             "disambiguated-organization-identifier": self.org.disambiguated_id,
                             "disambiguation-source": self.org.disambiguation_source,
                         }
-                        api_call = self.update_employment if k == "employments" else self.update_education
+                        api_call = self.update_employmentv3 if k == "employments" else self.update_educationv3
 
                         try:
                             api_call(orcid=user.orcid, put_code=e.get("put-code"), body=e)
@@ -1492,9 +1548,9 @@ class MemberAPIMixin:
     def delete_section(self, section_type, put_code):
         """Delete a section from the researcher profile."""
         method_name = {
-            "ADR": "delete_addresse",
-            "EDU": "delete_education",
-            "EMP": "delete_employment",
+            "ADR": "delete_address",
+            "EDU": "delete_educationv3",
+            "EMP": "delete_employmentv3",
             "EXR": "delete_external_identifier",
             "FUN": "delete_funding",
             "KWR": "delete_keyword",

@@ -44,7 +44,8 @@ ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-\.]\d+){,2}")
 
 
-AFFILIATION_TYPES = ["student", "education", "staff", "employment"]
+AFFILIATION_TYPES = ["student", "education", "staff", "employment", "distinction", "position", "invited position",
+                     "qualification", "membership", "service"]
 DISAMBIGUATION_SOURCES = ["RINGGOLD", "GRID", "FUNDREF", "ISNI"]
 VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
 visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
@@ -393,6 +394,11 @@ class Affiliation(IntFlag):
     NONE = 0  # NONE
     EDU = 1  # Education
     EMP = 2  # Employment
+    DIST = 4  # Distinction
+    POS = 8   # Invited Position
+    QUA = 16   # Qualification
+    MEM = 32   # Membership
+    SER = 64   # Service
 
     def __eq__(self, other):
         if isinstance(other, Affiliation):
@@ -405,7 +411,12 @@ class Affiliation(IntFlag):
     def __str__(self):
         return ", ".join({
             self.EDU: "Education",
-            self.EMP: "Employment"
+            self.EMP: "Employment",
+            self.DIST: "Distinction",
+            self.POS: "Invited Position",
+            self.QUA: "Qualification",
+            self.MEM: "Membership",
+            self.SER: "Service",
         }[a] for a in Affiliation if a & self)
 
 
@@ -969,7 +980,7 @@ class UserOrg(BaseModel, AuditMixin):
         null=True, default=False, help_text="User is an administrator for the organisation")
 
     # Affiliation bit-map:
-    affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
+    affiliations = SmallIntegerField(default=Affiliation.NONE, null=True, verbose_name="EDU Person Affiliations")
     created_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="created_user_orgs")
     updated_by = ForeignKeyField(
@@ -1177,8 +1188,10 @@ class Task(BaseModel, AuditMixin):
                        "campus|department", "city", "state|region", "course|title|role",
                        r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", "orcid.*", "external.*|.*identifier",
-                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", ]
+                       r"disambiguat.*source", r"put|code", "orcid.*", "local.*|.*identifier",
+                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", r"(display)?.*index",
+                       r"(external)?\s*id(entifier)?\s+type$", r"(external)?\s*id(entifier)?\s*(value)?$",
+                       r"(external)?\s*id(entifier)?\s*url", r"(external)?\s*id(entifier)?\s*rel(ationship)?", ]
         ]
 
         def index(rex):
@@ -1227,11 +1240,11 @@ class Task(BaseModel, AuditMixin):
 
                     email = normalize_email(val(row, 2, ""))
                     orcid = validate_orcid_id(val(row, 15))
-                    external_id = val(row, 16)
+                    local_id = val(row, 16)
 
-                    if not email and not orcid and external_id and validators.email(external_id):
-                        # if email is missing and external ID is given as a valid email, use it:
-                        email = external_id
+                    if not email and not orcid and local_id and validators.email(local_id):
+                        # if email is missing and local ID is given as a valid email, use it:
+                        email = local_id
 
                     # The uploaded country must be from ISO 3166-1 alpha-2
                     country = val(row, 11)
@@ -1274,6 +1287,7 @@ class Task(BaseModel, AuditMixin):
                     visibility = val(row, 18)
                     if visibility:
                         visibility = visibility.upper()
+
                     af = AffiliationRecord(
                         task=task,
                         first_name=first_name,
@@ -1282,7 +1296,7 @@ class Task(BaseModel, AuditMixin):
                         organisation=val(row, 3),
                         department=val(row, 4),
                         city=val(row, 5),
-                        region=val(row, 6),
+                        state=val(row, 6),
                         role=val(row, 7),
                         start_date=PartialDate.create(val(row, 8)),
                         end_date=PartialDate.create(val(row, 9)),
@@ -1292,13 +1306,35 @@ class Task(BaseModel, AuditMixin):
                         disambiguation_source=disambiguation_source,
                         put_code=put_code,
                         orcid=orcid,
-                        external_id=external_id,
+                        local_id=local_id,
                         delete_record=delete_record,
+                        url=val(row, 19),
+                        display_index=val(row, 20),
                         visibility=visibility,)
                     validator = ModelValidator(af)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     af.save()
+
+                    external_id_type = val(row, 21, "").lower()
+                    external_id_relationship = val(row, 24)
+                    if external_id_relationship:
+                        external_id_relationship = external_id_relationship.upper()
+                    external_id_value = val(row, 22)
+
+                    if external_id_type and external_id_value:
+
+                        ae = AffiliationExternalId(
+                            record=af,
+                            type=external_id_type,
+                            value=external_id_value,
+                            url=val(row, 23),
+                            relationship=external_id_relationship)
+
+                        validator = ModelValidator(ae)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid record: {validator.errors}")
+                        ae.save()
             except Exception:
                 db.rollback()
                 app.logger.exception("Failed to load affiliation file.")
@@ -1396,7 +1432,7 @@ class UserInvitation(BaseModel, AuditMixin):
     course_or_role = TextField(verbose_name="Course or Job title", null=True)
     start_date = PartialDateField(verbose_name="Start date", null=True)
     end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
-    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
+    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True, default=Affiliation.NONE)
     disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
     disambiguation_source = TextField(
         verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
@@ -1518,10 +1554,10 @@ class AffiliationRecord(RecordModel):
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
     task = ForeignKeyField(Task, related_name="affiliation_records", on_delete="CASCADE")
     put_code = IntegerField(null=True)
-    external_id = CharField(
+    local_id = CharField(
         max_length=100,
         null=True,
-        verbose_name="External ID",
+        verbose_name="Local ID",
         help_text="Record identifier used in the data source system.")
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
@@ -1547,6 +1583,8 @@ class AffiliationRecord(RecordModel):
         choices=disambiguation_source_choices)
     delete_record = BooleanField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
+    url = CharField(max_length=200, null=True)
+    display_index = CharField(max_length=100, null=True)
 
     class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
@@ -1569,7 +1607,7 @@ class AffiliationRecord(RecordModel):
         ("disambiguation_source", r"disambiguat.*source"),
         ("put_code", r"put|code"),
         ("orcid", "orcid.*"),
-        ("external_id", "external.*|.*identifier"),
+        ("local_id", "local.*|.*identifier"),
     ]
 
     @classmethod
@@ -3361,7 +3399,7 @@ class ExternalIdModel(BaseModel):
     type = CharField(max_length=255, choices=external_id_type_choices)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
-    relationship = CharField(max_length=255, choices=relationship_choices)
+    relationship = CharField(null=True, max_length=255, choices=relationship_choices)
 
     def to_export_dict(self):
         """Map the external ID record to dict for exprt into JSON/YAML."""
@@ -3405,6 +3443,16 @@ class ExternalId(ExternalIdModel):
     class Meta:  # noqa: D101,D106
         db_table = "external_id"
         table_alias = "ei"
+
+
+class AffiliationExternalId(ExternalIdModel):
+    """Affiliation ExternalId loaded for batch processing."""
+
+    record = ForeignKeyField(AffiliationRecord, related_name="external_ids", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "affiliation_external_id"
+        table_alias = "aei"
 
 
 class OtherIdRecord(ExternalIdModel):
@@ -3816,6 +3864,7 @@ def create_tables():
             Task,
             Log,
             AffiliationRecord,
+            AffiliationExternalId,
             GroupIdRecord,
             OrgInvitation,
             Url,
@@ -3867,7 +3916,7 @@ def drop_tables():
               OrcidApiCall, OrcidAuthorizeCall, OtherIdRecord, FundingContributor, FundingInvitee,
               FundingRecord, PropertyRecord, PeerReviewInvitee, PeerReviewExternalId,
               PeerReviewRecord, WorkInvitee, WorkExternalId, WorkContributor, WorkRecord,
-              AffiliationRecord, ExternalId, Url, UserInvitation, Task, Organisation):
+              AffiliationRecord, AffiliationExternalId, ExternalId, Url, UserInvitation, Task, Organisation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)
