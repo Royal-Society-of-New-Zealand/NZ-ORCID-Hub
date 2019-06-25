@@ -39,6 +39,11 @@ logger.addHandler(logging.StreamHandler())
 
 EDU_CODES = {"student", "edu", "education"}
 EMP_CODES = {"faculty", "staff", "emp", "employment"}
+DIST_CODES = {"distinction", "dist"}
+INV_POS_CODES = {"invited position", "position"}
+QUA_CODES = {"qualification", "qua"}
+MEM_CODES = {"membership", "mem"}
+SER_CODES = {"service", "ser"}
 
 ENV = app.config.get("ENV")
 EXTERNAL_SP = app.config.get("EXTERNAL_SP")
@@ -537,7 +542,7 @@ def send_user_invitation(inviter,
                          course_or_role=None,
                          start_date=None,
                          end_date=None,
-                         affiliations=None,
+                         affiliations=Affiliation.NONE,
                          disambiguated_id=None,
                          disambiguation_source=None,
                          cc_email=None,
@@ -620,14 +625,12 @@ def send_user_invitation(inviter,
                 user=user)
 
         user.save()
-
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
         if user_org_created:
             user_org.created_by = inviter.id
-            if affiliations is None and affiliation_types:
-                affiliations = 0
+            if not affiliations and affiliation_types:
                 if affiliation_types & EMP_CODES:
-                    affiliations = Affiliation.EMP
+                    affiliations |= Affiliation.EMP
                 if affiliation_types & EDU_CODES:
                     affiliations |= Affiliation.EDU
             user_org.affiliations = affiliations
@@ -923,25 +926,28 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
     profile_record = api.get_record()
+    orcid_affiliation_types = [
+        "employment", "education", "distinction", "membership", "service", "qualification",
+        "invited-position"
+    ]
     if profile_record:
-        activities = profile_record.get("activities-summary")
 
-        employments = [
-            r for r in (activities.get("employments").get("employment-summary")) if is_org_rec(org, r)
-        ]
-        educations = [
-            r for r in (activities.get("educations").get("education-summary")) if is_org_rec(org, r)
-        ]
+        affiliations = {
+            at: [
+                s.get(f"{at}-summary") for ag in profile_record.get(
+                    "activities-summary", f"{at}s", "affiliation-group", default=[])
+                for s in ag.get("summaries", default=[])
+            ]
+            for at in orcid_affiliation_types
+        }
 
         taken_put_codes = {
             r.record.put_code
             for r in records if r.record.put_code
         }
-
-        edu_put_codes = [e["put-code"] for e in educations]
-        emp_put_codes = [e["put-code"] for e in employments]
+        put_codes = {at: [e["put-code"] for e in records] for at, records in affiliations.items()}
 
         def match_put_code(records, record):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
@@ -968,6 +974,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                                 "disambiguation-source") == record.disambiguation_source):
                     record.put_code = put_code
                     record.orcid = orcid
+                    record.visibility = r.get("visibility")
                     return True
 
                 if record.put_code:
@@ -980,6 +987,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     "department-name") is None and r.get("role-title") is None)
                     or (r.get("start-date") == start_date and r.get("department-name") == record.department
                         and r.get("role-title") == record.role)):
+                    record.visibility = r.get("visibility")
                     record.put_code = put_code
                     record.orcid = orcid
                     taken_put_codes.add(put_code)
@@ -995,54 +1003,48 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 no_orcid_call = False
 
                 if ar.delete_record and profile_record:
-                    if ar.put_code in emp_put_codes:
-                        affiliation = Affiliation.EMP
-                    elif ar.put_code in edu_put_codes:
-                        affiliation = Affiliation.EDU
-                    else:
-                        affiliation = None
-                    for a in employments:
-                        if a["put-code"] == ar.put_code:
-                            affiliation = Affiliation.EMP
-                            break
-                    if not affiliation:
-                        for a in employments:
-                            if a["put-code"] == ar.put_code:
-                                affiliation = Affiliation.EDU
-                                break
-
                     try:
-                        if affiliation:
-                            if affiliation == Affiliation.EDU:
-                                api.delete_education(user.orcid, ar.put_code)
-                            else:
-                                api.delete_employment(user.orcid, ar.put_code)
-                            ar.add_status_line(f"Record was sucessfully deleted.")
-                            app.logger.info(f"ORCID record of {user} with put-code {ar.put_code} was deleted.")
+                        for at in orcid_affiliation_types:
+                            if ar.put_code in put_codes[at]:
+                                getattr(api, f"delete_{at}v3")(user.orcid, ar.put_code)
+                                app.logger.info(
+                                    f"ORCID record of {user} with put-code {ar.put_code} was deleted."
+                                )
+                                break
                         else:
                             ar.add_status_line(
                                 f"There is no record with the given put-code {ar.put_code} in the user {user} profile."
                             )
                     except Exception as ex:
                         ar.add_status_line(f"Exception occured processing the record: {ex}.")
-                    ar.processed_at = datetime.utcnow()
-                    ar.save()
-                    continue
+                        ar.processed_at = datetime.utcnow()
+                        ar.save()
+                        continue
 
                 if at in EMP_CODES:
-                    no_orcid_call = match_put_code(employments, ar)
                     affiliation = Affiliation.EMP
+                elif at in DIST_CODES:
+                    affiliation = Affiliation.DIST
+                elif at in MEM_CODES:
+                    affiliation = Affiliation.MEM
+                elif at in SER_CODES:
+                    affiliation = Affiliation.SER
+                elif at in QUA_CODES:
+                    affiliation = Affiliation.QUA
+                elif at in INV_POS_CODES:
+                    affiliation = Affiliation.POS
                 elif at in EDU_CODES:
-                    no_orcid_call = match_put_code(educations, ar)
                     affiliation = Affiliation.EDU
                 else:
                     logger.info(f"For {user} not able to determine affiliaton type with {org}")
                     ar.add_status_line(
-                        f"Unsupported affiliation type '{at}' allowed values are: " + ', '.join(
-                            at for at in AFFILIATION_TYPES))
+                        f"Unsupported affiliation type '{at}' allowed values are: "
+                        ', '.join(at for at in AFFILIATION_TYPES))
                     ar.save()
                     continue
 
+                no_orcid_call = any(
+                    match_put_code(affiliations[at], ar) for at in orcid_affiliation_types)
                 if no_orcid_call:
                     ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:
@@ -1066,42 +1068,38 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 ar.save()
     else:
         for task_by_user in records:
-            user = User.get(
-                email=task_by_user.record.email, organisation=task_by_user.org)
+            user = User.get(email=task_by_user.record.email, organisation=task_by_user.org)
             user_org = UserOrg.get(user=user, org=task_by_user.org)
             token = new_invitation_token()
             with app.app_context():
-                invitation_url = flask.url_for(
-                    "orcid_login",
-                    invitation_token=token,
-                    _external=True,
-                    _scheme="http" if app.debug else "https")
-                send_email(
-                    "email/researcher_reinvitation.html",
-                    recipient=(user.organisation.name, user.email),
-                    reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
-                    invitation_url=invitation_url,
-                    org_name=user.organisation.name,
-                    org=org,
-                    user=user)
-            UserInvitation.create(
-                invitee_id=user.id,
-                inviter_id=task_by_user.created_by.id,
-                org=org,
-                email=user.email,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                orcid=user.orcid,
-                organisation=org.name,
-                city=org.city,
-                state=org.state,
-                country=org.country,
-                start_date=task_by_user.record.start_date,
-                end_date=task_by_user.record.end_date,
-                affiliations=user_org.affiliations,
-                disambiguated_id=org.disambiguated_id,
-                disambiguation_source=org.disambiguation_source,
-                token=token)
+                invitation_url = flask.url_for("orcid_login",
+                                               invitation_token=token,
+                                               _external=True,
+                                               _scheme="http" if app.debug else "https")
+                send_email("email/researcher_reinvitation.html",
+                           recipient=(user.organisation.name, user.email),
+                           reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
+                           invitation_url=invitation_url,
+                           org_name=user.organisation.name,
+                           org=org,
+                           user=user)
+            UserInvitation.create(invitee_id=user.id,
+                                  inviter_id=task_by_user.created_by.id,
+                                  org=org,
+                                  email=user.email,
+                                  first_name=user.first_name,
+                                  last_name=user.last_name,
+                                  orcid=user.orcid,
+                                  organisation=org.name,
+                                  city=org.city,
+                                  state=org.state,
+                                  country=org.country,
+                                  start_date=task_by_user.record.start_date,
+                                  end_date=task_by_user.record.end_date,
+                                  affiliations=user_org.affiliations,
+                                  disambiguated_id=org.disambiguated_id,
+                                  disambiguation_source=org.disambiguation_source,
+                                  token=token)
 
             status = "Exception occured while accessing user's profile. " \
                      "Hence, The invitation resent at " + datetime.utcnow().isoformat(timespec="seconds")
@@ -2109,7 +2107,7 @@ def sync_profile(task_id, delay=0.1):
     org = task.org
     if not org.disambiguated_id:
         return
-    api = orcid_client.MemberAPI(org=org)
+    api = orcid_client.MemberAPIV3(org=org)
     count = 0
     for u in task.org.users.select(User, OrcidToken.access_token.alias("access_token")).where(
             User.orcid.is_null(False)).join(

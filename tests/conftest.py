@@ -171,7 +171,7 @@ def app():
     with test_database(
             _db,
         (File, Organisation, User, UserOrg, OrcidToken, OrcidApiCall, UserOrgAffiliation, OrgInfo, Task, Log,
-         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitee, GroupIdRecord,
+         AffiliationRecord, AffiliationExternalId, FundingRecord, FundingContributor, FundingInvitee, GroupIdRecord,
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
          Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitee, PeerReviewRecord,
          PeerReviewInvitee, PeerReviewExternalId, PropertyRecord, OrcidApiCall,

@@ -45,8 +45,8 @@ from .forms import (AddressForm, ApplicationFrom, BitmapMultipleValueField, Cred
                     RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm,
                     validate_orcid_id_field)
 from .login_provider import roles_required
-from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
+from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId, CharField, Client, Delegate,
+                     ExternalId, FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
                      Grant, GroupIdRecord, ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
                      Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
@@ -1679,7 +1679,7 @@ class ViewMembersAdmin(AppModelView):
             flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'danger')
 
     @action(
-        "export_affiations", "Expoert Affiliation Records",
+        "export_affiliations", "Export Affiliation Records",
         "Are you sure you want to retrieve and export selected records affiliation entries from ORCID?"
     )
     def action_export_affiliations(self, ids):
@@ -1695,7 +1695,7 @@ class ViewMembersAdmin(AppModelView):
         for t in tokens:
 
             try:
-                api = orcid_client.MemberAPI(user=t.user, access_token=t.access_token)
+                api = orcid_client.MemberAPIV3(user=t.user, access_token=t.access_token)
                 profile = api.get_record()
                 if not profile:
                     continue
@@ -1711,11 +1711,9 @@ class ViewMembersAdmin(AppModelView):
                 abort(500, ex)
 
             records = itertools.chain(
-                records,
-                [(t.user, r)
-                 for r in profile.get("activities-summary", "employments", "employment-summary")],
-                [(t.user, r)
-                 for r in profile.get("activities-summary", "educations", "education-summary")])
+                *[[(t.user, s.get(f"{rt}-summary")) for ag in
+                   profile.get("activities-summary", f"{rt}s", "affiliation-group", default=[])
+                   for s in ag.get("summaries")] for rt in ["employment", "education"]])
 
         # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
         class Echo(object):
@@ -1853,6 +1851,7 @@ admin.add_view(OrgInvitationAdmin())
 
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
+admin.add_view(RecordChildAdmin(AffiliationExternalId))
 admin.add_view(FundingRecordAdmin())
 admin.add_view(RecordChildAdmin(FundingContributor))
 admin.add_view(InviteeAdmin(FundingInvitee))
@@ -1992,7 +1991,11 @@ def delete_record(user_id, section_type, put_code):
             flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to delete this record", "warning")
             return redirect(_url)
 
-    api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
+    # Gradually mirgating to v3.x
+    if section_type in ["EDU", "EMP"]:
+        api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
+    else:
+        api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
     try:
         api.delete_section(section_type, put_code)
@@ -2041,7 +2044,11 @@ def edit_record(user_id, section_type, put_code=None):
             "permission to you to Add/Update these records", "warning")
         return redirect(_url)
 
-    api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
+    # Gradually mirgating to v3.x
+    if section_type in ["EDU", "EMP"]:
+        api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
+    else:
+        api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
     if section_type == "FUN":
         form = FundingForm(form_type=section_type)
@@ -2067,11 +2074,11 @@ def edit_record(user_id, section_type, put_code=None):
             try:
                 # Fetch an Employment
                 if section_type == "EMP":
-                    api_response = api.view_employment(user.orcid, put_code)
+                    api_response = api.view_employmentv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "EDU":
-                    api_response = api.view_education(user.orcid, put_code)
+                    api_response = api.view_educationv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "FUN":
-                    api_response = api.view_funding(user.orcid, put_code)
+                    api_response = api.view_funding(user.orcid, put_code, _preload_content=False)
                 elif section_type == "WOR":
                     api_response = api.view_work(user.orcid, put_code)
                 elif section_type == "PRR":
@@ -2087,10 +2094,10 @@ def edit_record(user_id, section_type, put_code=None):
                 elif section_type == "KWR":
                     api_response = api.view_keyword(user.orcid, put_code, _preload_content=False)
 
-                if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
-                    _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
-                else:
+                if section_type in ["WOR", "PRR"]:
                     _data = api_response.to_dict()
+                else:
+                    _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
 
                 if section_type == "PRR" or section_type == "WOR":
 
@@ -2106,7 +2113,7 @@ def edit_record(user_id, section_type, put_code=None):
                         external_id_relationship = extid['external-id-relationship'] if extid[
                             'external-id-relationship'] else ''
                         external_id_type = extid['external-id-type'] if extid[
-                            'external-id-relationship'] else ''
+                            'external-id-type'] else ''
 
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
                                                     grant_relationship=external_id_relationship,
@@ -2178,50 +2185,47 @@ def edit_record(user_id, section_type, put_code=None):
                         data.update(dict(content=_data.get("content")))
                 else:
                     data = dict(
-                        org_name=get_val(_data, "organization", "name"),
-                        disambiguated_id=get_val(
-                            _data, "organization", "disambiguated_organization",
-                            "disambiguated_organization_identifier"),
-                        disambiguation_source=get_val(
-                            _data, "organization", "disambiguated_organization",
-                            "disambiguation_source"),
-                        city=get_val(_data, "organization", "address", "city"),
-                        state=get_val(_data, "organization", "address", "region"),
-                        country=get_val(_data, "organization", "address", "country"),
-                        department=_data.get("department_name", ""),
-                        role=_data.get("role_title", ""),
-                        start_date=PartialDate.create(_data.get("start_date")),
-                        end_date=PartialDate.create(_data.get("end_date")))
+                        org_name=_data.get("organization", "name"),
+                        disambiguated_id=_data.get("organization", "disambiguated-organization",
+                                                   "disambiguated-organization-identifier"),
+                        disambiguation_source=_data.get("organization", "disambiguated-organization",
+                                                        "disambiguation-source"),
+                        city=_data.get("organization", "address", "city"),
+                        state=_data.get("organization", "address", "region"),
+                        country=_data.get("organization", "address", "country"),
+                        department=_data.get("department-name"),
+                        role=_data.get("role-title"),
+                        start_date=PartialDate.create(_data.get("start-date")),
+                        end_date=PartialDate.create(_data.get("end-date")))
 
                     if section_type == "FUN":
-                        external_ids_list = get_val(_data, "external_ids", "external_id")
+                        external_ids_list = _data.get("external-ids", "external-id")
 
                         for extid in external_ids_list:
-                            external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
-                            external_id_url = get_val(extid['external_id_url'], "value") if get_val(
-                                extid['external_id_url'], "value") else ''
-                            external_id_relationship = extid['external_id_relationship'] if extid[
-                                'external_id_relationship'] else ''
-                            external_id_type = extid['external_id_type'] if extid[
-                                'external_id_relationship'] else ''
+                            external_id_value = extid.get('external-id-value') if extid.get('external-id-value') else ''
+                            external_id_url = extid.get('external-id-url', 'value') if extid.get(
+                                'external-id-url', 'value') else ''
+                            external_id_relationship = extid.get('external-id-relationship') if extid.get(
+                                'external-id-relationship') else ''
+                            external_id_type = extid.get('external-id-type') if extid.get('external-id-type') else ''
 
                             grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
                                                         grant_relationship=external_id_relationship,
                                                         grant_type=external_id_type))
 
-                        data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
-                                         funding_translated_title=get_val(_data, "title", "translated_title", "value"),
-                                         translated_title_language=get_val(_data, "title", "translated_title",
-                                                                           "language_code"),
-                                         funding_type=get_val(_data, "type"),
-                                         funding_subtype=get_val(_data, "organization_defined_type", "value"),
-                                         funding_description=get_val(_data, "short_description"),
-                                         total_funding_amount=get_val(_data, "amount", "value"),
-                                         total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
+                        data.update(dict(funding_title=_data.get("title", "title", "value"),
+                                         funding_translated_title=_data.get("title", "translated-title", "value"),
+                                         translated_title_language=_data.get("title", "translated-title",
+                                                                             "language-code"),
+                                         funding_type=_data.get("type"),
+                                         funding_subtype=_data.get("organization-defined-type", "value"),
+                                         funding_description=_data.get("short-description"),
+                                         total_funding_amount=_data.get("amount", "value"),
+                                         total_funding_amount_currency=_data.get("amount", "currency-code")))
 
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-                app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
+                app.logger.error(f"Exception when calling ORCID API: {message}")
             except Exception as ex:
                 app.logger.exception(
                     "Unhandler error occured while creating or editing a profile record.")
@@ -2394,7 +2398,7 @@ def section(user_id, section_type="EMP"):
                     token=token)
 
                 utils.send_email(
-                    "email/person_update_invitation.html",
+                    "email/property_invitation.html",
                     invitation=ui,
                     invitation_url=invitation_url,
                     recipient=(current_user.organisation.name, user.email),
@@ -2999,7 +3003,7 @@ def invite_user():
                 & (OrcidToken.scopes.contains("/activities/update"))).exists()):
             try:
                 if affiliations & (Affiliation.EMP | Affiliation.EDU):
-                    api = orcid_client.MemberAPI(org, invited_user)
+                    api = orcid_client.MemberAPIV3(org, invited_user)
                     params = {f.name: f.data for f in form if f.data != ""}
                     for a in Affiliation:
                         if a & affiliations:

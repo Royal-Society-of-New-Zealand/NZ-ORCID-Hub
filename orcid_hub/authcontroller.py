@@ -686,7 +686,7 @@ def orcid_callback():
                     user.organisation, scope_list)
 
     if scopes.ACTIVITIES_UPDATE in scope_list and orcid_token_found:
-        api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
+        api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
 
         for a in Affiliation:
 
@@ -1170,6 +1170,8 @@ def orcid_login_callback(request):
 
         if not user.orcid and orcid_id:
             user.orcid = orcid_id
+            if org:
+                user.organisation = org
             if user.organisation.webhook_enabled:
                 register_orcid_webhook.queue(user)
         elif user.orcid != orcid_id and email:
@@ -1271,7 +1273,7 @@ def orcid_login_callback(request):
 
                 try:
                     if invitation.affiliations & (Affiliation.EMP | Affiliation.EDU):
-                        api = orcid_client.MemberAPI(org, user)
+                        api = orcid_client.MemberAPIV3(org, user)
                         params = {k: v for k, v in invitation._data.items() if v != ""}
                         for a in Affiliation:
                             if a & invitation.affiliations:

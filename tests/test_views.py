@@ -1253,7 +1253,7 @@ def test_invite_user(client):
         assert b"test123@test.test.net" in resp.data
         queue_send_user_invitation.assert_called_once()
 
-    with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
+    with patch("orcid_hub.orcid_client.MemberAPIV3") as m, patch(
             "orcid_hub.orcid_client.SourceClientId"):
         OrcidToken.create(
             access_token="ACCESS123",
@@ -1564,9 +1564,9 @@ def test_affiliation_deletion_task(client, mocker):
     records = list(task.records)
     assert len(records) == len(content.split('\n')) - 1
 
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile(org=org, user=user))
-    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_education")
-    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_employment")
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org=org, user=user))
+    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.delete_educationv3")
+    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.delete_employmentv3")
     resp = client.post(
         "/admin/affiliationrecord/action/",
         follow_redirects=True,
@@ -1643,7 +1643,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
         f"/admin/affiliationrecord/new/?url={url}",
         follow_redirects=True,
         data={
-            "external_id": "EX1234567890",
+            "local_id": "EX1234567890",
             "first_name": "TEST FN",
             "last_name": "TEST LN",
             "email": "test@test.test.test.org",
@@ -2197,25 +2197,25 @@ def test_edit_record(request_ctx):
                       access_token="ABC1234",
                       scopes="/read-limited,/person/update")
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_employment",
+            orcid_client.MemberAPIV3,
+            "view_employmentv3",
             MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
     ) as view_employment, request_ctx(f"/section/{user.id}/EMP/1212/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_employment.assert_called_once_with(user.orcid, 1212)
+        view_employment.assert_called_once_with(user.orcid, 1212, _preload_content=False)
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_education",
+            orcid_client.MemberAPIV3,
+            "view_educationv3",
             MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
     ) as view_education, request_ctx(f"/section/{user.id}/EDU/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_education.assert_called_once_with(user.orcid, 1234)
+        view_education.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_funding",
@@ -2227,7 +2227,7 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_funding.assert_called_once_with(user.orcid, 1234)
+        view_funding.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
         orcid_client.MemberAPIV20Api,
         "view_peer_review",
@@ -2283,7 +2283,7 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_keyword.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
-            orcid_client.MemberAPIV20Api, "create_education",
+            orcid_client.MemberAPIV3, "create_educationv3",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/EDU/new",
                 method="POST",
@@ -2291,6 +2291,8 @@ def test_edit_record(request_ctx):
                     "city": "Auckland",
                     "country": "NZ",
                     "org_name": "TEST",
+                    "disambiguation_source": "RINGGOLD",
+                    "disambiguated_id": "test"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2476,14 +2478,14 @@ def test_delete_profile_entries(client, mocker):
     token.save()
 
     delete_employment = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_employment",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_employmentv3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/EMP/12345/delete")
     assert resp.status_code == 302
     delete_employment.assert_called_once_with(user.orcid, 12345)
 
     delete_education = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_education",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_educationv3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/EDU/54321/delete")
     assert resp.status_code == 302
@@ -2788,7 +2790,7 @@ def test_reset_all(client):
     AffiliationRecord.create(
         is_active=True,
         task=task1,
-        external_id="Test",
+        local_id="Test",
         first_name="Test",
         last_name="Test",
         email="test1234456@mailinator.com",
@@ -2799,7 +2801,7 @@ def test_reset_all(client):
         department="Test",
         city="Test",
         state="Test",
-        country="Test",
+        country="NZ",
         disambiguated_id="Test",
         disambiguation_source="Test")
 
@@ -2823,7 +2825,7 @@ def test_reset_all(client):
         task=task2,
         title="Test titile",
         translated_title="Test title",
-        translated_title_language_code="Test",
+        translated_title_language_code="en",
         type="GRANT",
         organization_defined_type="Test org",
         short_description="Test desc",
@@ -2832,11 +2834,11 @@ def test_reset_all(client):
         org_name="Test_orgname",
         city="Test city",
         region="Test",
-        country="Test",
+        country="NZ",
         disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
         is_active=True,
-        visibility="Test_visibity")
+        visibility="self")
 
     task3 = Task.create(
         org=org,
@@ -3215,7 +3217,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
             "file_": (
                 BytesIO(
                     """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship
-THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
+THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD		2025	Royal Society Te Apārangi	Wellington		NZ	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
 THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900962	https://www.grant-url2.com	PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.tsv",
@@ -3279,7 +3281,7 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
             "file_": (
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
 
 """.encode()  # noqa: E501
                 ),  # noqa: E501
@@ -3330,7 +3332,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi, CONTRACT,MY TYPE,Minerals unde.,90
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -3347,7 +3349,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -4361,14 +4363,15 @@ def test_load_other_ids(client):
 
 def test_export_affiliations(client, mocker):
     """Test export of existing affiliation records."""
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
     client.login_root()
     resp = client.post("/admin/viewmembers/action/",
-                       data=dict(action="export_affiations",
+                       data=dict(action="export_affiliations",
                                  rowid=[
                                      u.id for u in User.select().join(Organisation).where(
                                          Organisation.orcid_client_id.is_null(False))
                                  ]))
+    assert b"First Name" in resp.data
     assert b"0000-0003-1255-9023" in resp.data
 
 
@@ -4378,12 +4381,12 @@ def test_delete_affiliations(client, mocker):
                                                 User.orcid.is_null(False)).first().user
     org = user.organisation
 
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile(org=org, user=user))
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org=org, user=user))
 
     admin = org.admins.first()
     client.login(admin)
     resp = client.post("/admin/viewmembers/action/",
-                       data=dict(action="export_affiations",
+                       data=dict(action="export_affiliations",
                                  rowid=[
                                      u.id for u in User.select().join(Organisation).where(
                                          Organisation.orcid_client_id.is_null(False))
@@ -4400,8 +4403,8 @@ def test_delete_affiliations(client, mocker):
     task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
     AffiliationRecord.update(delete_record=True).execute()
 
-    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_education")
-    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_employment")
+    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.delete_educationv3")
+    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.delete_employmentv3")
     resp = client.post(
         "/activate_all/?url=http://localhost/affiliation_record_activate_for_batch", data=dict(task_id=task_id))
     delete_education.assert_called()
