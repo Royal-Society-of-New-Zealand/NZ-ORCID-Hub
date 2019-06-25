@@ -2071,7 +2071,7 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
                            event_type="UPDATED", attempts=5):
     """Propagate 'updated' event to the organisation event handler URL."""
     url = app.config["ORCID_BASE_URL"] + orcid
-    if message is None:
+    if not message:
         message = {
             "orcid": orcid,
             "url": url,
@@ -2094,6 +2094,7 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
         if attempts > 0:
             invoke_webhook_handler.schedule(timedelta(minutes=5 *
                                                       (6 - attempts) if attempts < 6 else 5),
+                                            orcid=orcid,
                                             message=message,
                                             attempts=attempts - 1)
     return resp
