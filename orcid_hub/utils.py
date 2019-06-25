@@ -1004,17 +1004,14 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
                 if ar.delete_record and profile_record:
                     try:
-                        record_deleted = False
                         for at in orcid_affiliation_types:
                             if ar.put_code in put_codes[at]:
                                 getattr(api, f"delete_{at}v3")(user.orcid, ar.put_code)
                                 app.logger.info(
                                     f"ORCID record of {user} with put-code {ar.put_code} was deleted."
                                 )
-                                record_deleted = True
                                 break
-
-                        if not record_deleted:
+                        else:
                             ar.add_status_line(
                                 f"There is no record with the given put-code {ar.put_code} in the user {user} profile."
                             )
