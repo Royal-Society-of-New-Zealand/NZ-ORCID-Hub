@@ -173,11 +173,16 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
 
     def as_orcid_dict(self):
         """Return ORCID dictionary representation of the partial date."""
-        if self.year is None and self.month is None and self.day is None:
+        if self.is_null:
             return None
         return dict(((f, None if v is None else {
             "value": ("%04d" if f == "year" else "%02d") % v
         }) for (f, v) in zip(self._fields, self)))
+
+    @property
+    def is_null(self):
+        """Test if if the date is undefined."""
+        return self.year is None and self.month is None and self.day is None
 
     @classmethod
     def create(cls, value):

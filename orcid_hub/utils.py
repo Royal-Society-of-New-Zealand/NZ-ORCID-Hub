@@ -928,64 +928,26 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     org = Organisation.get(id=org_id)
     api = orcid_client.MemberAPIV3(org, user)
     profile_record = api.get_record()
+    orcid_affiliation_types = [
+        "employment", "education", "distinction", "membership", "service", "qualification",
+        "invited-position"
+    ]
     if profile_record:
-        activities = profile_record.get("activities-summary")
 
-        employments = []
-        educations = []
-        distinctions = []
-        invited_positions = []
-        qualifications = []
-        memberships = []
-        services = []
-
-        for r in activities.get("employments").get("affiliation-group"):
-            es = r.get("summaries")[0].get("employment-summary")
-            if is_org_rec(org, es):
-                employments.append(es)
-
-        for r in activities.get("educations").get("affiliation-group"):
-            es = r.get("summaries")[0].get("education-summary")
-            if is_org_rec(org, es):
-                educations.append(es)
-
-        for r in activities.get("distinctions").get("affiliation-group"):
-            es = r.get("summaries")[0].get("distinction-summary")
-            if is_org_rec(org, es):
-                distinctions.append(es)
-
-        for r in activities.get("memberships").get("affiliation-group"):
-            es = r.get("summaries")[0].get("membership-summary")
-            if is_org_rec(org, es):
-                memberships.append(es)
-
-        for r in activities.get("services").get("affiliation-group"):
-            es = r.get("summaries")[0].get("service-summary")
-            if is_org_rec(org, es):
-                services.append(es)
-
-        for r in activities.get("qualifications").get("affiliation-group"):
-            es = r.get("summaries")[0].get("qualification-summary")
-            if is_org_rec(org, es):
-                qualifications.append(es)
-
-        for r in activities.get("invited-positions").get("affiliation-group"):
-            es = r.get("summaries")[0].get("invited-position-summary")
-            if is_org_rec(org, es):
-                invited_positions.append(es)
+        affiliations = {
+            at: [
+                s.get(f"{at}-summary") for ag in profile_record.get(
+                    "activities-summary", f"{at}s", "affiliation-group", default=[])
+                for s in ag.get("summaries", default=[])
+            ]
+            for at in orcid_affiliation_types
+        }
 
         taken_put_codes = {
             r.record.put_code
             for r in records if r.record.put_code
         }
-
-        edu_put_codes = [e["put-code"] for e in educations]
-        emp_put_codes = [e["put-code"] for e in employments]
-        dist_put_codes = [e["put-code"] for e in distinctions]
-        qua_put_codes = [e["put-code"] for e in qualifications]
-        mem_put_codes = [e["put-code"] for e in memberships]
-        ser_put_codes = [e["put-code"] for e in services]
-        invited_pos_put_codes = [e["put-code"] for e in invited_positions]
+        put_codes = {at: [e["put-code"] for e in records] for at, records in affiliations.items()}
 
         def match_put_code(records, record):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
@@ -1041,89 +1003,51 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 no_orcid_call = False
 
                 if ar.delete_record and profile_record:
-                    if ar.put_code in emp_put_codes:
-                        affiliation = Affiliation.EMP
-                    elif ar.put_code in dist_put_codes:
-                        affiliation = Affiliation.DIST
-                    elif ar.put_code in mem_put_codes:
-                        affiliation = Affiliation.MEM
-                    elif ar.put_code in ser_put_codes:
-                        affiliation = Affiliation.SER
-                    elif ar.put_code in invited_pos_put_codes:
-                        affiliation = Affiliation.POS
-                    elif ar.put_code in qua_put_codes:
-                        affiliation = Affiliation.QUA
-                    elif ar.put_code in edu_put_codes:
-                        affiliation = Affiliation.EDU
-                    else:
-                        affiliation = None
-                    for a in employments:
-                        if a["put-code"] == ar.put_code:
-                            affiliation = Affiliation.EMP
-                            break
-                    if not affiliation:
-                        for a in educations:
-                            if a["put-code"] == ar.put_code:
-                                affiliation = Affiliation.EDU
+                    try:
+                        record_deleted = False
+                        for at in orcid_affiliation_types:
+                            if ar.put_code in put_codes[at]:
+                                getattr(api, f"delete_{at}v3")(user.orcid, ar.put_code)
+                                app.logger.info(
+                                    f"ORCID record of {user} with put-code {ar.put_code} was deleted."
+                                )
+                                record_deleted = True
                                 break
 
-                    try:
-                        if affiliation:
-                            if affiliation == Affiliation.EDU:
-                                api.delete_educationv3(user.orcid, ar.put_code)
-                            elif affiliation == Affiliation.DIST:
-                                api.delete_distinctionv3(user.orcid, ar.put_code)
-                            elif affiliation == Affiliation.MEM:
-                                api.delete_membershipv3(user.orcid, ar.put_code)
-                            elif affiliation == Affiliation.SER:
-                                api.delete_servicev3(user.orcid, ar.put_code)
-                            elif affiliation == Affiliation.QUA:
-                                api.delete_qualificationv3(user.orcid, ar.put_code)
-                            elif affiliation == Affiliation.POS:
-                                api.delete_invited_positionv3(user.orcid, ar.put_code)
-                            else:
-                                api.delete_employmentv3(user.orcid, ar.put_code)
-                            ar.add_status_line(f"Record was sucessfully deleted.")
-                            app.logger.info(f"ORCID record of {user} with put-code {ar.put_code} was deleted.")
-                        else:
+                        if not record_deleted:
                             ar.add_status_line(
                                 f"There is no record with the given put-code {ar.put_code} in the user {user} profile."
                             )
                     except Exception as ex:
                         ar.add_status_line(f"Exception occured processing the record: {ex}.")
-                    ar.processed_at = datetime.utcnow()
-                    ar.save()
-                    continue
+                        ar.processed_at = datetime.utcnow()
+                        ar.save()
+                        continue
 
                 if at in EMP_CODES:
-                    no_orcid_call = match_put_code(employments, ar)
                     affiliation = Affiliation.EMP
                 elif at in DIST_CODES:
-                    no_orcid_call = match_put_code(distinctions, ar)
                     affiliation = Affiliation.DIST
                 elif at in MEM_CODES:
-                    no_orcid_call = match_put_code(memberships, ar)
                     affiliation = Affiliation.MEM
                 elif at in SER_CODES:
-                    no_orcid_call = match_put_code(services, ar)
                     affiliation = Affiliation.SER
                 elif at in QUA_CODES:
-                    no_orcid_call = match_put_code(qualifications, ar)
                     affiliation = Affiliation.QUA
                 elif at in INV_POS_CODES:
-                    no_orcid_call = match_put_code(invited_positions, ar)
                     affiliation = Affiliation.POS
                 elif at in EDU_CODES:
-                    no_orcid_call = match_put_code(educations, ar)
                     affiliation = Affiliation.EDU
                 else:
                     logger.info(f"For {user} not able to determine affiliaton type with {org}")
                     ar.add_status_line(
-                        f"Unsupported affiliation type '{at}' allowed values are: " + ', '.join(
-                            at for at in AFFILIATION_TYPES))
+                        f"Unsupported affiliation type '{at}' allowed values are: "
+                        ', '.join(at for at in AFFILIATION_TYPES))
                     ar.save()
                     continue
 
+                no_orcid_call = any(
+                    match_put_code(affiliations[at], ar) for at in orcid_affiliation_types)
                 if no_orcid_call:
                     ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:
@@ -1147,42 +1071,38 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 ar.save()
     else:
         for task_by_user in records:
-            user = User.get(
-                email=task_by_user.record.email, organisation=task_by_user.org)
+            user = User.get(email=task_by_user.record.email, organisation=task_by_user.org)
             user_org = UserOrg.get(user=user, org=task_by_user.org)
             token = new_invitation_token()
             with app.app_context():
-                invitation_url = flask.url_for(
-                    "orcid_login",
-                    invitation_token=token,
-                    _external=True,
-                    _scheme="http" if app.debug else "https")
-                send_email(
-                    "email/researcher_reinvitation.html",
-                    recipient=(user.organisation.name, user.email),
-                    reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
-                    invitation_url=invitation_url,
-                    org_name=user.organisation.name,
-                    org=org,
-                    user=user)
-            UserInvitation.create(
-                invitee_id=user.id,
-                inviter_id=task_by_user.created_by.id,
-                org=org,
-                email=user.email,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                orcid=user.orcid,
-                organisation=org.name,
-                city=org.city,
-                state=org.state,
-                country=org.country,
-                start_date=task_by_user.record.start_date,
-                end_date=task_by_user.record.end_date,
-                affiliations=user_org.affiliations,
-                disambiguated_id=org.disambiguated_id,
-                disambiguation_source=org.disambiguation_source,
-                token=token)
+                invitation_url = flask.url_for("orcid_login",
+                                               invitation_token=token,
+                                               _external=True,
+                                               _scheme="http" if app.debug else "https")
+                send_email("email/researcher_reinvitation.html",
+                           recipient=(user.organisation.name, user.email),
+                           reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
+                           invitation_url=invitation_url,
+                           org_name=user.organisation.name,
+                           org=org,
+                           user=user)
+            UserInvitation.create(invitee_id=user.id,
+                                  inviter_id=task_by_user.created_by.id,
+                                  org=org,
+                                  email=user.email,
+                                  first_name=user.first_name,
+                                  last_name=user.last_name,
+                                  orcid=user.orcid,
+                                  organisation=org.name,
+                                  city=org.city,
+                                  state=org.state,
+                                  country=org.country,
+                                  start_date=task_by_user.record.start_date,
+                                  end_date=task_by_user.record.end_date,
+                                  affiliations=user_org.affiliations,
+                                  disambiguated_id=org.disambiguated_id,
+                                  disambiguation_source=org.disambiguation_source,
+                                  token=token)
 
             status = "Exception occured while accessing user's profile. " \
                      "Hence, The invitation resent at " + datetime.utcnow().isoformat(timespec="seconds")

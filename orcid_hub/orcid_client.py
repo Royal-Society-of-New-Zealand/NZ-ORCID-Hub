@@ -111,14 +111,15 @@ class MemberAPIMixin:
             OrcidToken.org_id == self.org.id,
             OrcidToken.scopes.contains(scopes)).first()
 
-    def set_config(self, org=None, user=None, access_token=None, version=DEFAULT_VERSION):
+    def set_config(self, org=None, user=None, access_token=None, version=None):
         """Set up clietn configuration."""
         # global configuration
         if org is None:
             org = user.organisation
         self.org = org
         self.user = user
-        self.version = version
+        if version:
+            self.version = version
 
         url = urlparse(ORCID_BASE_URL)
         self.source_clientid = SourceClientId(
@@ -1124,21 +1125,16 @@ class MemberAPIMixin:
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
             disambiguation_source=disambiguation_source) if disambiguation_source else None
 
-        if affiliation == Affiliation.EMP:
-            rec = v3.EmploymentV30()
-        elif affiliation == Affiliation.EDU:
-            rec = v3.EducationV30()
-        elif affiliation == Affiliation.DIST:
-            rec = v3.DistinctionV30()
-        elif affiliation == Affiliation.MEM:
-            rec = v3.MembershipV30()
-        elif affiliation == Affiliation.SER:
-            rec = v3.ServiceV30()
-        elif affiliation == Affiliation.QUA:
-            rec = v3.QualificationV30()
-        elif affiliation == Affiliation.POS:
-            rec = v3.InvitedPositionV30()
-        else:
+        rec = {
+            Affiliation.DIST: v3.DistinctionV30,
+            Affiliation.EDU: v3.EducationV30,
+            Affiliation.EMP: v3.EmploymentV30,
+            Affiliation.MEM: v3.MembershipV30,
+            Affiliation.POS: v3.InvitedPositionV30,
+            Affiliation.QUA: v3.QualificationV30,
+            Affiliation.SER: v3.ServiceV30,
+        }.get(affiliation)()
+        if not rec:
             app.logger.info(
                 f"For {self.user} not able to determine affiliaton type with {self.org}")
             raise Exception(
@@ -1164,32 +1160,23 @@ class MemberAPIMixin:
         rec.department_name = department
         rec.role_title = role or course_or_role
 
-        if start_date and start_date.as_orcid_dict():
+        if start_date and not start_date.is_null:
             rec.start_date = start_date.as_orcid_dict()
-        if end_date and end_date.as_orcid_dict():
+        if end_date and not end_date.is_null:
             rec.end_date = end_date.as_orcid_dict()
 
         if id:
-            external_id_list = []
-            external_ids = AffiliationExternalId.select().where(AffiliationExternalId.record_id == id).order_by(
-                AffiliationExternalId.id)
-
-            for exi in external_ids:
-                external_id_type = exi.type
-                external_id_value = exi.value
-                external_id_url = None
-                if exi.url:
-                    external_id_url = v3.UrlV30(value=exi.url)  # noqa: F405
-                # Currently ORCID is not supporting external_id_relationship in upper case
-                external_id_relationship = exi.relationship.replace('_', '-').lower() if exi.relationship else None
-                external_id_list.append(
-                    v3.ExternalIDV30(  # noqa: F405
-                        external_id_type=external_id_type,
-                        external_id_value=external_id_value,
-                        external_id_url=external_id_url,
-                        external_id_relationship=external_id_relationship))
-
-            rec.external_ids = v3.ExternalIDsV30(external_id=external_id_list)  # noqa: F405
+            external_ids = [
+                v3.ExternalIDV30(  # noqa: F405
+                    external_id_type=eid.type,
+                    external_id_value=eid.value,
+                    external_id_url=v3.UrlV30(value=eid.url) if eid.url else None,
+                    external_id_relationship=eid.relationship.replace('_', '-').lower()
+                    if eid.relationship else None) for eid in AffiliationExternalId.select().where(
+                        AffiliationExternalId.record_id == id).order_by(AffiliationExternalId.id)
+            ]
+            if external_ids:
+                rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
         try:
             if affiliation == Affiliation.EMP:
@@ -1481,7 +1468,7 @@ class MemberAPIMixin:
 
     def sync_profile(self, task, user, access_token):
         """Synchronize the user profile."""
-        self.set_config(user=user, org=self.org, access_token=access_token, version=self.version)
+        self.set_config(user=user, org=self.org, access_token=access_token)
         profile = self.get_record()
 
         if not profile:
@@ -1492,13 +1479,11 @@ class MemberAPIMixin:
             ["educations", "education-summary"],
             ["employments", "employment-summary"],
         ]:
-            entries = []
-            affiliation_group = profile.get("activities-summary", k, "affiliation-group")
-            for a in affiliation_group:
-                entries.append(a.get("summaries")[0].get(s))
-            if not entries:
-                continue
-            for e in entries:
+            for e in (
+                    ss.get(s)
+                    for ag in profile.get("activities-summary", k, "affiliation-group", default=[])
+                    for ss in ag.get("summaries", default=[])
+            ):
                 source = e.get("source")
                 if not source:
                     continue
