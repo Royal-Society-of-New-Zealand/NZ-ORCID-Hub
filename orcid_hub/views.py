@@ -2443,11 +2443,11 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     if section_type in ["FUN", "PRR", "WOR"]:
-        records = (fs for g in data.get("group", default=[]) for fs in g.get({
+        records = (fs for g in data.get("group") for fs in g.get({
             "FUN": "funding-summary",
             "WOR": "work-summary",
             "PRR": "peer-review-summary",
-        }[section_type]))
+        }[section_type])) if data.get("group") else None
     else:
         records = data.get({
             "EDU": "education-summary",
