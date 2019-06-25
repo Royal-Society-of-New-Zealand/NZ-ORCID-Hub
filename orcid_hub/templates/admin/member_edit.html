@@ -1,0 +1,8 @@
+{% extends "admin/model/edit.html" %}
+{% from "macros.html" import section_button_group %}
+{% block edit_form %}
+  <div class="container" style="padding-top:10px" >
+    {{ section_button_group(model.id, url=return_url) }}
+    {{ super() }}
+  </div>
+{% endblock %}

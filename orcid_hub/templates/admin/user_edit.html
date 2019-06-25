@@ -132,17 +132,17 @@ var vm = new Vue({
           break;
         }
       }
-      axios.post("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", org);
+      axios.post("{{ url_for('user_orgs_org', user_id=model.id) }}", org);
     },
     change: function(user_org) {
-      axios.put("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", user_org);
+      axios.put("{{ url_for('user_orgs_org', user_id=model.id) }}", user_org);
     },
     delete_org: function(org_id) {
       for (var i in this.user_orgs) {
         if (this.user_orgs[i].id == org_id) {
           var org = this.user_orgs.splice(i, 1).pop();
           this.available_orgs.push(org);
-          axios.delete( "{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}" + org_id);
+          axios.delete( "{{ url_for('user_orgs_org', user_id=model.id) }}" + org_id);
           break;
         }
       }

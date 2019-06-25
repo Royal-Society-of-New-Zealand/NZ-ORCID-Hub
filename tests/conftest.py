@@ -151,6 +151,12 @@ def no_mailing(mocker):
     yield mocker.patch("emails.html")
 
 
+@pytest.fixture(autouse=True)
+def no_sentry(mocker):
+    """Subpress sentry."""
+    yield mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+
+
 @pytest.fixture
 def app():
     """Session-wide test `Flask` application."""
@@ -165,7 +171,7 @@ def app():
     with test_database(
             _db,
         (File, Organisation, User, UserOrg, OrcidToken, OrcidApiCall, UserOrgAffiliation, OrgInfo, Task, Log,
-         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitee, GroupIdRecord,
+         AffiliationRecord, AffiliationExternalId, FundingRecord, FundingContributor, FundingInvitee, GroupIdRecord,
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
          Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitee, PeerReviewRecord,
          PeerReviewInvitee, PeerReviewExternalId, PropertyRecord, OrcidApiCall,

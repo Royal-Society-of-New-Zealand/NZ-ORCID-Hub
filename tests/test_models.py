@@ -10,7 +10,7 @@ from playhouse.test_utils import test_database
 
 from orcid_hub import JSONEncoder
 from orcid_hub.models import (
-    Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
+    Affiliation, AffiliationRecord, AffiliationExternalId, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
     FundingContributor, FundingInvitee, FundingRecord, Log, ModelException, NestedDict, OrcidToken,
     Organisation, OrgInfo, OrcidApiCall, PartialDate, PartialDateField, PropertyRecord, PeerReviewExternalId,
     PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TaskTypeField,
@@ -31,8 +31,8 @@ def testdb():
     """
     _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with test_database(
-            _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo,
-                  OrcidToken, OrcidApiCall, UserOrgAffiliation, Task, AffiliationRecord, ExternalId,
+            _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo, OrcidToken,
+                  OrcidApiCall, UserOrgAffiliation, Task, AffiliationRecord, AffiliationExternalId, ExternalId,
                   FundingRecord, FundingContributor, FundingInvitee, WorkRecord, WorkContributor,
                   WorkExternalId, WorkInvitee, PropertyRecord, PeerReviewRecord, PeerReviewExternalId,
                   PeerReviewInvitee),
@@ -121,6 +121,14 @@ def models(testdb):
         country="Test_%d" % i,
         disambiguated_id="Test_%d" % i,
         disambiguation_source="Test_%d" % i) for i in range(10))).execute()
+
+    record = AffiliationRecord.get()
+    AffiliationExternalId.insert_many((dict(
+        record=record,
+        type="Test1_%d" % i,
+        value="Test1_%d" % i,
+        url="Test1_%d" % i,
+        relationship="Test1_%d" % i) for i in range(10))).execute()
 
     PropertyRecord.insert_many((dict(
         type="URL",
@@ -325,6 +333,7 @@ def test_test_database(models):
     assert User.select().count() == 63
     assert OrcidToken.select().count() == 60
     assert AffiliationRecord.select().count() == 10
+    assert AffiliationExternalId.select().count() == 10
     assert FundingRecord.select().count() == 10
     assert FundingContributor.select().count() == 10
     assert FundingInvitee.select().count() == 10
@@ -666,7 +675,7 @@ def test_validate_orcid_id():
     assert validate_orcid_id(None) is None
     assert validate_orcid_id(0) is None
     assert validate_orcid_id("") is None
-    assert validate_orcid_id("0000-0000-0000-00X3") is None
+    assert validate_orcid_id("0000-0000-0000-00X3") == "0000-0000-0000-00X3"
     with pytest.raises(ValueError):
         validate_orcid_id("123")
     with pytest.raises(ValueError):

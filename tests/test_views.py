@@ -378,116 +378,181 @@ def test_user_orcid_id_url():
     assert (views.user_orcid_id_url(u) == "")
 
 
-def test_show_record_section(request_ctx):
+def test_show_record_section(client, mocker):
     """Test to show selected record."""
-    admin = User.get(email="admin@test0.edu")
-    user = User.get(email="researcher100@test0.edu")
+    mocker.patch(
+        "urllib3.request.RequestMethods.request",
+        return_value=Mock(data=b'{"test": "TEST1234567890"}', status_code=200, status=200))
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    admin = User.get(email="admin@test1.edu")
+    user = User.get(email="researcher101@test1.edu")
+    org = admin.organisation
+
+    OrcidToken.delete().where(OrcidToken.user == user).execute()
     if not user.orcid:
         user.orcid = "XXXX-XXXX-XXXX-0001"
         user.save()
+    client.login(admin)
 
-    OrcidToken.create(user=user, org=user.organisation, access_token="ABC123")
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_external_identifiers",
+            return_value=Mock(data='{"test": "TEST1234567890"}')) as view_external_identifiers:
 
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_employments",
-            MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
-    ) as view_employments, request_ctx(f"/section/{user.id}/EMP/list") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert admin.email.encode() in resp.data
-        assert admin.name.encode() in resp.data
-        view_employments.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_educations",
-            MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
-    ) as view_educations, request_ctx(f"/section/{user.id}/EDU/list") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert admin.email.encode() in resp.data
-        assert admin.name.encode() in resp.data
-        view_educations.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_peer_reviews",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
-    ) as view_peer_reviews, request_ctx(f"/section/{user.id}/PRR/list") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert admin.email.encode() in resp.data
-        assert admin.name.encode() in resp.data
-        view_peer_reviews.assert_called_once_with("XXXX-XXXX-XXXX-0001")
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_works",
-        MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
-    ) as view_works, request_ctx(f"/section/{user.id}/WOR/list") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert admin.email.encode() in resp.data
-        assert admin.name.encode() in resp.data
-        view_works.assert_called_once_with("XXXX-XXXX-XXXX-0001")
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_fundings",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
-    ) as view_fundings, request_ctx(f"/section/{user.id}/FUN/list") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert admin.email.encode() in resp.data
-        assert admin.name.encode() in resp.data
-        view_fundings.assert_called_once_with("XXXX-XXXX-XXXX-0001")
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_researcher_urls",
-        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
-    ) as view_researcher_urls, request_ctx(f"/section/{user.id}/RUR/list") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert admin.email.encode() in resp.data
-        assert admin.name.encode() in resp.data
-        view_researcher_urls.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_other_names",
-        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
-    ) as view_other_names, request_ctx(f"/section/{user.id}/ONR/list") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert admin.email.encode() in resp.data
-        assert admin.name.encode() in resp.data
-        view_other_names.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_keywords",
-        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
-    ) as view_keywords, request_ctx(f"/section/{user.id}/KWR/list") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert admin.email.encode() in resp.data
-        assert admin.name.encode() in resp.data
-        view_keywords.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_external_identifiers",
-        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
-    ) as view_external_identifiers, patch("orcid_hub.utils.send_email") as send_email, request_ctx(
-        f"/section/{user.id}/EXR/list",
-        method="POST",
-    ) as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
+        resp = client.get(f"/section/{user.id}/EXR/list", follow_redirects=True)
+        assert b"User didn't give permissions to update his/her records" in resp.data
+
+        resp = client.post(f"/section/{user.id}/EXR/list", follow_redirects=True)
         assert resp.status_code == 200
         send_email.assert_called_once()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_external_identifiers.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
+        OrcidToken.create(
+            user=user,
+            org=user.organisation,
+            scopes="/read-limited,/activities/update",
+            access_token="ABC123")
+        resp = client.get(f"/section/{user.id}/EXR/list")
+        view_external_identifiers.assert_called_once_with(user.orcid, _preload_content=False)
+
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_employments",
+            return_value=Mock(data='{"test": "TEST1234567890"}')
+    ) as view_employments:
+        resp = client.get(f"/section/{user.id}/EMP/list")
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_employments.assert_called_once_with(user.orcid, _preload_content=False)
+
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_educations",
+            return_value=Mock(data='{"test": "TEST1234567890"}')
+    ) as view_educations:
+        resp = client.get(f"/section/{user.id}/EDU/list")
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_educations.assert_called_once_with(user.orcid, _preload_content=False)
+
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_peer_reviews",
+            return_value=Mock(data='{"test": "TEST1234567890"}')
+    ) as view_peer_reviews:
+        resp = client.get(f"/section/{user.id}/PRR/list")
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_peer_reviews.assert_called_once_with(user.orcid, _preload_content=False)
+
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_works",
+        return_value=Mock(data='{"test": "TEST1234567890"}')
+    ) as view_works:
+        resp = client.get(f"/section/{user.id}/WOR/list")
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_works.assert_called_once_with(user.orcid, _preload_content=False)
+
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_fundings",
+        return_value=Mock(data='{"test": "TEST1234567890"}')
+    ) as view_fundings:
+        resp = client.get(f"/section/{user.id}/FUN/list")
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_fundings.assert_called_once_with(user.orcid, _preload_content=False)
+
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_researcher_url",
+            return_value=Mock(
+                data=json.dumps({
+                    "created-date": {
+                        "value": 1552456905508
+                    },
+                    "last-modified-date": {
+                        "value": 1552456905508
+                    },
+                    "source": {
+                        "source-orcid": None,
+                        "source-client-id": {
+                            "uri": f"http://sandbox.orcid.org/client/{org.orcid_client_id}",
+                            "path": org.orcid_client_id,
+                            "host": "sandbox.orcid.org"
+                        },
+                        "source-name": {
+                            "value": org.name
+                        }
+                    },
+                    "url-name": "my url",
+                    "url": {
+                        "value": "https://www.fb.com"
+                    },
+                    "visibility": "PUBLIC",
+                    "path": f"/{user.orcid}/researcher-urls/12345",
+                    "put-code": 12345,
+                    "display-index": 0
+                }))) as view_researcher_url:
+        resp = client.get(f"/section/{user.id}/RUR/list", follow_redirects=True)
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+
+        resp = client.get(f"/section/{user.id}/RUR/new", follow_redirects=True)
+        assert b"The user hasn't given 'PERSON/UPDATE' permission to you to Add/Update these records" in resp.data
+        OrcidToken.create(
+            user=user,
+            org=user.organisation,
+            scopes="/read-limited,/person/update",
+            access_token="ABC123-abc-123")
+
+        resp = client.get(f"/section/{user.id}/RUR/12345/edit", follow_redirects=True)
+        view_researcher_url.assert_called_once_with(user.orcid, 12345, _preload_content=False)
+
+        resp = client.post(
+            f"/section/{user.id}/RUR/12345/edit",
+            data=dict(
+                display_index=7,
+                visibility="PUBLIC",
+                name="URL #7",
+                value="https%3A%2F%2Ftest.test.edu"),
+            follow_redirects=True)
+
+        resp = client.post(
+            f"/section/{user.id}/RUR/new",
+            data=dict(
+                display_index=9,
+                visibility="PUBLIC",
+                name="URL #9",
+                value="https%3A%2F%2Ftest.test.edu"),
+            follow_redirects=True)
+
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_other_names",
+        return_value=Mock(data='{"test": "TEST1234567890"}')
+    ) as view_other_names:
+        resp = client.get(f"/section/{user.id}/ONR/list")
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_other_names.assert_called_once_with(user.orcid, _preload_content=False)
+
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_keywords",
+        return_value=Mock(data='{"test": "TEST1234567890"}')
+    ) as view_keywords:
+        resp = client.get(f"/section/{user.id}/KWR/list")
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_keywords.assert_called_once_with(user.orcid, _preload_content=False)
 
 
 def test_status(client):
     """Test status is workinkg both when DB is accessible or not."""
-    with patch("orcid_hub.views.db") as db:  # , request_ctx("/status") as ctx:
+    with patch("orcid_hub.views.db") as db:
         result = MagicMock()
         result.fetchone.return_value = (datetime.datetime(2042, 1, 1, 0, 0), )
         db.execute_sql.return_value = result
@@ -1188,7 +1253,7 @@ def test_invite_user(client):
         assert b"test123@test.test.net" in resp.data
         queue_send_user_invitation.assert_called_once()
 
-    with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
+    with patch("orcid_hub.orcid_client.MemberAPIV3") as m, patch(
             "orcid_hub.orcid_client.SourceClientId"):
         OrcidToken.create(
             access_token="ACCESS123",
@@ -1499,9 +1564,9 @@ def test_affiliation_deletion_task(client, mocker):
     records = list(task.records)
     assert len(records) == len(content.split('\n')) - 1
 
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile(org=org, user=user))
-    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_education")
-    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_employment")
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org=org, user=user))
+    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.delete_educationv3")
+    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.delete_employmentv3")
     resp = client.post(
         "/admin/affiliationrecord/action/",
         follow_redirects=True,
@@ -1543,11 +1608,11 @@ Roshan,researcher.010@mailinator.com
             "save":
             "Upload",
             "file_": (
-                BytesIO(b"""First Name,Last Name,Email,Affiliation Type, Visibility, Disambiguated Id, Disambiguation Source
-Roshan,Pawar,researcher.010@mailinator.com,Student,PRIVate,3232,RINGGOLD
-Roshan,Pawar,researcher.010@mailinator.com,Staff,PRIVate,3232,RINGGOLD
-Rad,Cirskis,researcher.990@mailinator.com,Staff,PRIVate,3232,RINGGOLD
-Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD
+                BytesIO(b"""First Name,Last Name,Email,Affiliation Type, Visibility, Disambiguated Id, Disambiguation Source, ORCID
+Roshan,Pawar,researcher.010@mailinator.com,Student,PRIVate,3232,RINGGOLD,https://orcid.org/0000-0002-0359-5519
+Roshan,Pawar,researcher.010@mailinator.com,Staff,PRIVate,3232,RINGGOLD,
+Rad,Cirskis,researcher.990@mailinator.com,Staff,PRIVate,3232,RINGGOLD,
+Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
 """),
                 "affiliations.csv",
             ),
@@ -1578,7 +1643,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD
         f"/admin/affiliationrecord/new/?url={url}",
         follow_redirects=True,
         data={
-            "external_id": "EX1234567890",
+            "local_id": "EX1234567890",
             "first_name": "TEST FN",
             "last_name": "TEST LN",
             "email": "test@test.test.test.org",
@@ -2132,25 +2197,25 @@ def test_edit_record(request_ctx):
                       access_token="ABC1234",
                       scopes="/read-limited,/person/update")
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_employment",
+            orcid_client.MemberAPIV3,
+            "view_employmentv3",
             MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
     ) as view_employment, request_ctx(f"/section/{user.id}/EMP/1212/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1212)
+        view_employment.assert_called_once_with(user.orcid, 1212, _preload_content=False)
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_education",
+            orcid_client.MemberAPIV3,
+            "view_educationv3",
             MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
     ) as view_education, request_ctx(f"/section/{user.id}/EDU/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+        view_education.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_funding",
@@ -2162,7 +2227,7 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+        view_funding.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
         orcid_client.MemberAPIV20Api,
         "view_peer_review",
@@ -2174,7 +2239,7 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+        view_peer_review.assert_called_once_with(user.orcid, 1234)
     with patch.object(
         orcid_client.MemberAPIV20Api,
         "view_work",
@@ -2186,7 +2251,7 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+        view_work.assert_called_once_with(user.orcid, 1234)
     with patch.object(
         orcid_client.MemberAPIV20Api,
         "view_researcher_url",
@@ -2196,7 +2261,7 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234, _preload_content=False)
+        view_researcher_url.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
         orcid_client.MemberAPIV20Api,
         "view_other_name",
@@ -2206,7 +2271,7 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234, _preload_content=False)
+        view_other_name.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
         orcid_client.MemberAPIV20Api,
         "view_keyword",
@@ -2216,9 +2281,9 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234, _preload_content=False)
+        view_keyword.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
-            orcid_client.MemberAPIV20Api, "create_education",
+            orcid_client.MemberAPIV3, "create_educationv3",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/EDU/new",
                 method="POST",
@@ -2226,6 +2291,8 @@ def test_edit_record(request_ctx):
                     "city": "Auckland",
                     "country": "NZ",
                     "org_name": "TEST",
+                    "disambiguation_source": "RINGGOLD",
+                    "disambiguated_id": "test"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2411,39 +2478,39 @@ def test_delete_profile_entries(client, mocker):
     token.save()
 
     delete_employment = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_employment",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_employmentv3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/EMP/12345/delete")
     assert resp.status_code == 302
-    delete_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 12345)
+    delete_employment.assert_called_once_with(user.orcid, 12345)
 
     delete_education = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_education",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_educationv3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/EDU/54321/delete")
     assert resp.status_code == 302
-    delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_education.assert_called_once_with(user.orcid, 54321)
 
     delete_funding = mocker.patch(
             "orcid_hub.orcid_client.MemberAPIV20Api.delete_funding",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/FUN/54321/delete")
     assert resp.status_code == 302
-    delete_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_funding.assert_called_once_with(user.orcid, 54321)
 
     delete_peer_review = mocker.patch(
             "orcid_hub.orcid_client.MemberAPIV20Api.delete_peer_review",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/PRR/54321/delete")
     assert resp.status_code == 302
-    delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_peer_review.assert_called_once_with(user.orcid, 54321)
 
     delete_work = mocker.patch(
             "orcid_hub.orcid_client.MemberAPIV20Api.delete_work",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/WOR/54321/delete")
     assert resp.status_code == 302
-    delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_work.assert_called_once_with(user.orcid, 54321)
 
     token.scopes = "/read-limited,/person/update"
     token.save()
@@ -2452,21 +2519,21 @@ def test_delete_profile_entries(client, mocker):
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/RUR/54321/delete")
     assert resp.status_code == 302
-    delete_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_researcher_url.assert_called_once_with(user.orcid, 54321)
 
     delete_other_name = mocker.patch(
             "orcid_hub.orcid_client.MemberAPIV20Api.delete_other_name",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/ONR/54321/delete")
     assert resp.status_code == 302
-    delete_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_other_name.assert_called_once_with(user.orcid, 54321)
 
     delete_keyword = mocker.patch(
             "orcid_hub.orcid_client.MemberAPIV20Api.delete_keyword",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/KWR/54321/delete")
     assert resp.status_code == 302
-    delete_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_keyword.assert_called_once_with(user.orcid, 54321)
 
 
 def test_viewmembers(client):
@@ -2723,7 +2790,7 @@ def test_reset_all(client):
     AffiliationRecord.create(
         is_active=True,
         task=task1,
-        external_id="Test",
+        local_id="Test",
         first_name="Test",
         last_name="Test",
         email="test1234456@mailinator.com",
@@ -2734,7 +2801,7 @@ def test_reset_all(client):
         department="Test",
         city="Test",
         state="Test",
-        country="Test",
+        country="NZ",
         disambiguated_id="Test",
         disambiguation_source="Test")
 
@@ -2758,7 +2825,7 @@ def test_reset_all(client):
         task=task2,
         title="Test titile",
         translated_title="Test title",
-        translated_title_language_code="Test",
+        translated_title_language_code="en",
         type="GRANT",
         organization_defined_type="Test org",
         short_description="Test desc",
@@ -2767,11 +2834,11 @@ def test_reset_all(client):
         org_name="Test_orgname",
         city="Test city",
         region="Test",
-        country="Test",
+        country="NZ",
         disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
         is_active=True,
-        visibility="Test_visibity")
+        visibility="self")
 
     task3 = Task.create(
         org=org,
@@ -3150,7 +3217,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
             "file_": (
                 BytesIO(
                     """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship
-THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
+THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD		2025	Royal Society Te Apārangi	Wellington		NZ	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
 THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900962	https://www.grant-url2.com	PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.tsv",
@@ -3214,7 +3281,7 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
             "file_": (
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
 
 """.encode()  # noqa: E501
                 ),  # noqa: E501
@@ -3265,7 +3332,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi, CONTRACT,MY TYPE,Minerals unde.,90
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -3282,7 +3349,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -3884,7 +3951,7 @@ def test_peer_reviews(client):
     "identifier":"00001",
     "email": "contributor1@mailinator.com",
     "first-name": "Alice", "last-name": "Contributor 1",
-    "ORCID-iD": "0000-0002-9207-4933"},
+    "ORCID-iD": "https://orcid.org/0000-0002-9207-4933"},
   {
     "identifier":"00002",
     "email": "contributor2@mailinator.com",
@@ -4296,14 +4363,15 @@ def test_load_other_ids(client):
 
 def test_export_affiliations(client, mocker):
     """Test export of existing affiliation records."""
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
     client.login_root()
     resp = client.post("/admin/viewmembers/action/",
-                       data=dict(action="export_affiations",
+                       data=dict(action="export_affiliations",
                                  rowid=[
                                      u.id for u in User.select().join(Organisation).where(
                                          Organisation.orcid_client_id.is_null(False))
                                  ]))
+    assert b"First Name" in resp.data
     assert b"0000-0003-1255-9023" in resp.data
 
 
@@ -4313,12 +4381,12 @@ def test_delete_affiliations(client, mocker):
                                                 User.orcid.is_null(False)).first().user
     org = user.organisation
 
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile(org=org, user=user))
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org=org, user=user))
 
     admin = org.admins.first()
     client.login(admin)
     resp = client.post("/admin/viewmembers/action/",
-                       data=dict(action="export_affiations",
+                       data=dict(action="export_affiliations",
                                  rowid=[
                                      u.id for u in User.select().join(Organisation).where(
                                          Organisation.orcid_client_id.is_null(False))
@@ -4335,8 +4403,8 @@ def test_delete_affiliations(client, mocker):
     task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
     AffiliationRecord.update(delete_record=True).execute()
 
-    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_education")
-    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_employment")
+    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.delete_educationv3")
+    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.delete_employmentv3")
     resp = client.post(
         "/activate_all/?url=http://localhost/affiliation_record_activate_for_batch", data=dict(task_id=task_id))
     delete_education.assert_called()
