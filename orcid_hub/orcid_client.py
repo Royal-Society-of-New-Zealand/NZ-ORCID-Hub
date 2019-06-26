@@ -1517,9 +1517,14 @@ class MemberAPIMixin:
     def get_section(self, section_type):
         """Retrieve researcher profile section by the section type."""
         method_name = {
+            "MEM": "view_membershipsv3",
+            "SER": "view_servicesv3",
+            "QUA": "view_qualificationsv3",
+            "POS": "view_invited_positionsv3",
             "ADR": "view_addresses",
-            "EDU": "view_educations",
-            "EMP": "view_employments",
+            "DST": "view_distinctionsv3",
+            "EDU": "view_educationsv3",
+            "EMP": "view_employmentsv3",
             "EXR": "view_external_identifiers",
             "FUN": "view_fundings",
             "KWR": "view_keywords",

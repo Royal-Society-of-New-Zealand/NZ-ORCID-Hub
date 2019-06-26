@@ -2353,7 +2353,8 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR", "ADR", "EXR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR", "ADR", "EXR", "DST", "MEM", "SER",
+                            "QUA", "POS"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -2416,8 +2417,11 @@ def section(user_id, section_type="EMP"):
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(_url)
 
-    api = orcid_client.MemberAPI(
-            user=user, org=current_user.organisation, access_token=orcid_token.access_token)
+    # Gradually mirgating to v3.x
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
+        api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
+    else:
+        api = orcid_client.MemberAPI(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
     try:
         api_response = api.get_section(section_type)
     except ApiException as ex:
@@ -2448,10 +2452,17 @@ def section(user_id, section_type="EMP"):
             "WOR": "work-summary",
             "PRR": "peer-review-summary",
         }[section_type]))
+    elif section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
+        records = (ss.get({"EDU": "education-summary",
+                           "EMP": "employment-summary",
+                           "DST": "distinction-summary",
+                           "MEM": "membership-summary",
+                           "SER": "service-summary",
+                           "QUA": "qualification-summary",
+                           "POS": "invited-position-summary"}[section_type]) for ag in
+                   data.get("affiliation-group", default=[]) for ss in ag.get("summaries", default=[]))
     else:
         records = data.get({
-            "EDU": "education-summary",
-            "EMP": "employment-summary",
             "RUR": "researcher-url",
             "KWR": "keyword",
             "ADR": "address",
