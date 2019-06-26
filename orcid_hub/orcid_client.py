@@ -1126,7 +1126,7 @@ class MemberAPIMixin:
             disambiguation_source=disambiguation_source) if disambiguation_source else None
 
         rec = {
-            Affiliation.DIST: v3.DistinctionV30,
+            Affiliation.DST: v3.DistinctionV30,
             Affiliation.EDU: v3.EducationV30,
             Affiliation.EMP: v3.EmploymentV30,
             Affiliation.MEM: v3.MembershipV30,
@@ -1181,7 +1181,7 @@ class MemberAPIMixin:
         try:
             if affiliation == Affiliation.EMP:
                 api_call = self.update_employmentv3 if put_code else self.create_employmentv3
-            elif affiliation == Affiliation.DIST:
+            elif affiliation == Affiliation.DST:
                 api_call = self.update_distinctionv3 if put_code else self.create_distinctionv3
             elif affiliation == Affiliation.MEM:
                 api_call = self.update_membershipv3 if put_code else self.create_membershipv3
@@ -1538,6 +1538,11 @@ class MemberAPIMixin:
     def delete_section(self, section_type, put_code):
         """Delete a section from the researcher profile."""
         method_name = {
+            "MEM": "delete_membershipv3",
+            "SER": "delete_servicev3",
+            "QUA": "delete_qualificationv3",
+            "POS": "delete_invited_positionv3",
+            "DST": "delete_distinctionv3",
             "ADR": "delete_address",
             "EDU": "delete_educationv3",
             "EMP": "delete_employmentv3",

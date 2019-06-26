@@ -1962,7 +1962,7 @@ def reset_all():
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
     """Delete an employment, education, peer review, works or funding record."""
-    _url = request.args.get("url") or request.referrer or url_for(
+    _url = request.referrer or request.args.get("url") or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
@@ -1992,7 +1992,7 @@ def delete_record(user_id, section_type, put_code):
             return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2045,7 +2045,7 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2077,6 +2077,16 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_employmentv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "EDU":
                     api_response = api.view_educationv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "DST":
+                    api_response = api.view_distinctionv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "MEM":
+                    api_response = api.view_membershipv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "SER":
+                    api_response = api.view_servicev3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "QUA":
+                    api_response = api.view_qualificationv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "POS":
+                    api_response = api.view_invited_positionv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "FUN":
                     api_response = api.view_funding(user.orcid, put_code, _preload_content=False)
                 elif section_type == "WOR":

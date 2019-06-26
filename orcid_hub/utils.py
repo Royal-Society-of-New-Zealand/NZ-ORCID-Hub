@@ -39,7 +39,7 @@ logger.addHandler(logging.StreamHandler())
 
 EDU_CODES = {"student", "edu", "education"}
 EMP_CODES = {"faculty", "staff", "emp", "employment"}
-DIST_CODES = {"distinction", "dist"}
+DST_CODES = {"distinction", "dist", "dst"}
 INV_POS_CODES = {"invited position", "position"}
 QUA_CODES = {"qualification", "qua"}
 MEM_CODES = {"membership", "mem"}
@@ -1023,8 +1023,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
                 if at in EMP_CODES:
                     affiliation = Affiliation.EMP
-                elif at in DIST_CODES:
-                    affiliation = Affiliation.DIST
+                elif at in DST_CODES:
+                    affiliation = Affiliation.DST
                 elif at in MEM_CODES:
                     affiliation = Affiliation.MEM
                 elif at in SER_CODES:

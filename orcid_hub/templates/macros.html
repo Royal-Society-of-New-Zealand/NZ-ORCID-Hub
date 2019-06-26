@@ -155,8 +155,7 @@ j.get('publication_date', 'year', 'value')%}
           ("MEM", "Membership"),
           ("SER", "Service"),
           ("QUA", "Qualification"),
-          ("POS", "Invited Position"),
-        ] %}
+          ("POS", "Invited Position"),] %}
           <li class="{{'' if section_type != st else 'active'}}"><a href="{{ url_for('section', user_id=user_id, section_type=st, url=url) if section_type != st else '#' }}">{{ sn }}</a></li>
         {% endfor %}
       </ul>
