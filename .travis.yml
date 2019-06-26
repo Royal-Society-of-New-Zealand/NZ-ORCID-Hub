@@ -7,7 +7,6 @@ env:
     - ENV=dev PGPORT=54321 GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=prod UAT_BRANCH=prod DATABASE_URL=postgresql://orcidhub@db/orcidhub?options='-c statement_timeout=3000'
 
 before_install:
-    - env
     - sudo rm /usr/local/bin/docker-compose
     - curl -L "https://github.com/docker/compose/releases/download/1.20.0/docker-compose-$(uname -s)-$(uname -m)" -o docker-compose
     - chmod +x docker-compose
@@ -37,8 +36,8 @@ script:
 after_success:
     - echo "*** Deploying from $(curl ipv4.icanhazip.com)"
     - docker-compose exec app coveralls
-    - docker-compose exec app python3.6 ./setup.py sdist
-    - docker-compose exec app twine upload -u "$PYPI_USER" -p "$PYPI_PASSWORD" --skip-existing dist/*
+    - [[ $TRAVIS_COMMIT_MESSAGE == *PUBLISH* ]] && docker-compose exec app python3.6 ./setup.py sdist
+    - [[ $TRAVIS_COMMIT_MESSAGE == *PUBLISH* ]] && docker-compose exec app twine upload -u "$PYPI_USER" -p "$PYPI_PASSWORD" --skip-existing dist/*
     - eval "$(ssh-agent -s)"
     - openssl rsa -in .travis/.deploy.key -out .travis/deploy.key -passin env:DEPLOY_KEY_PASSPHRASE
     - chmod 400 .travis/deploy.key
