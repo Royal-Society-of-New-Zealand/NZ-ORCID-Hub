@@ -2208,21 +2208,20 @@ def edit_record(user_id, section_type, put_code=None):
                         start_date=PartialDate.create(_data.get("start-date")),
                         end_date=PartialDate.create(_data.get("end-date")))
 
+                    external_ids_list = _data.get("external-ids", "external-id", default=[])
+
+                    for extid in external_ids_list:
+                        external_id_value = extid.get('external-id-value') if extid.get('external-id-value') else ''
+                        external_id_url = extid.get('external-id-url', 'value') if extid.get(
+                            'external-id-url', 'value') else ''
+                        external_id_relationship = extid.get('external-id-relationship').upper() if extid.get(
+                            'external-id-relationship') else ''
+                        external_id_type = extid.get('external-id-type') if extid.get('external-id-type') else ''
+
+                        grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                    grant_relationship=external_id_relationship,
+                                                    grant_type=external_id_type))
                     if section_type == "FUN":
-                        external_ids_list = _data.get("external-ids", "external-id")
-
-                        for extid in external_ids_list:
-                            external_id_value = extid.get('external-id-value') if extid.get('external-id-value') else ''
-                            external_id_url = extid.get('external-id-url', 'value') if extid.get(
-                                'external-id-url', 'value') else ''
-                            external_id_relationship = extid.get('external-id-relationship') if extid.get(
-                                'external-id-relationship') else ''
-                            external_id_type = extid.get('external-id-type') if extid.get('external-id-type') else ''
-
-                            grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
-                                                        grant_relationship=external_id_relationship,
-                                                        grant_type=external_id_type))
-
                         data.update(dict(funding_title=_data.get("title", "title", "value"),
                                          funding_translated_title=_data.get("title", "translated-title", "value"),
                                          translated_title_language=_data.get("title", "translated-title",
@@ -2252,7 +2251,32 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type in ["FUN", "PRR", "WOR"]:
+            if section_type == "RUR":
+                put_code, orcid, created, visibility = api.create_or_update_researcher_url(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "ONR":
+                put_code, orcid, created, visibility = api.create_or_update_other_name(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "ADR":
+                put_code, orcid, created, visibility = api.create_or_update_address(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "EXR":
+                put_code, orcid, created, visibility = api.create_or_update_person_external_id(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "KWR":
+                put_code, orcid, created, visibility = api.create_or_update_keyword(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            else:
                 grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
@@ -2279,55 +2303,30 @@ def edit_record(user_id, section_type, put_code=None):
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
                            for f in form})
-                else:
+                elif section_type == "PRR":
                     put_code, orcid, created = api.create_or_update_individual_peer_review(
                         put_code=put_code,
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
                            for f in form})
-            elif section_type == "RUR":
-                put_code, orcid, created, visibility = api.create_or_update_researcher_url(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "ONR":
-                put_code, orcid, created, visibility = api.create_or_update_other_name(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "ADR":
-                put_code, orcid, created, visibility = api.create_or_update_address(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "EXR":
-                put_code, orcid, created, visibility = api.create_or_update_person_external_id(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "KWR":
-                put_code, orcid, created, visibility = api.create_or_update_keyword(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            else:
-                put_code, orcid, created, visibility = api.create_or_update_affiliation(
-                    put_code=put_code,
-                    affiliation=Affiliation[section_type],
-                    **{f.name: f.data
-                       for f in form})
+                else:
+                    put_code, orcid, created, visibility = api.create_or_update_affiliation(
+                        put_code=put_code,
+                        affiliation=Affiliation[section_type],
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
 
-                affiliation, _ = UserOrgAffiliation.get_or_create(
-                    user=user,
-                    organisation=org,
-                    put_code=put_code)
+                    affiliation, _ = UserOrgAffiliation.get_or_create(
+                        user=user,
+                        organisation=org,
+                        put_code=put_code)
 
-                affiliation.department_name = form.department.data
-                affiliation.department_city = form.city.data
-                affiliation.role_title = form.role.data
-                form.populate_obj(affiliation)
-
-                affiliation.save()
+                    affiliation.department_name = form.department.data
+                    affiliation.department_city = form.city.data
+                    affiliation.role_title = form.role.data
+                    form.populate_obj(affiliation)
+                    affiliation.save()
             if put_code and created:
                 flash("Record details has been added successfully!", "success")
             else:

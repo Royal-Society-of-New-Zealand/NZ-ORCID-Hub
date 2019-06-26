@@ -1082,6 +1082,7 @@ class MemberAPIMixin:
             url=None,
             display_index=None,
             id=None,
+            grant_data_list=None,
             *args,
             **kwargs):
         """Create or update affiliation record of a user.
@@ -1165,6 +1166,7 @@ class MemberAPIMixin:
         if end_date and not end_date.is_null:
             rec.end_date = end_date.as_orcid_dict()
 
+        external_ids = []
         if id:
             external_ids = [
                 v3.ExternalIDV30(  # noqa: F405
@@ -1175,8 +1177,17 @@ class MemberAPIMixin:
                     if eid.relationship else None) for eid in AffiliationExternalId.select().where(
                         AffiliationExternalId.record_id == id).order_by(AffiliationExternalId.id)
             ]
-            if external_ids:
-                rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
+        elif grant_data_list:
+            external_ids = [
+                v3.ExternalIDV30(  # noqa: F405
+                    external_id_type=gdl.get('grant_type') if gdl.get('grant_type') else "grant_number",
+                    external_id_value=gdl.get('grant_number'),
+                    external_id_url=v3.UrlV30(value=gdl.get('grant_url')) if gdl.get('grant_url') else None,
+                    external_id_relationship=gdl.get('grant_relationship').replace('_', '-').lower()
+                    if gdl.get('grant_relationship') else None) for gdl in grant_data_list
+                ]
+        if external_ids:
+            rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
         try:
             if affiliation == Affiliation.EMP:

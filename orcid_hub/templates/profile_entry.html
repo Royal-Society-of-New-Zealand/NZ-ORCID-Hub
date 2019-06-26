@@ -37,7 +37,7 @@
           {{ render_field(form.country) }}
         {% endif %}
 
-        {% if section_type in ["FUN", "PRR", "WOR"] %}
+        {% if section_type in ["FUN", "PRR", "WOR", "EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"] %}
           {# Dynamically addded external IDs #}
           {% raw %}
           <div id="external-ids" class="box-white">
@@ -144,7 +144,7 @@
     </div>
   {% endcall %}
 {% endblock %}
-{% if section_type in ["FUN", "PRR", "WOR"] %}
+{% if section_type in ["FUN", "PRR", "WOR", "EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"] %}
 {% block scripts %}
   {{super()}}
   {%- if config.debug %}
