@@ -1458,6 +1458,39 @@ class MemberAPIMixin:
         else:
             return (put_code, orcid, created, visibility)
 
+    def create_or_update_resource(
+            self,
+            put_code=None,
+
+            # Source:
+            disambiguated_id=None,
+            disambiguation_source=None,
+
+            # Proposal:
+            title=None,
+            translated_title=None,
+            translated_title_language=None,
+            hosts=None,
+            external_ids=None,
+            start_date=None,
+            end_date=None,
+
+            # Resource items:
+            items=None,
+            display_index=None,
+            visibility=None,
+
+            *args,
+            **kwargs):
+        """Create or update research resource.
+
+        :param initial: the affiliation entry created while handlind ORCID authorizastion call back.
+
+        Returns tuple (put-code, ORCID iD, created), where created is True if a new entry
+        was created, otherwise - False.
+        """
+        pass
+
     def get_webhook_access_token(self):
         """Retrieve the ORCID webhook access tonke and store it."""
         pass
