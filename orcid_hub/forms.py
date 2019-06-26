@@ -105,26 +105,25 @@ class PartialDateField(Field):
 
     def pre_validate(self, form):
         """Validate entered fuzzy/partial date value."""
-        if self.data.day and not(self.data.month and self.data.year):
+        if self.data.day and not (self.data.month and self.data.year):
             raise StopValidation(f"Invalid date: {self.data}. Missing year and/or month value.")
-        if self.data.month is not None:
-            if self.data.year is None:
+        y, m, d = self.data.year, self.data.month, self.data.day
+        if m is not None:
+            if y is None:
                 raise StopValidation(f"Invalid date: {self.data}. Missing year value.")
-            if self.data.month < 1 or self.data.month > 12:
-                raise StopValidation(f"Invalid month: {self.data.month}")
-            if self.data.day is not None:
-                if self.data.day < 1 or self.data.day > 31:
-                    raise StopValidation(f"Invalid day: {self.data.day}.")
-                elif self.data.month % 2 == 0 and self.data.day > 30:
-                    raise StopValidation(f"Invalid day: {self.data.day}. It should be less than 31.")
-                elif self.data.month == 2:
-                    if self.data.day > 29:
+            if m < 1 or m > 12:
+                raise StopValidation(f"Invalid month: {m}")
+            if d is not None:
+                if d < 1 or d > 31:
+                    raise StopValidation(f"Invalid day: {d}.")
+                elif m % 2 == (0 if m < 8 else 1) and d > 30:
+                    raise StopValidation(f"Invalid day: {d}. It should be less than 31.")
+                elif m == 2:
+                    if d > 29:
+                        raise StopValidation(f"Invalid day: {d}. February has at most 29 days.")
+                    elif y % 4 != 0 and d > 28:
                         raise StopValidation(
-                            f"Invalid day: {self.data.day}. February has at most 29 days.")
-                    elif self.data.year % 4 != 0 and self.data.day > 28:
-                        raise StopValidation(
-                            f"Invalid day: {self.data.day}. It should be less than 29 (Leap Year)."
-                        )
+                            f"Invalid day: {d}. It should be less than 29 (Leap Year).")
 
 
 class CountrySelectField(SelectField):
