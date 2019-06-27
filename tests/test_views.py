@@ -416,8 +416,8 @@ def test_show_record_section(client, mocker):
         view_external_identifiers.assert_called_once_with(user.orcid, _preload_content=False)
 
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_employments",
+            orcid_client.MemberAPIV3,
+            "view_employmentsv3",
             return_value=Mock(data='{"test": "TEST1234567890"}')
     ) as view_employments:
         resp = client.get(f"/section/{user.id}/EMP/list")
@@ -426,8 +426,8 @@ def test_show_record_section(client, mocker):
         view_employments.assert_called_once_with(user.orcid, _preload_content=False)
 
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_educations",
+            orcid_client.MemberAPIV3,
+            "view_educationsv3",
             return_value=Mock(data='{"test": "TEST1234567890"}')
     ) as view_educations:
         resp = client.get(f"/section/{user.id}/EDU/list")
