@@ -229,6 +229,7 @@ class AppModelView(ModelView):
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
     form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
     model_form_converter = AppCustomModelConverter
+    column_display_pk = False
 
     def __init__(self, model=None, *args, **kwargs):
         """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
@@ -453,6 +454,13 @@ class OrganisationAdmin(AppModelView):
                 model.tech_contact.save()
 
         return super().update_model(form, model)
+
+
+class TestAdmin(AppModelView):
+    column_list = ["name", "tech_contact"]
+    column_editable_list = ["name"]
+    can_export = True
+    can_edit = True
 
 
 class OrgInfoAdmin(AppModelView):
@@ -1841,8 +1849,9 @@ class GroupIdRecordAdmin(AppModelView):
         flash("%d Record was processed." % count)
 
 
+admin.add_view(TestAdmin(Organisation))
 admin.add_view(UserAdmin(User))
-admin.add_view(OrganisationAdmin(Organisation))
+# admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))

@@ -522,6 +522,10 @@ class BaseModel(Model):
         """Check if the model has a field."""
         return field_name in self._meta.fields
 
+    def __str__(self):
+        """String representation if the child doesn't have __str__."""
+        return self.__repr__()
+
     class Meta:  # noqa: D101,D106
         database = db
         only_save_dirty = True
@@ -714,7 +718,7 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     def __repr__(self):
         if self.name and (self.eppn or self.email):
-            return "%s (%s)" % (self.name, self.email or self.eppn)
+            return f"{self.name} ({self.email or self.eppn})"
         return self.name or self.email or self.orcid or super().__repr__()
 
     @property
