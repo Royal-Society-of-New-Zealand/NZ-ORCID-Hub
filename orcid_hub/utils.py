@@ -2138,7 +2138,7 @@ def dump_yaml(data):
 
 def enqueue_user_records(user):
     """Enqueue all active and not yet processed record related to the user."""
-    for task in list(Task.select().where(Task.completed_at.is_null())):
+    for task in list(Task.select().where(Task.completed_at.is_null(), Task.task_type != TaskType.SYNC)):
         func = globals().get(f"process_{task.task_type.name.lower()}_records")
         records = task.records.where(
                 task.record_model.is_active,
