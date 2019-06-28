@@ -523,7 +523,7 @@ class BaseModel(Model):
         return field_name in self._meta.fields
 
     def __str__(self):
-        """String representation if the child doesn't have __str__."""
+        """Return string representation if the child doesn't have __str__."""
         return self.__repr__()
 
     class Meta:  # noqa: D101,D106
@@ -853,7 +853,6 @@ class User(BaseModel, UserMixin, AuditMixin):
         return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
 
 
-
 class OrgInfo(BaseModel):
     """Preloaded organisation data."""
 
@@ -1133,7 +1132,7 @@ class Task(BaseModel, AuditMixin):
     @property
     def record_model(self):
         """Get record model class."""
-        return self.records.model_class
+        return self.records.model
 
     @lazy_property
     def records(self):
@@ -1361,7 +1360,7 @@ class Task(BaseModel, AuditMixin):
                 r.to_dict(
                     to_dashes=to_dashes,
                     recurse=recurse,
-                    exclude=[self.records.model_class._meta.fields["task"]]) for r in self.records
+                    exclude=[self.records.model._meta.fields["task"]]) for r in self.records
             ]
         return task_dict
 
@@ -1470,7 +1469,7 @@ class RecordModel(BaseModel):
     def invitee_model(self):
         """Get invitee model class."""
         if hasattr(self, "invitees"):
-            return self.invitees.model_class
+            return self.invitees.model
 
     def to_export_dict(self):
         """Map the common record parts to dict for export into JSON/YAML."""
@@ -3436,6 +3435,7 @@ class ExternalId(ExternalIdModel):
 
 class Resource(BaseModel):
     """Research resource."""
+
     title = CharField(max_length=1000)
     display_index = IntegerField(null=True)
     visibility = CharField(max_length=10, choices=visibility_choices)
@@ -3443,10 +3443,11 @@ class Resource(BaseModel):
 
 class ResoureceExternalId(BaseModel):
     """Linkage between resoucrece and ExternalId."""
+
     external_id = ForeignKeyField(ExternalId, index=True, on_delete="CASCADE")
     resource = ForeignKeyField(Resource, index=True, on_delete="CASCADE")
 
-    class Meta:
+    class Meta:  # noqa: D106
         table_alias = "rei"
 
 

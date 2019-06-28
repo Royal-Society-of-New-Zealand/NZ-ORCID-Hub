@@ -23,9 +23,7 @@ from flask import Flask, request
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
 from flask_restful import Api
-from peewee import PostgresqlDatabase
 from playhouse import db_url
-### from playhouse.shortcuts import RetryOperationalError
 # disable Sentry if there is no SENTRY_DSN:
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration

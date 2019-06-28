@@ -192,6 +192,7 @@ class AppModelView(ModelView):
     """ModelView customization."""
 
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
+    column_editable_list = ["name", "is_active", "email", "role", "city", "state", "value", "url", "display_index"]
     roles_required = Role.SUPERUSER
     export_types = [
         "csv",
@@ -312,17 +313,17 @@ class AppModelView(ModelView):
                 Role.ADMIN):
             # Show only rows related to the current organisation the user is admin for.
             # Skip this part for SUPERUSER.
-            db_columns = [c.db_column for c in self.model._meta.fields.values()]
-            if "org_id" in db_columns or "organisation_id" in db_columns:
-                if "org_id" in db_columns:
+            column_names = [c.column_name for c in self.model._meta.fields.values()]
+            if "org_id" in column_names or "organisation_id" in column_names:
+                if "org_id" in column_names:
                     query = query.where(self.model.org_id == current_user.organisation.id)
                 else:
                     query = query.where(self.model.organisation_id == current_user.organisation.id)
 
         if request.args and any(a.endswith("_id") for a in request.args):
             for f in self.model._meta.fields.values():
-                if f.db_column.endswith("_id") and f.db_column in request.args:
-                    query = query.where(f == int(request.args[f.db_column]))
+                if f.column_name.endswith("_id") and f.column_name in request.args:
+                    query = query.where(f == int(request.args[f.column_name]))
         return query
 
     def _get_list_extra_args(self):
@@ -332,12 +333,12 @@ class AppModelView(ModelView):
             k: v
             for k, v in request.args.items()
             if k not in (
-                'page',
-                'page_size',
-                'sort',
-                'desc',
-                'search',
-            ) and not k.startswith('flt')
+                "page",
+                "page_size",
+                "sort",
+                "desc",
+                "search",
+            ) and not k.startswith("flt")
         }
         view_args.extra_args = extra_args
         return view_args
@@ -454,13 +455,6 @@ class OrganisationAdmin(AppModelView):
                 model.tech_contact.save()
 
         return super().update_model(form, model)
-
-
-class TestAdmin(AppModelView):
-    column_list = ["name", "tech_contact"]
-    column_editable_list = ["name"]
-    can_export = True
-    can_edit = True
 
 
 class OrgInfoAdmin(AppModelView):
@@ -1849,9 +1843,8 @@ class GroupIdRecordAdmin(AppModelView):
         flash("%d Record was processed." % count)
 
 
-admin.add_view(TestAdmin(Organisation))
 admin.add_view(UserAdmin(User))
-# admin.add_view(OrganisationAdmin(Organisation))
+admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
