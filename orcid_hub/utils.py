@@ -2112,7 +2112,7 @@ def sync_profile(task_id, delay=0.1):
     for u in task.org.users.select(User, OrcidToken.access_token.alias("access_token")).where(
             User.orcid.is_null(False)).join(
             OrcidToken,
-            on=((OrcidToken.user_id == User.id) & OrcidToken.scopes.contains("/activities/update"))).naive():
+            on=((OrcidToken.user_id == User.id) & OrcidToken.scopes.contains("/activities/update"))).objects():
         Log.create(task=task_id, message=f"Processing user {u} / {u.orcid} profile.")
         api.sync_profile(user=u, access_token=u.access_token, task=task)
         count += 1

@@ -3848,7 +3848,7 @@ def readup_file(input_file):
     return raw.decode("latin-1")
 
 
-def create_tables():
+def create_tables(safe=True, drop=False):
     """Create all DB tables."""
     try:
         db.connect()
@@ -3892,11 +3892,14 @@ def create_tables():
             Delegate,
     ]:
 
+        model.bind(db)
+        if drop and model.table_exists():
+            model.drop_table()
         if not model.table_exists():
-            model.create_table()
+            model.create_table(safe=safe)
 
 
-def create_audit_tables():
+def create_audit_tables(db):
     """Create all DB audit tables for PostgreSQL DB."""
     try:
         db.connect()
@@ -3914,13 +3917,14 @@ def create_audit_tables():
     #     db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
 
 
-def drop_tables():
+def drop_tables(db):
     """Drop all model tables."""
     for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, OtherIdRecord, FundingContributor, FundingInvitee,
               FundingRecord, PropertyRecord, PeerReviewInvitee, PeerReviewExternalId,
               PeerReviewRecord, WorkInvitee, WorkExternalId, WorkContributor, WorkRecord,
               AffiliationRecord, AffiliationExternalId, ExternalId, Url, UserInvitation, Task, Organisation):
+        m.bind(db)
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)

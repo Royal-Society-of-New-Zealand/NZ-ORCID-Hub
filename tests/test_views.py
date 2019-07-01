@@ -18,7 +18,6 @@ import yaml
 from flask import make_response, session
 from flask_login import login_user
 from peewee import SqliteDatabase, JOIN
-from playhouse.test_utils import test_database
 
 from orcid_api.rest import ApiException
 from orcid_hub import orcid_client, rq, utils, views
@@ -28,7 +27,7 @@ from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, Fund
                               FundingRecord, GroupIdRecord, OrcidToken, Organisation, OrgInfo,
                               OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord,
                               Role, Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
-                              UserOrgAffiliation, WorkRecord)
+                              UserOrgAffiliation, WorkRecord, create_tables)
 from tests.utils import get_profile
 
 fake_time = time.time()
@@ -41,18 +40,9 @@ logger.addHandler(logging.StreamHandler())
 def test_db():
     """Test to check db."""
     _db = SqliteDatabase(":memory:")
-    with test_database(
-            _db, (
-                Organisation,
-                User,
-                UserOrg,
-                OrcidToken,
-                UserOrgAffiliation,
-                Task,
-                AffiliationRecord,
-            ),
-            fail_silently=True) as _test_db:
-        yield _test_db
+    with _db:
+        create_tables(drop=True)
+        yield _db
 
     return
 

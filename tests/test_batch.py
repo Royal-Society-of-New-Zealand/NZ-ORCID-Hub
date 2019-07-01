@@ -7,7 +7,6 @@ from unittest.mock import Mock, patch
 import pytest
 from flask_login import login_user
 from peewee import Model, SqliteDatabase
-from playhouse.test_utils import test_database
 
 from orcid_hub import utils
 from orcid_hub.models import *

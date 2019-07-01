@@ -110,7 +110,7 @@ def test_login(request_ctx):
 def test_org_switch(client):
     """Test organisation switching."""
     user = User.get(orcid=User.select(fn.COUNT(User.orcid).alias("id_count"), User.orcid).group_by(
-        User.orcid).having(fn.COUNT(User.orcid) > 1).naive().first().orcid)
+        User.orcid).having(fn.COUNT(User.orcid) > 1).objects().first().orcid)
     user_orgs = UserOrg.select().join(User).where(User.orcid == user.orcid)
     new_org = Organisation.select().where(Organisation.id.not_in([uo.org_id for uo in user_orgs])).first()
     UserOrg.create(user=user, org=new_org, affiliations=0)

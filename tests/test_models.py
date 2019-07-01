@@ -6,7 +6,6 @@ from itertools import product
 
 import pytest
 from peewee import Model, SqliteDatabase
-from playhouse.test_utils import test_database
 
 from orcid_hub import JSONEncoder
 from orcid_hub.models import (
@@ -30,14 +29,8 @@ def testdb():
         asser modls.User.count() == 1
     """
     _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
-    with test_database(
-            _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo, OrcidToken,
-                  OrcidApiCall, UserOrgAffiliation, Task, AffiliationRecord, AffiliationExternalId, ExternalId,
-                  FundingRecord, FundingContributor, FundingInvitee, WorkRecord, WorkContributor,
-                  WorkExternalId, WorkInvitee, PropertyRecord, PeerReviewRecord, PeerReviewExternalId,
-                  PeerReviewInvitee),
-            fail_silently=True) as _test_db:
-        yield _test_db
+    models.create_tables(drop=True)
+    yield _test_db
 
     return
 

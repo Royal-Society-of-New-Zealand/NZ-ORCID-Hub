@@ -95,11 +95,11 @@
   {{ super() }}
 <script src="{{ url_for('static', filename='js/bootstrap-confirmation.min.js') }}"></script>
 <script>
-  $(function() {
+$(function() {
   $("#user-org-table").confirmation({
     selector: '[data-toggle="confirmation"]',
     onConfirm: function(e, target) {
-      vm.delete_org(target.context.dataset.org_id);
+      vm.delete_org(target[0].dataset.org_id);
     },
   });
 });

@@ -1279,7 +1279,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
 
         ext_ids = [r.id for r in
                    ExternalId.select(models.fn.min(ExternalId.id).alias("id")).join(FundingRecord).where(
-                       FundingRecord.task == self.current_task_id).group_by(FundingRecord.id).naive()]
+                       FundingRecord.task == self.current_task_id).group_by(FundingRecord.id).objects()]
 
         return count, query.select(
             self.model,
@@ -1300,7 +1300,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
             on=(ExternalId.record_id == self.model.id)).where(ExternalId.id << ext_ids).join(
             FundingInvitee,
             JOIN.LEFT_OUTER,
-            on=(FundingInvitee.record_id == self.model.id)).naive()
+            on=(FundingInvitee.record_id == self.model.id)).objects()
 
 
 class WorkRecordAdmin(CompositeRecordModelView):
@@ -1354,7 +1354,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
 
         ext_ids = [r.id for r in
                    WorkExternalId.select(models.fn.min(WorkExternalId.id).alias("id")).join(WorkRecord).where(
-                       WorkRecord.task == self.current_task_id).group_by(WorkRecord.id).naive()]
+                       WorkRecord.task == self.current_task_id).group_by(WorkRecord.id).objects()]
 
         return count, query.select(
             self.model,
@@ -1375,7 +1375,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
             on=(WorkExternalId.record_id == self.model.id)).where(WorkExternalId.id << ext_ids).join(
             WorkInvitee,
             JOIN.LEFT_OUTER,
-            on=(WorkInvitee.record_id == self.model.id)).naive()
+            on=(WorkInvitee.record_id == self.model.id)).objects()
 
 
 class PeerReviewRecordAdmin(CompositeRecordModelView):
@@ -1459,7 +1459,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         ext_ids = [r.id for r in
                    PeerReviewExternalId.select(models.fn.min(PeerReviewExternalId.id).alias("id")).join(
                        PeerReviewRecord).where(
-                       PeerReviewRecord.task == self.current_task_id).group_by(PeerReviewRecord.id).naive()]
+                       PeerReviewRecord.task == self.current_task_id).group_by(PeerReviewRecord.id).objects()]
 
         return count, query.select(
             self.model,
@@ -1480,7 +1480,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
             on=(PeerReviewExternalId.record_id == self.model.id)).where(PeerReviewExternalId.id << ext_ids).join(
                 PeerReviewInvitee,
                 JOIN.LEFT_OUTER,
-                on=(PeerReviewInvitee.record_id == self.model.id)).naive()
+                on=(PeerReviewInvitee.record_id == self.model.id)).objects()
 
 
 class AffiliationRecordAdmin(RecordModelView):
@@ -2961,18 +2961,6 @@ def invite_organisation():
         cache.set("org_info", org_info, timeout=60)
 
     return render_template("registration.html", form=form, org_info=org_info)
-
-
-@app.route("/user/<int:user_id>/organisations", methods=["GET", "POST"])
-@roles_required(Role.SUPERUSER)
-def user_organisations(user_id):
-    """Manage user organisaions."""
-    user_orgs = (Organisation.select(
-        Organisation.id, Organisation.name,
-        (Organisation.tech_contact_id == user_id).alias("is_tech_contact"), UserOrg.is_admin).join(
-            UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == user_id)))
-                 .naive())
-    return render_template("user_organisations.html", user_orgs=user_orgs)
 
 
 @app.route("/invite/user", methods=["GET", "POST"])
