@@ -2233,8 +2233,8 @@ def edit_record(user_id, section_type, put_code=None):
                                          total_funding_amount=_data.get("amount", "value"),
                                          total_funding_amount_currency=_data.get("amount", "currency-code")))
                     else:
-                        data.update(dict(url=_data.get("url", "value"), visibility=_data.get("visibility", default='').upper(),
-                                         display_index=_data.get("display-index")))
+                        data.update(dict(url=_data.get("url", "value"), visibility=_data.get(
+                            "visibility", default='').upper(), display_index=_data.get("display-index")))
 
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
