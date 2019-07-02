@@ -1713,7 +1713,8 @@ class ViewMembersAdmin(AppModelView):
             records = itertools.chain(
                 *[[(t.user, s.get(f"{rt}-summary")) for ag in
                    profile.get("activities-summary", f"{rt}s", "affiliation-group", default=[])
-                   for s in ag.get("summaries")] for rt in ["employment", "education"]])
+                   for s in ag.get("summaries")] for rt in ["employment", "education", "distinction", "membership",
+                                                            "service", "qualification", "invited-position"]])
 
         # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
         class Echo(object):
@@ -2231,6 +2232,9 @@ def edit_record(user_id, section_type, put_code=None):
                                          funding_description=_data.get("short-description"),
                                          total_funding_amount=_data.get("amount", "value"),
                                          total_funding_amount_currency=_data.get("amount", "currency-code")))
+                    else:
+                        data.update(dict(url=_data.get("url"), visibility=_data.get("visibility", default='').upper(),
+                                         display_index=_data.get("display-index")))
 
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
@@ -2483,6 +2487,7 @@ def section(user_id, section_type="EMP"):
         "section.html",
         user=user,
         url=_url,
+        Affiliation=Affiliation,
         records=records,
         section_type=section_type,
         org_client_id=user.organisation.orcid_client_id)

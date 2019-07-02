@@ -145,7 +145,7 @@ j.get('publication_date', 'year', 'value')%}
 {% macro section_button_group(user_id, section_type=None, url=None) -%}
   <div class="btn-group btn-group-justified" style="padding-bottom: 5px;">
     <div class="btn-group">
-      <button type="button" class="btn btn-{{'light' if section_type in ['EMP', 'EDU'] else 'primary'}} dropdown-toggle" data-toggle="dropdown">
+      <button type="button" class="btn btn-{{'light' if section_type in ['EMP', 'EDU', 'DST', 'MEM', 'SER', 'QUA', 'POS'] else 'primary'}} dropdown-toggle" data-toggle="dropdown">
         Affiliations <span class="caret"></span></button>
       <ul class="dropdown-menu" role="menu">
         {% for (st, sn) in [
