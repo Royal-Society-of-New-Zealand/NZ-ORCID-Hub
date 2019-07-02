@@ -42,7 +42,7 @@ after_success:
     - echo "*** Deploying from $(curl ipv4.icanhazip.com)"
     - docker-compose exec app coverage report
     - docker-compose exec app coveralls
-    - if [[ $TRAVIS_COMMIT_MESSAGE == *"[PUBLISH]"* ]] ; then
+    - if test '[ $TRAVIS_COMMIT_MESSAGE == *"[PUBLISH]"* ]' ; then
             docker-compose exec app python3.6 ./setup.py sdist
             docker-compose exec app twine upload -u "$PYPI_USER" -p "$PYPI_PASSWORD" --skip-existing dist/*
     fi
