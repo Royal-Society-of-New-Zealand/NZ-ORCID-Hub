@@ -22,7 +22,7 @@ from flask_login import current_user
 from html2text import html2text
 from jinja2 import Template
 from orcid_api.rest import ApiException
-from peewee import JOIN, SQL
+from peewee import JOIN
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
 
@@ -209,8 +209,8 @@ def new_invitation_token(length=5):
     """Generate a unique invitation token."""
     while True:
         token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
-        if not (UserInvitation.select(SQL("1")).where(UserInvitation.token == token)
-                | OrgInvitation.select(SQL("1")).where(OrgInvitation.token == token)).exists():
+        if not (UserInvitation.select().where(UserInvitation.token == token).exists() or
+                OrgInvitation.select().where(OrgInvitation.token == token).exists()):
             break
     return token
 
@@ -1128,7 +1128,7 @@ def process_work_records(max_rows=20, record_id=None):
             (OrcidToken.id.is_null(False)
              | ((WorkInvitee.status.is_null())
                 | (WorkInvitee.status.contains("sent").__invert__())))).join(
-                    WorkRecord, on=(Task.id == WorkRecord.task_id).alias("record")).join(
+                    WorkRecord, on=(Task.id == WorkRecord.task_id), attr="record").join(
                         WorkInvitee,
                         on=(WorkRecord.id == WorkInvitee.record_id).alias("invitee")).join(
                             User,
@@ -1260,7 +1260,7 @@ def process_peer_review_records(max_rows=20, record_id=None):
             (OrcidToken.id.is_null(False)
              | ((PeerReviewInvitee.status.is_null())
                 | (PeerReviewInvitee.status.contains("sent").__invert__())))).join(
-                    PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id).alias("record")).join(
+                    PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id), attr="record").join(
                         PeerReviewInvitee,
                         on=(PeerReviewRecord.id == PeerReviewInvitee.record_id).alias("invitee")).join(
                             User,
@@ -1395,7 +1395,7 @@ def process_funding_records(max_rows=20, record_id=None):
             (OrcidToken.id.is_null(False)
              | ((FundingInvitee.status.is_null())
                 | (FundingInvitee.status.contains("sent").__invert__())))).join(
-                    FundingRecord, on=(Task.id == FundingRecord.task_id).alias("record")).join(
+                    FundingRecord, on=(Task.id == FundingRecord.task_id), attr="record").join(
                         FundingInvitee,
                         on=(FundingRecord.id == FundingInvitee.record_id).alias("invitee")).join(
                             User,
@@ -1525,7 +1525,7 @@ def process_affiliation_records(max_rows=20, record_id=None):
                 & UserInvitation.id.is_null()
                 & (AffiliationRecord.status.is_null()
                    | AffiliationRecord.status.contains("sent").__invert__())))).join(
-                       AffiliationRecord, on=(Task.id == AffiliationRecord.task_id).alias("record")).join(
+                       AffiliationRecord, on=(Task.id == AffiliationRecord.task_id), attr="record").join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == AffiliationRecord.email)
@@ -1647,7 +1647,7 @@ def process_property_records(max_rows=20, record_id=None):
                 & (PropertyRecord.status.is_null()
                    | PropertyRecord.status.contains("sent").__invert__())))).join(
                        PropertyRecord,
-                       on=(Task.id == PropertyRecord.task_id).alias("record")).join(
+                       on=(Task.id == PropertyRecord.task_id), attr="record").join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == PropertyRecord.email)
