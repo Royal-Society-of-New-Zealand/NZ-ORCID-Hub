@@ -2292,7 +2292,8 @@ def test_edit_record(request_ctx):
                     "country": "NZ",
                     "org_name": "TEST",
                     "disambiguation_source": "RINGGOLD",
-                    "disambiguated_id": "test"
+                    "disambiguated_id": "test",
+                    "visibility": "PUBLIC"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
