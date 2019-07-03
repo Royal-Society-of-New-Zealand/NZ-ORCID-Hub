@@ -510,21 +510,9 @@ class BaseModel(Model):
             return self.__to_dashes(o)
         return o
 
-    def reload(self):
-        """Refresh the object from the DB."""
-        newer_self = self.get(self._meta.primary_key == self._get_pk_value())
-        for field_name in self._meta.fields.keys():
-            val = getattr(newer_self, field_name)
-            setattr(self, field_name, val)
-        self._dirty.clear()
-
     def has_field(self, field_name):
         """Check if the model has a field."""
         return field_name in self._meta.fields
-
-    def __str__(self):
-        """Return string representation if the child doesn't have __str__."""
-        return self.__repr__()
 
     class Meta:  # noqa: D101,D106
         database = db
@@ -554,8 +542,10 @@ class AuditMixin(Model):
     updated_at = DateTimeField(null=True, default=None)
     is_deleted = BooleanField(null=True, default=False)
 
-    # created_by = ForeignKeyField(User, on_delete="SET NULL", null=True)
-    # updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True)
+    # created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    # updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref='+')
+    updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref='+')
 
     def save(self, *args, **kwargs):  # noqa: D102
         if self.is_dirty() and self._dirty != {"orcid_updated_at"}:
@@ -616,8 +606,8 @@ class Organisation(BaseModel, AuditMixin):
         on_delete="SET NULL",
         null=True,
         help_text="Organisation technical contact")
-    created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
-    updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
+    # created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
+    # updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
 
     api_credentials_requested_at = DateTimeField(
         null=True,
@@ -665,7 +655,7 @@ class Organisation(BaseModel, AuditMixin):
         """Get organisation's administrator query."""
         return self.users.where(UserOrg.is_admin)
 
-    def __repr__(self):
+    def __str__(self):
         return self.name or self.tuakiri_name
 
     def save(self, *args, **kwargs):
@@ -711,15 +701,14 @@ class User(BaseModel, UserMixin, AuditMixin):
     # TODO: many-to-many
     # NB! Deprecated!
     # TODO: we still need to remember the organisation that last authenticated the user
-    organisation = ForeignKeyField(
-        Organisation, backref="members", on_delete="SET NULL", null=True)
-    created_by = ForeignKeyField("self", on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField("self", on_delete="SET NULL", null=True)
+    organisation = ForeignKeyField(Organisation, backref="members", on_delete="SET NULL", null=True)
+    # created_by = ForeignKeyField("self", on_delete="SET NULL", null=True)
+    # updated_by = ForeignKeyField("self", on_delete="SET NULL", null=True)
 
-    def __repr__(self):
+    def __str__(self):
         if self.name and (self.eppn or self.email):
             return f"{self.name} ({self.email or self.eppn})"
-        return self.name or self.email or self.orcid or super().__repr__()
+        return self.name or self.email or self.orcid or super().__str__()
 
     @property
     def username(self):
@@ -877,8 +866,8 @@ class OrgInfo(BaseModel):
         help_text="Organisation disambiguated ID source",
         choices=disambiguation_source_choices)
 
-    def __repr__(self):
-        return self.name or self.disambiguated_id or super().__repr__()
+    def __str__(self):
+        return self.name or self.disambiguated_id or super().__str__()
 
     class Meta:  # noqa: D101,D106
         table_alias = "oi"
@@ -986,10 +975,10 @@ class UserOrg(BaseModel, AuditMixin):
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=Affiliation.NONE, null=True, verbose_name="EDU Person Affiliations")
-    created_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, backref="created_user_orgs")
-    updated_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, backref="updated_user_orgs")
+    # created_by = ForeignKeyField(
+    #     User, on_delete="SET NULL", null=True, backref="created_user_orgs")
+    # updated_by = ForeignKeyField(
+    #     User, on_delete="SET NULL", null=True, backref="updated_user_orgs")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
@@ -1033,8 +1022,8 @@ class OrcidToken(BaseModel, AuditMixin):
     issue_time = DateTimeField(default=datetime.utcnow)
     refresh_token = CharField(max_length=36, unique=True, null=True)
     expires_in = IntegerField(default=0)
-    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True)
+    # created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    # updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
 
     class Meta:  # noqa: D101,D106
         table_alias = "ot"
@@ -1057,8 +1046,8 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     role_title = TextField(null=True)
     put_code = IntegerField(null=True)
     path = TextField(null=True)
-    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True)
+    # created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    # updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
 
     class Meta:  # noqa: D101,D106
         table_name = "user_organisation_affiliation"
@@ -1104,17 +1093,17 @@ class Task(BaseModel, AuditMixin):
         Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE")
     completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
-    created_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, backref="created_tasks")
-    updated_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, backref="updated_tasks")
+    # created_by = ForeignKeyField(
+    #     User, on_delete="SET NULL", null=True, backref="created_tasks")
+    # updated_by = ForeignKeyField(
+    #     User, on_delete="SET NULL", null=True, backref="updated_tasks")
     task_type = TaskTypeField(
         default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
     status = CharField(null=True, max_length=10, choices=[(v, v) for v in ["ACTIVE", "RESET"]])
 
-    def __repr__(self):
+    def __str__(self):
         return ("Synchronization task" if self.task_type == TaskType.SYNC else (
             self.filename
             or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"))
@@ -3765,7 +3754,7 @@ class Client(BaseModel, AuditMixin):
         """Validate client requested scopes."""
         return "/webhook" in scopes or not scopes
 
-    def __repr__(self):  # noqa: D102
+    def __str__(self):  # noqa: D102
         return self.name or self.homepage_url or self.description
 
 
