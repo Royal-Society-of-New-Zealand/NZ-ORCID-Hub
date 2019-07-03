@@ -6,6 +6,12 @@
 	<div class="table-responsive">
   <table class="table table-hover table-bordered searchable">
     <tbody>
+    {% if section_type in ["EMP", "EDU", "DST", "MEM", "SER", "QUA", "POS"] %}
+      <tr>
+          <td><b>Affiliation Type</b></td>
+          <td>{{ Affiliation[section_type] }}</td>
+      </tr>
+    {% endif %}
     <tr>
         <td><b>ORCID iD</b></td>
         <td>{{ user.orcid }}</td>
@@ -45,8 +51,8 @@
             <th class="column-header">Visibility</th>
           {% else %}
             <th class="column-header">
-              {% if section_type == "EDU" %}Institution
-              {% elif section_type == "EMP" %}Institution/Employer
+              {% if section_type in ["EDU", "QUA"] %}Institution
+              {% elif section_type in ["EMP", "DST", "MEM", "SER", "POS"] %}Institution/Employer
               {% elif section_type == "FUN" %}Institution/Funding Agency
               {% elif section_type == "PRR" %}Institution/Peer Review Agency
               {% elif section_type == "WOR" %}Institution/Work Source
@@ -66,11 +72,11 @@
               <th class="column-header">State/region</th>
               <th class="column-header">Country</th>
             {% endif %}
-            {% if section_type in ["EMP", "EDU"] %}
+            {% if section_type in ["EMP", "EDU", "DST", "MEM", "SER", "QUA", "POS"] %}
               <th class="column-header">Department</th>
               <th class="column-header">
-              {% if section_type == "EDU" %}Degree
-              {% elif section_type == "EMP" %}Role
+              {% if section_type in ["EDU", "QUA"] %}Degree
+              {% elif section_type in ["EMP", "DST", "MEM", "SER", "POS"] %}Role
               {% endif %}
               </th>
             {% elif section_type == "PRR" %}
@@ -160,7 +166,7 @@
                   <td>{{org.get("address", "country", default='')}}</td>
                 {% endif %}
 
-                {% if section_type in ["EMP", "EDU"] %}
+                {% if section_type in ["EMP", "EDU", "DST", "MEM", "SER", "QUA", "POS"] %}
                   <td>{{r.get("department-name", default='')}}</td>
                   <td>{{r.get("role-title", default='')}}</td>
                 {% endif %}
@@ -183,7 +189,7 @@
 		</table>
 		<div style="text-align:right;">
 			{% if url %}
-				<a role="button" class="btn btn-danger" href="{{url}}">Cancel</a>
+				<a role="button" class="btn btn-default" href="{{url}}">Close</a>
 			{% endif %}
 			<a role="button" class="btn btn-primary" href="{{url_for('edit_record', user_id=user.id, section_type=section_type, url=return_url)}}">New...</a>
       {% if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"] %}

@@ -416,8 +416,8 @@ def test_show_record_section(client, mocker):
         view_external_identifiers.assert_called_once_with(user.orcid, _preload_content=False)
 
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_employments",
+            orcid_client.MemberAPIV3,
+            "view_employmentsv3",
             return_value=Mock(data='{"test": "TEST1234567890"}')
     ) as view_employments:
         resp = client.get(f"/section/{user.id}/EMP/list")
@@ -426,8 +426,8 @@ def test_show_record_section(client, mocker):
         view_employments.assert_called_once_with(user.orcid, _preload_content=False)
 
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_educations",
+            orcid_client.MemberAPIV3,
+            "view_educationsv3",
             return_value=Mock(data='{"test": "TEST1234567890"}')
     ) as view_educations:
         resp = client.get(f"/section/{user.id}/EDU/list")
@@ -2208,7 +2208,7 @@ def test_edit_record(request_ctx):
     with patch.object(
             orcid_client.MemberAPIV3,
             "view_employmentv3",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+            MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
     ) as view_employment, request_ctx(f"/section/{user.id}/EMP/1212/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2218,7 +2218,7 @@ def test_edit_record(request_ctx):
     with patch.object(
             orcid_client.MemberAPIV3,
             "view_educationv3",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+            MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
     ) as view_education, request_ctx(f"/section/{user.id}/EDU/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2226,11 +2226,11 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_education.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_funding",
-            MagicMock(return_value=make_fake_response('{"test":123}', dict={"external_ids": {"external_id": [
-            {"external_id_type": "test", "external_id_value": "test", "external_id_url": {"value": "test"},
-             "external_id_relationship": "SELF"}]}}))
+        orcid_client.MemberAPIV20Api,
+        "view_funding",
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "external-ids": {"external-id": [
+            {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
+             "external-id-relationship": "SELF"}]}}"""))
     ) as view_funding, request_ctx(f"/section/{user.id}/FUN/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2301,7 +2301,8 @@ def test_edit_record(request_ctx):
                     "country": "NZ",
                     "org_name": "TEST",
                     "disambiguation_source": "RINGGOLD",
-                    "disambiguated_id": "test"
+                    "disambiguated_id": "test",
+                    "visibility": "PUBLIC"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()

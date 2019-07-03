@@ -1082,6 +1082,7 @@ class MemberAPIMixin:
             url=None,
             display_index=None,
             id=None,
+            grant_data_list=None,
             *args,
             **kwargs):
         """Create or update affiliation record of a user.
@@ -1126,7 +1127,7 @@ class MemberAPIMixin:
             disambiguation_source=disambiguation_source) if disambiguation_source else None
 
         rec = {
-            Affiliation.DIST: v3.DistinctionV30,
+            Affiliation.DST: v3.DistinctionV30,
             Affiliation.EDU: v3.EducationV30,
             Affiliation.EMP: v3.EmploymentV30,
             Affiliation.MEM: v3.MembershipV30,
@@ -1165,6 +1166,7 @@ class MemberAPIMixin:
         if end_date and not end_date.is_null:
             rec.end_date = end_date.as_orcid_dict()
 
+        external_ids = []
         if id:
             external_ids = [
                 v3.ExternalIDV30(  # noqa: F405
@@ -1175,13 +1177,22 @@ class MemberAPIMixin:
                     if eid.relationship else None) for eid in AffiliationExternalId.select().where(
                         AffiliationExternalId.record_id == id).order_by(AffiliationExternalId.id)
             ]
-            if external_ids:
-                rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
+        elif grant_data_list:
+            external_ids = [
+                v3.ExternalIDV30(  # noqa: F405
+                    external_id_type=gdl.get('grant_type') if gdl.get('grant_type') else "grant_number",
+                    external_id_value=gdl.get('grant_number'),
+                    external_id_url=v3.UrlV30(value=gdl.get('grant_url')) if gdl.get('grant_url') else None,
+                    external_id_relationship=gdl.get('grant_relationship').replace('_', '-').lower()
+                    if gdl.get('grant_relationship') else None) for gdl in grant_data_list
+                ]
+        if external_ids:
+            rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
         try:
             if affiliation == Affiliation.EMP:
                 api_call = self.update_employmentv3 if put_code else self.create_employmentv3
-            elif affiliation == Affiliation.DIST:
+            elif affiliation == Affiliation.DST:
                 api_call = self.update_distinctionv3 if put_code else self.create_distinctionv3
             elif affiliation == Affiliation.MEM:
                 api_call = self.update_membershipv3 if put_code else self.create_membershipv3
@@ -1517,9 +1528,14 @@ class MemberAPIMixin:
     def get_section(self, section_type):
         """Retrieve researcher profile section by the section type."""
         method_name = {
+            "MEM": "view_membershipsv3",
+            "SER": "view_servicesv3",
+            "QUA": "view_qualificationsv3",
+            "POS": "view_invited_positionsv3",
             "ADR": "view_addresses",
-            "EDU": "view_educations",
-            "EMP": "view_employments",
+            "DST": "view_distinctionsv3",
+            "EDU": "view_educationsv3",
+            "EMP": "view_employmentsv3",
             "EXR": "view_external_identifiers",
             "FUN": "view_fundings",
             "KWR": "view_keywords",
@@ -1533,6 +1549,11 @@ class MemberAPIMixin:
     def delete_section(self, section_type, put_code):
         """Delete a section from the researcher profile."""
         method_name = {
+            "MEM": "delete_membershipv3",
+            "SER": "delete_servicev3",
+            "QUA": "delete_qualificationv3",
+            "POS": "delete_invited_positionv3",
+            "DST": "delete_distinctionv3",
             "ADR": "delete_address",
             "EDU": "delete_educationv3",
             "EMP": "delete_employmentv3",

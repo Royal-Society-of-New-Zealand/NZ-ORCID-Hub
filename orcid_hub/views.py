@@ -1713,7 +1713,8 @@ class ViewMembersAdmin(AppModelView):
             records = itertools.chain(
                 *[[(t.user, s.get(f"{rt}-summary")) for ag in
                    profile.get("activities-summary", f"{rt}s", "affiliation-group", default=[])
-                   for s in ag.get("summaries")] for rt in ["employment", "education"]])
+                   for s in ag.get("summaries")] for rt in ["employment", "education", "distinction", "membership",
+                                                            "service", "qualification", "invited-position"]])
 
         # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
         class Echo(object):
@@ -1962,7 +1963,7 @@ def reset_all():
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
     """Delete an employment, education, peer review, works or funding record."""
-    _url = request.args.get("url") or request.referrer or url_for(
+    _url = request.referrer or request.args.get("url") or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
@@ -1992,7 +1993,7 @@ def delete_record(user_id, section_type, put_code):
             return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2045,7 +2046,7 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2077,6 +2078,16 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_employmentv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "EDU":
                     api_response = api.view_educationv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "DST":
+                    api_response = api.view_distinctionv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "MEM":
+                    api_response = api.view_membershipv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "SER":
+                    api_response = api.view_servicev3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "QUA":
+                    api_response = api.view_qualificationv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "POS":
+                    api_response = api.view_invited_positionv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "FUN":
                     api_response = api.view_funding(user.orcid, put_code, _preload_content=False)
                 elif section_type == "WOR":
@@ -2198,21 +2209,20 @@ def edit_record(user_id, section_type, put_code=None):
                         start_date=PartialDate.create(_data.get("start-date")),
                         end_date=PartialDate.create(_data.get("end-date")))
 
+                    external_ids_list = _data.get("external-ids", "external-id", default=[])
+
+                    for extid in external_ids_list:
+                        external_id_value = extid.get('external-id-value') if extid.get('external-id-value') else ''
+                        external_id_url = extid.get('external-id-url', 'value') if extid.get(
+                            'external-id-url', 'value') else ''
+                        external_id_relationship = extid.get('external-id-relationship').upper() if extid.get(
+                            'external-id-relationship') else ''
+                        external_id_type = extid.get('external-id-type') if extid.get('external-id-type') else ''
+
+                        grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                    grant_relationship=external_id_relationship,
+                                                    grant_type=external_id_type))
                     if section_type == "FUN":
-                        external_ids_list = _data.get("external-ids", "external-id")
-
-                        for extid in external_ids_list:
-                            external_id_value = extid.get('external-id-value') if extid.get('external-id-value') else ''
-                            external_id_url = extid.get('external-id-url', 'value') if extid.get(
-                                'external-id-url', 'value') else ''
-                            external_id_relationship = extid.get('external-id-relationship') if extid.get(
-                                'external-id-relationship') else ''
-                            external_id_type = extid.get('external-id-type') if extid.get('external-id-type') else ''
-
-                            grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
-                                                        grant_relationship=external_id_relationship,
-                                                        grant_type=external_id_type))
-
                         data.update(dict(funding_title=_data.get("title", "title", "value"),
                                          funding_translated_title=_data.get("title", "translated-title", "value"),
                                          translated_title_language=_data.get("title", "translated-title",
@@ -2222,6 +2232,9 @@ def edit_record(user_id, section_type, put_code=None):
                                          funding_description=_data.get("short-description"),
                                          total_funding_amount=_data.get("amount", "value"),
                                          total_funding_amount_currency=_data.get("amount", "currency-code")))
+                    else:
+                        data.update(dict(url=_data.get("url", "value"), visibility=_data.get(
+                            "visibility", default='').upper(), display_index=_data.get("display-index")))
 
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
@@ -2242,7 +2255,32 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type in ["FUN", "PRR", "WOR"]:
+            if section_type == "RUR":
+                put_code, orcid, created, visibility = api.create_or_update_researcher_url(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "ONR":
+                put_code, orcid, created, visibility = api.create_or_update_other_name(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "ADR":
+                put_code, orcid, created, visibility = api.create_or_update_address(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "EXR":
+                put_code, orcid, created, visibility = api.create_or_update_person_external_id(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "KWR":
+                put_code, orcid, created, visibility = api.create_or_update_keyword(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            else:
                 grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
@@ -2269,55 +2307,30 @@ def edit_record(user_id, section_type, put_code=None):
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
                            for f in form})
-                else:
+                elif section_type == "PRR":
                     put_code, orcid, created = api.create_or_update_individual_peer_review(
                         put_code=put_code,
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
                            for f in form})
-            elif section_type == "RUR":
-                put_code, orcid, created, visibility = api.create_or_update_researcher_url(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "ONR":
-                put_code, orcid, created, visibility = api.create_or_update_other_name(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "ADR":
-                put_code, orcid, created, visibility = api.create_or_update_address(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "EXR":
-                put_code, orcid, created, visibility = api.create_or_update_person_external_id(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "KWR":
-                put_code, orcid, created, visibility = api.create_or_update_keyword(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            else:
-                put_code, orcid, created, visibility = api.create_or_update_affiliation(
-                    put_code=put_code,
-                    affiliation=Affiliation[section_type],
-                    **{f.name: f.data
-                       for f in form})
+                else:
+                    put_code, orcid, created, visibility = api.create_or_update_affiliation(
+                        put_code=put_code,
+                        affiliation=Affiliation[section_type],
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
 
-                affiliation, _ = UserOrgAffiliation.get_or_create(
-                    user=user,
-                    organisation=org,
-                    put_code=put_code)
+                    affiliation, _ = UserOrgAffiliation.get_or_create(
+                        user=user,
+                        organisation=org,
+                        put_code=put_code)
 
-                affiliation.department_name = form.department.data
-                affiliation.department_city = form.city.data
-                affiliation.role_title = form.role.data
-                form.populate_obj(affiliation)
-
-                affiliation.save()
+                    affiliation.department_name = form.department.data
+                    affiliation.department_city = form.city.data
+                    affiliation.role_title = form.role.data
+                    form.populate_obj(affiliation)
+                    affiliation.save()
             if put_code and created:
                 flash("Record details has been added successfully!", "success")
             else:
@@ -2353,7 +2366,8 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR", "ADR", "EXR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR", "ADR", "EXR", "DST", "MEM", "SER",
+                            "QUA", "POS"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -2416,8 +2430,11 @@ def section(user_id, section_type="EMP"):
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(_url)
 
-    api = orcid_client.MemberAPI(
-            user=user, org=current_user.organisation, access_token=orcid_token.access_token)
+    # Gradually mirgating to v3.x
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
+        api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
+    else:
+        api = orcid_client.MemberAPI(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
     try:
         api_response = api.get_section(section_type)
     except ApiException as ex:
@@ -2448,10 +2465,17 @@ def section(user_id, section_type="EMP"):
             "WOR": "work-summary",
             "PRR": "peer-review-summary",
         }[section_type]))
+    elif section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
+        records = (ss.get({"EDU": "education-summary",
+                           "EMP": "employment-summary",
+                           "DST": "distinction-summary",
+                           "MEM": "membership-summary",
+                           "SER": "service-summary",
+                           "QUA": "qualification-summary",
+                           "POS": "invited-position-summary"}[section_type]) for ag in
+                   data.get("affiliation-group", default=[]) for ss in ag.get("summaries", default=[]))
     else:
         records = data.get({
-            "EDU": "education-summary",
-            "EMP": "employment-summary",
             "RUR": "researcher-url",
             "KWR": "keyword",
             "ADR": "address",
@@ -2463,6 +2487,7 @@ def section(user_id, section_type="EMP"):
         "section.html",
         user=user,
         url=_url,
+        Affiliation=Affiliation,
         records=records,
         section_type=section_type,
         org_client_id=user.organisation.orcid_client_id)
