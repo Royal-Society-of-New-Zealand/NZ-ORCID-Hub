@@ -399,7 +399,7 @@ class Affiliation(IntFlag):
     NONE = 0  # NONE
     EDU = 1  # Education
     EMP = 2  # Employment
-    DIST = 4  # Distinction
+    DST = 4  # Distinction
     POS = 8   # Invited Position
     QUA = 16   # Qualification
     MEM = 32   # Membership
@@ -417,7 +417,7 @@ class Affiliation(IntFlag):
         return ", ".join({
             self.EDU: "Education",
             self.EMP: "Employment",
-            self.DIST: "Distinction",
+            self.DST: "Distinction",
             self.POS: "Invited Position",
             self.QUA: "Qualification",
             self.MEM: "Membership",

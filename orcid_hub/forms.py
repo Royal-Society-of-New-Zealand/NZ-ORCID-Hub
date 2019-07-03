@@ -218,31 +218,6 @@ class AppForm(FlaskForm):
         return "multipart/form-data" if any(f.type == "FileField" for f in self) else ''
 
 
-class RecordForm(FlaskForm):
-    """User/researcher employment detail form."""
-
-    org_name = StringField("Institution/employer", [validators.required()])
-    city = StringField("City", [validators.required()])
-    state = StringField("State/region", filters=[lambda x: x or None])
-    country = CountrySelectField("Country", [validators.required()])
-    department = StringField("Department", filters=[lambda x: x or None])
-    role = StringField("Role/title", filters=[lambda x: x or None])
-    start_date = PartialDateField("Start date")
-    end_date = PartialDateField("End date (leave blank if current)")
-    disambiguated_id = StringField("Disambiguated Organisation ID")
-    disambiguation_source = SelectField(
-        "Disambiguation Source",
-        validators=[optional()],
-        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
-
-    def __init__(self, *args, form_type=None, **kwargs):
-        """Create form."""
-        super().__init__(*args, **kwargs)
-        if form_type == "EDU":
-            self.org_name.label = "Institution"
-            self.role.label = "Course/Degree"
-
-
 class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
@@ -334,7 +309,7 @@ class WorkForm(FlaskForm):
     country = CountrySelectField("Country of publication")
 
 
-class ResearcherUrlOtherNameKeywordForm(FlaskForm):
+class CommonFieldsForm(FlaskForm):
     """User/researcher Url and Other Name Common form."""
 
     visibility_choices = [(v, v.replace('_', ' ').title()) for v in models.VISIBILITIES]
@@ -342,26 +317,26 @@ class ResearcherUrlOtherNameKeywordForm(FlaskForm):
     visibility = SelectField(choices=visibility_choices, description="Visibility")
 
 
-class ResearcherUrlForm(ResearcherUrlOtherNameKeywordForm):
+class ResearcherUrlForm(CommonFieldsForm):
     """User/researcher Url detail form."""
 
     name = StringField("Url Name", [validators.required()])
     value = StringField("Url Value", [validators.required()])
 
 
-class OtherNameKeywordForm(ResearcherUrlOtherNameKeywordForm):
+class OtherNameKeywordForm(CommonFieldsForm):
     """User/researcher other name detail form."""
 
     content = StringField("Content", [validators.required()])
 
 
-class AddressForm(ResearcherUrlOtherNameKeywordForm):
+class AddressForm(CommonFieldsForm):
     """User/researcher address detail form."""
 
     country = CountrySelectField("Country", [validators.required()])
 
 
-class ExternalIdentifierForm(ResearcherUrlOtherNameKeywordForm):
+class ExternalIdentifierForm(CommonFieldsForm):
     """User/researcher Other IDs detail form."""
 
     type = SelectField(choices=EMPTY_CHOICES + models.external_id_type_choices, validators=[validators.required()],
@@ -370,6 +345,32 @@ class ExternalIdentifierForm(ResearcherUrlOtherNameKeywordForm):
     url = StringField("External Identifier Url", [validators.required()])
     relationship = SelectField(choices=models.relationship_choices, default="SELF",
                                description="External Id Relationship")
+
+
+class RecordForm(CommonFieldsForm):
+    """User/researcher employment detail form."""
+
+    org_name = StringField("Institution/employer", [validators.required()])
+    city = StringField("City", [validators.required()])
+    state = StringField("State/region", filters=[lambda x: x or None])
+    country = CountrySelectField("Country", [validators.required()])
+    department = StringField("Department", filters=[lambda x: x or None])
+    role = StringField("Role/title", filters=[lambda x: x or None])
+    start_date = PartialDateField("Start date")
+    end_date = PartialDateField("End date (leave blank if current)")
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = SelectField(
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
+    url = StringField("Url", filters=[lambda x: x or None])
+
+    def __init__(self, *args, form_type=None, **kwargs):
+        """Create form."""
+        super().__init__(*args, **kwargs)
+        if form_type == "EDU":
+            self.org_name.label = "Institution"
+            self.role.label = "Course/Degree"
 
 
 class GroupIdForm(FlaskForm):
