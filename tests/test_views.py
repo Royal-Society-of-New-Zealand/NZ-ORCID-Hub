@@ -664,6 +664,15 @@ def test_application_registration(client):
     assert urlparse(resp.location).path == "/settings/applications"
     assert not Client.select().where(Client.id == c.id).exists()
 
+    # Attempt to access the other user credentials:
+    c = Client.create(client_id="AAA", client_secret="BBB", name="APP 123456",
+                      user=User.get(User != c.user), org=c.org)
+    resp = client.get(f"/settings/credentials/{c.id}")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/settings/applications"
+    resp = client.get(f"/settings/credentials/{c.id}", follow_redirects=True)
+    assert b"Access denied" in resp.data
+
 
 def make_fake_response(text, *args, **kwargs):
     """Mock out the response object returned by requests_oauthlib.OAuth2Session.get(...)."""

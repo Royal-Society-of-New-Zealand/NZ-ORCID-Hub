@@ -54,7 +54,7 @@ def validate_uuid4(uuid_string):
 
 
 @app.route('/api/me')
-@app.route("/api/v1.0/me")
+@app.route("/api/v1/me")
 @oauth.require_oauth()
 def me():
     """Get the token user data."""
@@ -103,7 +103,7 @@ class AppResource(Resource):
         if request.method != "DELETE":
             if self.is_yaml_request:
                 try:
-                    data = yaml.load(request.data)
+                    data = yaml.safe_load(request.data)
                 except Exception as ex:
                     return jsonify({
                         "error": "Invalid request format. Only JSON or YAML are acceptable.",
@@ -528,7 +528,7 @@ class TaskAPI(TaskList):
         try:
             login_user(request.oauth.user)
             if self.is_yaml_request:
-                data = yaml.load(request.data)
+                data = yaml.safe_load(request.data)
             else:
                 data = request.json
 
@@ -738,8 +738,8 @@ class TaskAPI(TaskList):
         return self.delete_task(task_id)
 
 
-api.add_resource(TaskList, "/api/v1.0/tasks")
-api.add_resource(TaskAPI, "/api/v1.0/tasks/<int:task_id>")
+api.add_resource(TaskList, "/api/v1/tasks")
+api.add_resource(TaskAPI, "/api/v1/tasks/<int:task_id>")
 
 
 class AffiliationListAPI(TaskResource):
@@ -1051,8 +1051,8 @@ class AffiliationAPI(TaskResource):
         return self.delete_task(task_id)
 
 
-api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
-api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
+api.add_resource(AffiliationListAPI, "/api/v1/affiliations")
+api.add_resource(AffiliationAPI, "/api/v1/affiliations/<int:task_id>")
 
 
 class FundListAPI(TaskResource):
@@ -1239,8 +1239,8 @@ class FundAPI(FundListAPI):
         return self.delete_task(task_id)
 
 
-api.add_resource(FundListAPI, "/api/v1.0/funds")
-api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
+api.add_resource(FundListAPI, "/api/v1/funds")
+api.add_resource(FundAPI, "/api/v1/funds/<int:task_id>")
 
 
 class WorkListAPI(TaskResource):
@@ -1426,8 +1426,8 @@ class WorkAPI(WorkListAPI):
         return self.delete_task(task_id)
 
 
-api.add_resource(WorkListAPI, "/api/v1.0/works")
-api.add_resource(WorkAPI, "/api/v1.0/works/<int:task_id>")
+api.add_resource(WorkListAPI, "/api/v1/works")
+api.add_resource(WorkAPI, "/api/v1/works/<int:task_id>")
 
 
 class PeerReviewListAPI(TaskResource):
@@ -1613,8 +1613,8 @@ class PeerReviewAPI(PeerReviewListAPI):
         return self.delete_task(task_id)
 
 
-api.add_resource(PeerReviewListAPI, "/api/v1.0/peer-reviews")
-api.add_resource(PeerReviewAPI, "/api/v1.0/peer-reviews/<int:task_id>")
+api.add_resource(PeerReviewListAPI, "/api/v1/peer-reviews")
+api.add_resource(PeerReviewAPI, "/api/v1/peer-reviews/<int:task_id>")
 
 
 class PropertyListAPI(TaskResource):
@@ -1938,8 +1938,8 @@ class PropertyAPI(PropertyListAPI):
         return self.delete_task(task_id)
 
 
-api.add_resource(PropertyListAPI, "/api/v1.0/properties")
-api.add_resource(PropertyAPI, "/api/v1.0/properties/<int:task_id>")
+api.add_resource(PropertyListAPI, "/api/v1/properties")
+api.add_resource(PropertyAPI, "/api/v1/properties/<int:task_id>")
 
 
 class UserListAPI(AppResourceList):
@@ -2075,7 +2075,7 @@ class UserListAPI(AppResourceList):
         return self.handle_user()
 
 
-api.add_resource(UserListAPI, "/api/v1.0/users")
+api.add_resource(UserListAPI, "/api/v1/users")
 
 
 class UserAPI(AppResource):
@@ -2292,7 +2292,7 @@ class UserAPI(AppResource):
         return self.handle_user(identifier)
 
 
-api.add_resource(UserAPI, "/api/v1.0/users/<identifier>")
+api.add_resource(UserAPI, "/api/v1/users/<identifier>")
 
 
 class TokenAPI(MethodView):
@@ -2508,7 +2508,7 @@ class TokenAPI(MethodView):
                           ])), 201
 
 
-app.add_url_rule("/api/v1.0/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"))
+app.add_url_rule("/api/v1/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"))
 
 
 def get_spec(app):
@@ -2663,7 +2663,7 @@ def get_spec(app):
             },
         },
     }
-    swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
+    swag["paths"]["/api/v1/{orcid}/webhook"] = {
         "parameters": [swag["parameters"]["orcidParam"]],
         "put": {
             "tags": ["webhooks"],
@@ -2674,7 +2674,7 @@ def get_spec(app):
             "responses": delete_responses,
         }
     }
-    swag["paths"]["/api/v1.0/{orcid}/webhook/{callback_url}"] = {
+    swag["paths"]["/api/v1/{orcid}/webhook/{callback_url}"] = {
         "parameters": [
             swag["parameters"]["orcidParam"],
             {
@@ -2967,8 +2967,8 @@ def orcid_proxy(version, orcid, rest=None):
     return proxy_resp
 
 
-@app.route("/api/v1.0/<string:orcid>/webhook", methods=["PUT", "DELETE"])
-@app.route("/api/v1.0/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
+@app.route("/api/v1/<string:orcid>/webhook", methods=["PUT", "DELETE"])
+@app.route("/api/v1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
 @oauth.require_oauth()
 def register_webhook(orcid, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
