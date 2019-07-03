@@ -9,12 +9,8 @@
       {% if row.orcid %}
       <div class="profile-subnav-content">
         <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='EMP', url=return_url) }}"
-           title="Employment">
+           title="Affiliations">
           <span class="fa fa-briefcase glyphicon glyphicon-briefcase icon"></span>
-        </a>
-        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='EDU', url=return_url) }}"
-           title="Education">
-          <span class="fa fa-graduation-cap glyphicon glyphicon-education icon"></span>
         </a>
         <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='FUNDING', url=return_url) }}"
            title="Funding">
