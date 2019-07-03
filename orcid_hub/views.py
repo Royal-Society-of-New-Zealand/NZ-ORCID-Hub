@@ -3215,6 +3215,9 @@ def api_credentials(app_id=None):
     """Manage API credentials."""
     if app_id:
         client = Client.select().where(Client.id == app_id).first()
+        if client and client.user_id != current_user.id:
+            flash("Access denied!", "danger")
+            return redirect(url_for("application"))
     else:
         client = Client.select().where(Client.user_id == current_user.id).first()
     if not client:

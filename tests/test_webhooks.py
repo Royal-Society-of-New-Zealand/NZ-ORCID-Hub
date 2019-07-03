@@ -73,19 +73,19 @@ def test_webhook_registration(client):
     # prevously created access token should be removed
 
     resp = test_client.put(
-        "/api/v1.0/INCORRECT/webhook/http%3A%2F%2FCALL-BACK",
+        "/api/v1/INCORRECT/webhook/http%3A%2F%2FCALL-BACK",
         headers=dict(authorization=f"Bearer {token.access_token}"))
     assert resp.status_code == 415
     assert json.loads(resp.data)["error"] == "Missing or invalid ORCID iD."
 
     resp = test_client.put(
-        "/api/v1.0/0000-0001-8228-7153/webhook/http%3A%2F%2FCALL-BACK",
+        "/api/v1/0000-0001-8228-7153/webhook/http%3A%2F%2FCALL-BACK",
         headers=dict(authorization=f"Bearer {token.access_token}"))
     assert resp.status_code == 404
     assert json.loads(resp.data)["error"] == "Invalid ORCID iD."
 
     resp = test_client.put(
-        f"/api/v1.0/{orcid_id}/webhook/INCORRECT-WEBHOOK-URL",
+        f"/api/v1/{orcid_id}/webhook/INCORRECT-WEBHOOK-URL",
         headers=dict(authorization=f"Bearer {token.access_token}"))
     assert resp.status_code == 415
     assert json.loads(resp.data) == {
@@ -116,7 +116,7 @@ def test_webhook_registration(client):
         }
         mockput.return_value = mockresp
         resp = test_client.put(
-            f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
+            f"/api/v1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
             headers=dict(authorization=f"Bearer {token.access_token}"))
 
         assert resp.status_code == 201
@@ -158,10 +158,10 @@ def test_webhook_registration(client):
         }
         mockdelete.return_value = mockresp
         resp = test_client.delete(
-            f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
+            f"/api/v1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
             headers=dict(authorization=f"Bearer {token.access_token}"))
         assert resp.status_code == 204
-        assert urlparse(resp.location).path == f"/api/v1.0/{orcid_id}/webhook/http://TEST-LOCATION"
+        assert urlparse(resp.location).path == f"/api/v1/{orcid_id}/webhook/http://TEST-LOCATION"
 
         args, kwargs = mockput.call_args
         assert args[
