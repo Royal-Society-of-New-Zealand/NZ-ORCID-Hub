@@ -966,7 +966,7 @@ records:
 """)
     assert resp.status_code == 400
     assert resp.json["error"] == "Unhandled exception occurred."
-    assert "Instance matching query does not exist" in resp.json["exception"]
+    assert "instance matching query does not exist" in resp.json["exception"]
 
     with patch.object(AffiliationRecord, "get", side_effect=Exception("ERROR")):
         resp = client.put(

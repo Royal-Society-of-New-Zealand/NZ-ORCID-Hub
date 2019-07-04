@@ -17,7 +17,7 @@ from flask_login import current_user, login_user
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 
-from . import api, app, db, models, oauth, schemas
+from . import api, app, models, oauth, schemas
 from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
                      PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User, UserOrg,
@@ -371,7 +371,6 @@ class TaskResource(AppResource):
                 skip_schema_validation=True,
                 override=(request.method == "POST"))
         except Exception as ex:
-            db.rollback()
             app.logger.exception("Failed to handle affiliation API request.")
             return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 

@@ -544,6 +544,8 @@ class AuditMixin(Model):
 
     # created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
     # updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    # created_by = IntegerField(null=True, index=True)
+    # updated_by = IntegerField(null=True, index=True)
     created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref='+')
     updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref='+')
 
@@ -551,7 +553,7 @@ class AuditMixin(Model):
         if self.is_dirty() and self._dirty != {"orcid_updated_at"}:
             self.updated_at = datetime.utcnow()
             if current_user and hasattr(current_user, "id"):
-                if hasattr(self, "created_by") and self.created_by and hasattr(self, "updated_by"):
+                if self.created_by:
                     self.updated_by_id = current_user.id
                 elif hasattr(self, "created_by"):
                     self.created_by_id = current_user.id
@@ -702,8 +704,8 @@ class User(BaseModel, UserMixin, AuditMixin):
     # NB! Deprecated!
     # TODO: we still need to remember the organisation that last authenticated the user
     organisation = ForeignKeyField(Organisation, backref="members", on_delete="SET NULL", null=True)
-    # created_by = ForeignKeyField("self", on_delete="SET NULL", null=True)
-    # updated_by = ForeignKeyField("self", on_delete="SET NULL", null=True)
+    created_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref='+')
+    updated_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref='+')
 
     def __str__(self):
         if self.name and (self.eppn or self.email):
@@ -966,9 +968,9 @@ class OrgInvitation(BaseModel, AuditMixin):
 class UserOrg(BaseModel, AuditMixin):
     """Linking object for many-to-many relationship."""
 
-    user = ForeignKeyField(User, on_delete="CASCADE", index=True)
+    user = ForeignKeyField(User, on_delete="CASCADE", index=True, backref="user_orgs")
     org = ForeignKeyField(
-        Organisation, on_delete="CASCADE", index=True, verbose_name="Organisation")
+        Organisation, on_delete="CASCADE", index=True, verbose_name="Organisation", backref="user_orgs")
 
     is_admin = BooleanField(
         null=True, default=False, help_text="User is an administrator for the organisation")
@@ -1014,7 +1016,7 @@ class OrcidToken(BaseModel, AuditMixin):
     """For Keeping ORCID token in the table."""
 
     user = ForeignKeyField(
-        User, null=True, index=True,
+        User, null=True, index=True, backref="orcid_tokens",
         on_delete="CASCADE")  # TODO: add validation for 3-legged authorization tokens
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scopes = TextField(null=True)
@@ -1032,7 +1034,7 @@ class OrcidToken(BaseModel, AuditMixin):
 class UserOrgAffiliation(BaseModel, AuditMixin):
     """For Keeping the information about the affiliation."""
 
-    user = ForeignKeyField(User, on_delete="CASCADE")
+    user = ForeignKeyField(User, on_delete="CASCADE", backref="org_affiliations")
     organisation = ForeignKeyField(
         Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation")
     disambiguated_id = CharField(verbose_name="Disambiguation ORG Id", null=True)
@@ -1058,7 +1060,7 @@ class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
+    user = ForeignKeyField(User, null=True, on_delete="SET NULL", backref="orcid_api_calls")
     method = TextField()
     url = TextField()
     query_params = TextField(null=True)
@@ -1075,7 +1077,7 @@ class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True, default=None, on_delete="SET NULL")
+    user = ForeignKeyField(User, null=True, default=None, on_delete="SET NULL", backref="orcid_auth_calls")
     method = TextField(null=True, default="GET")
     url = TextField(null=True)
     token = TextField(null=True)
@@ -1090,7 +1092,7 @@ class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
 
     org = ForeignKeyField(
-        Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE")
+        Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE", backref="tasks")
     completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
     # created_by = ForeignKeyField(
@@ -1207,7 +1209,7 @@ class Task(BaseModel, AuditMixin):
                 v = row[idxs[i]].strip()
                 return default if v == '' else v
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 for row_no, row in enumerate(reader):
@@ -1326,7 +1328,7 @@ class Task(BaseModel, AuditMixin):
                             raise ModelException(f"Invalid record: {validator.errors}")
                         ae.save()
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load affiliation file.")
                 raise
 
@@ -1376,8 +1378,7 @@ class Log(BaseModel):
     """Task log entries."""
 
     created_at = DateTimeField(default=datetime.utcnow)
-    created_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, backref="created_task_log_entries")
+    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
     task = ForeignKeyField(
         Task,
         on_delete="CASCADE",
@@ -1405,9 +1406,17 @@ class UserInvitation(BaseModel, AuditMixin):
         User, on_delete="CASCADE", null=True, backref="received_user_invitations")
     inviter = ForeignKeyField(
         User, on_delete="SET NULL", null=True, backref="sent_user_invitations")
-    org = ForeignKeyField(
-        Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
-    task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
+    org = ForeignKeyField(Organisation,
+                          on_delete="CASCADE",
+                          null=True,
+                          verbose_name="Organisation",
+                          backref="user_invitations")
+    task = ForeignKeyField(Task,
+                           on_delete="CASCADE",
+                           null=True,
+                           index=True,
+                           verbose_name="Task",
+                           backref="user_invitations")
     email = CharField(
         index=True, null=True, max_length=80,
         help_text="The email address the invitation was sent to.")
@@ -1530,7 +1539,7 @@ class GroupIdRecord(RecordModel):
                      help_text="One of the specified types: publisher; institution; journal; conference; newspaper; "
                                "newsletter; magazine; peer-review service.")
     organisation = ForeignKeyField(
-        Organisation, backref="organisation", on_delete="CASCADE", null=True)
+        Organisation, backref="group_id_records", on_delete="CASCADE", null=True)
 
     class Meta:  # noqa: D101,D106
         table_alias = "gid"
@@ -1613,7 +1622,7 @@ class AffiliationRecord(RecordModel):
         if not task and "id" in data:
             task_id = int(data["id"])
             task = Task.select().where(Task.id == task_id).first()
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if not task:
                     filename = (filename or data.get("filename")
@@ -1634,8 +1643,8 @@ class AffiliationRecord(RecordModel):
                         k = k.replace('-', '_')
                         if k in ["visibility", "disambiguation_source"] and v:
                             v = v.upper()
-                        if k in record_fields and rec._data.get(k) != v:
-                            rec._data[k] = PartialDate.create(v) if k.endswith("date") else v
+                        if k in record_fields and rec.__data__.get(k) != v:
+                            rec.__data__[k] = PartialDate.create(v) if k.endswith("date") else v
                             rec._dirty.add(k)
                     if rec.is_dirty():
                         validator = ModelValidator(rec)
@@ -1643,7 +1652,7 @@ class AffiliationRecord(RecordModel):
                             raise ModelException(f"Invalid record: {validator.errors}")
                         rec.save()
             except:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load affiliation record task file.")
                 raise
         return task
@@ -1857,7 +1866,7 @@ class FundingRecord(RecordModel):
                         url=val(row, 21),
                         relationship=external_id_relationship)))
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
                 for funding, records in groupby(rows, key=lambda row: row["funding"].items()):
@@ -1887,7 +1896,7 @@ class FundingRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load funding file.")
                 raise
 
@@ -1908,7 +1917,7 @@ class FundingRecord(RecordModel):
                 schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
             validator.validate(raise_exception=True)
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -2015,7 +2024,7 @@ class FundingRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load funding file.")
                 raise
 
@@ -2327,7 +2336,7 @@ class PeerReviewRecord(RecordModel):
                         url=val(row, 31),
                         relationship=external_id_relationship)))
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
                 for peer_review, records in groupby(rows, key=lambda row: row["peer_review"].items()):
@@ -2354,34 +2363,34 @@ class PeerReviewRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None, task=None, **kwargs):
         """Load data from JSON file or a string."""
-        if isinstance(source, str):
-            # import data from file based on its extension; either it is YAML or JSON
-            data_list = load_yaml_json(filename=filename, source=source)
-            if not filename:
-                if isinstance(data_list, dict):
-                    filename = data_list.get("filename")
-                else:
-                    filename = "peer_review_" + datetime.utcnow().isoformat(
-                        timespec="seconds") + ".json"
+        # import data from file based on its extension; either it is YAML or JSON
+        data_list = load_yaml_json(filename=filename, source=source)
+        if not filename:
             if isinstance(data_list, dict):
-                data_list = data_list.get("records")
+                filename = data_list.get("filename")
+            else:
+                filename = "peer_review_" + datetime.utcnow().isoformat(
+                    timespec="seconds") + ".json"
+        if isinstance(data_list, dict):
+            data_list = data_list.get("records")
 
-            for data in data_list:
-                validation_source_data = copy.deepcopy(data)
-                validation_source_data = del_none(validation_source_data)
+        for data in data_list:
+            validation_source_data = copy.deepcopy(data)
+            validation_source_data = del_none(validation_source_data)
 
-                validator = Core(
-                    source_data=validation_source_data,
-                    schema_files=[os.path.join(SCHEMA_DIR, "peer_review_schema.yaml")])
-                validator.validate(raise_exception=True)
+            validator = Core(
+                source_data=validation_source_data,
+                schema_files=[os.path.join(SCHEMA_DIR, "peer_review_schema.yaml")])
+            validator.validate(raise_exception=True)
 
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -2392,91 +2401,40 @@ class PeerReviewRecord(RecordModel):
 
                 for data in data_list:
 
-                    review_group_id = data.get("review-group-id") if data.get(
-                        "review-group-id") else None
-
-                    reviewer_role = data.get("reviewer-role") if data.get(
-                        "reviewer-role") else None
-
-                    review_url = data.get("review-url").get("value") if data.get(
-                        "review-url") else None
-
-                    review_type = data.get("review-type") if data.get("review-type") else None
-
+                    review_group_id = data.get("review-group-id")
+                    reviewer_role = data.get("reviewer-role")
+                    review_url = data.get("review-url", "value")
+                    review_type = data.get("review-type")
                     review_completion_date = PartialDate.create(data.get("review-completion-date"))
+                    subject_external_id_type = data.get("subject-external-identifier",
+                                                        "external-id-type")
+                    subject_external_id_value = data.get("subject-external-identifier",
+                                                         "external-id-value")
+                    subject_external_id_url = data.get("subject-external-identifier",
+                                                       "external-id-url", "value")
+                    subject_external_id_relationship = data.get("subject-external-identifier",
+                                                                "external-id-relationship")
 
-                    subject_external_id_type = data.get("subject-external-identifier").get(
-                        "external-id-type") if data.get(
-                        "subject-external-identifier") else None
-
-                    subject_external_id_value = data.get("subject-external-identifier").get(
-                        "external-id-value") if data.get(
-                        "subject-external-identifier") else None
-
-                    subject_external_id_url = data.get("subject-external-identifier").get(
-                        "external-id-url").get("value") if data.get(
-                        "subject-external-identifier") and data.get("subject-external-identifier").get(
-                        "external-id-url") else None
-
-                    subject_external_id_relationship = data.get("subject-external-identifier").get(
-                        "external-id-relationship") if data.get(
-                        "subject-external-identifier") else None
-
-                    subject_container_name = data.get("subject-container-name").get(
-                        "value") if data.get(
-                        "subject-container-name") else None
-
-                    subject_type = data.get("subject-type") if data.get(
-                        "subject-type") else None
-
-                    subject_name_title = data.get("subject-name").get("title").get(
-                        "value") if data.get(
-                        "subject-name") and data.get("subject-name").get("title") else None
-
-                    subject_name_subtitle = data.get("subject-name").get("subtitle").get(
-                        "value") if data.get(
-                        "subject-name") and data.get("subject-name").get("subtitle") else None
-
-                    subject_name_translated_title_lang_code = data.get("subject-name").get(
-                        "translated-title").get(
-                        "language-code") if data.get(
-                        "subject-name") and data.get("subject-name").get("translated-title") else None
-
-                    subject_name_translated_title = data.get("subject-name").get(
-                        "translated-title").get(
-                        "value") if data.get(
-                        "subject-name") and data.get("subject-name").get("translated-title") else None
-
-                    subject_url = data.get("subject-url").get("value") if data.get(
-                        "subject-name") else None
-
-                    convening_org_name = data.get("convening-organization").get(
-                        "name") if data.get(
-                        "convening-organization") else None
-
-                    convening_org_city = data.get("convening-organization").get("address").get(
-                        "city") if data.get("convening-organization") and data.get(
-                        "convening-organization").get("address") else None
-
-                    convening_org_region = data.get("convening-organization").get("address").get(
-                        "region") if data.get("convening-organization") and data.get(
-                        "convening-organization").get("address") else None
-
-                    convening_org_country = data.get("convening-organization").get("address").get(
-                        "country") if data.get("convening-organization") and data.get(
-                        "convening-organization").get("address") else None
-
+                    subject_container_name = data.get("subject-container-name", "value")
+                    subject_type = data.get("subject-type")
+                    subject_name_title = data.get("subject-name", "title", "value")
+                    subject_name_subtitle = data.get("subject-name", "subtitle", "value")
+                    subject_name_translated_title_lang_code = data.get(
+                        "subject-name", "translated-title", "language-code")
+                    subject_name_translated_title = data.get("subject-name", "translated-title",
+                                                             "value")
+                    subject_url = data.get("subject-url", "value")
+                    convening_org_name = data.get("convening-organization", "name")
+                    convening_org_city = data.get("convening-organization", "address", "city")
+                    convening_org_region = data.get("convening-organization", "address", "region")
+                    convening_org_country = data.get("convening-organization", "address",
+                                                     "country")
                     convening_org_disambiguated_identifier = data.get(
-                        "convening-organization").get("disambiguated-organization").get(
-                        "disambiguated-organization-identifier") if data.get(
-                        "convening-organization") and data.get("convening-organization").get(
-                        "disambiguated-organization") else None
-
-                    convening_org_disambiguation_source = data.get(
-                        "convening-organization").get("disambiguated-organization").get(
-                        "disambiguation-source") if data.get(
-                        "convening-organization") and data.get("convening-organization").get(
-                        "disambiguated-organization") else None
+                        "convening-organization", "disambiguated-organization",
+                        "disambiguated-organization-identifier")
+                    convening_org_disambiguation_source = data.get("convening-organization",
+                                                                   "disambiguated-organization",
+                                                                   "disambiguation-source")
 
                     record = cls.create(
                         task=task,
@@ -2547,7 +2505,7 @@ class PeerReviewRecord(RecordModel):
 
                 return task
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
 
@@ -2693,7 +2651,7 @@ class PropertyRecord(RecordModel):
                 v = row[idxs[i]].strip()
             return default if v == '' else v
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.PROPERTY)
                 for row_no, row in enumerate(reader):
@@ -2766,7 +2724,7 @@ class PropertyRecord(RecordModel):
                         raise ModelException(f"Invalid record: {validator.errors}")
                     rr.save()
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load Researcher Url Record file.")
                 raise
 
@@ -2802,7 +2760,7 @@ class PropertyRecord(RecordModel):
                 }.get(task_type)
         else:
             records = data
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -2861,7 +2819,7 @@ class PropertyRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load Researcher property file.")
                 raise
 
@@ -3076,7 +3034,7 @@ class WorkRecord(RecordModel):
                         url=val(row, 19),
                         relationship=external_id_relationship)))
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
                 for work, records in groupby(rows, key=lambda row: row["work"].items()):
@@ -3106,32 +3064,32 @@ class WorkRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load work file.")
                 raise
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None, task=None, **kwargs):
         """Load data from JSON file or a string."""
-        if isinstance(source, str):
-            # import data from file based on its extension; either it is YAML or JSON
-            data = load_yaml_json(filename=filename, source=source)
-            if not filename and isinstance(data, dict):
-                filename = data.get("filename")
-            if isinstance(data, dict):
-                data = data.get("records")
+        # import data from file based on its extension; either it is YAML or JSON
+        data = load_yaml_json(filename=filename, source=source)
+        if not filename and isinstance(data, dict):
+            filename = data.get("filename")
+        if isinstance(data, dict):
+            data = data.get("records")
 
-            # TODO: validation of uploaded work file
-            for r in data:
-                validation_source_data = copy.deepcopy(r)
-                validation_source_data = del_none(validation_source_data)
+        # TODO: validation of uploaded work file
+        for r in data:
+            validation_source_data = copy.deepcopy(r)
+            validation_source_data = del_none(validation_source_data)
 
-                # Adding schema validation for Work
-                validator = Core(
-                    source_data=validation_source_data,
-                    schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")])
-                validator.validate(raise_exception=True)
+            # Adding schema validation for Work
+            validator = Core(
+                source_data=validation_source_data,
+                schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")])
+            validator.validate(raise_exception=True)
 
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -3243,7 +3201,7 @@ class WorkRecord(RecordModel):
 
                 return task
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load work record file.")
                 raise
 
@@ -3524,7 +3482,7 @@ class OtherIdRecord(ExternalIdModel):
                 v = row[idxs[i]].strip()
             return default if v == '' else v
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_ID)
                 for row_no, row in enumerate(reader):
@@ -3585,7 +3543,7 @@ class OtherIdRecord(ExternalIdModel):
                         raise ModelException(f"Invalid record: {validator.errors}")
                     rr.save()
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load Other IDs Record file.")
                 raise
 
@@ -3601,7 +3559,7 @@ class OtherIdRecord(ExternalIdModel):
             else:
                 jsonschema.validate(data, schemas.other_id_record_list)
         records = data["records"] if isinstance(data, dict) else data
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -3639,7 +3597,7 @@ class OtherIdRecord(ExternalIdModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load Other IDs file.")
                 raise
 
@@ -3824,6 +3782,9 @@ class Token(BaseModel):
     @property
     def expires_at(self):  # noqa: D102
         return self.expires
+
+
+DeferredForeignKey.resolve(User)
 
 
 def readup_file(input_file):

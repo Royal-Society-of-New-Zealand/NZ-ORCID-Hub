@@ -743,7 +743,7 @@ class RecordModelView(AppModelView):
         """Reset batch task records."""
         status = "The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
         task_id = None
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if request.method == "POST" and request.form.get("rowid"):
                     # get the first ROWID:
@@ -771,7 +771,7 @@ class RecordModelView(AppModelView):
                     self.enqueue_record(record_id)
 
             except Exception as ex:
-                db.rollback()
+                transaction.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
 
@@ -953,7 +953,7 @@ class InviteeAdmin(RecordChildAdmin):
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
@@ -966,7 +966,7 @@ class InviteeAdmin(RecordChildAdmin):
                     rec_class.is_active, rec_class.id == record_id).execute()
                 getattr(utils, f"process_{rec_class.underscore_name()}s").queue(record_id)
             except Exception as ex:
-                db.rollback()
+                transaction.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
@@ -2517,7 +2517,7 @@ def search_group_id_record():
         id_type = request.form.get('type')
         put_code = request.form.get('put_code')
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 gir, created = GroupIdRecord.get_or_create(organisation=current_user.organisation,
                                                            group_id=group_id, name=name, description=description,
@@ -2532,7 +2532,7 @@ def search_group_id_record():
                 gir.save()
 
             except Exception as ex:
-                db.rollback()
+                transaction.rollback()
                 flash(f"Failed to save GroupID Record: {ex}", "warning")
                 app.logger.exception(f"Failed to save GroupID Record: {ex}")
 
