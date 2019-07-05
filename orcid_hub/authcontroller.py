@@ -113,7 +113,7 @@ def utility_processor():  # noqa: D202
                     record_id = int(record_id)
         except:
             return None
-        return task.records.model_class.get(record_id)
+        return task.records.model.get(record_id)
 
     return dict(
         orcid_login_url=orcid_login_url,

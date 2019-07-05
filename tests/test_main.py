@@ -121,13 +121,13 @@ def test_org_switch(client):
     assert current_user == user
 
     # Nothing changes if it is the same organisation
-    uo = user.userorg_set.where(UserOrg.org_id == user.organisation_id).first()
+    uo = user.user_orgs.where(UserOrg.org_id == user.organisation_id).first()
     resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
     assert User.get(user.id).organisation_id == user.organisation_id
     assert user.email.encode() in resp.data
 
     # The current org changes if it's a dirrerent org on the list
-    uo = user.userorg_set.where(UserOrg.org_id != user.organisation_id).first()
+    uo = user.user_orgs.where(UserOrg.org_id != user.organisation_id).first()
     resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
     assert User.get(user.id).organisation_id != user.organisation_id
     assert User.get(user.id).organisation_id == uo.org_id

@@ -2219,7 +2219,7 @@ def reset_all_records(task):
                     record.processed_at = None
                     record.status = status
 
-                    invitee_class = record.invitees.model_class
+                    invitee_class = record.invitees.model
                     invitee_class.update(
                         processed_at=None,
                         status=status).where(invitee_class.record == record.id).execute()
