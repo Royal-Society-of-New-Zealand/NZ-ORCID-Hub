@@ -249,11 +249,11 @@ class AppModelView(ModelView):
     # TODO: remove when it gets merged into the upstream repo (it's a workaround to make
     # joins LEFT OUTER)
     def _handle_join(self, query, field, joins):
-        if field.model_class != self.model:
-            model_name = field.model_class.__name__
+        if field.model != self.model:
+            model_name = field.model.__name__
 
             if model_name not in joins:
-                query = query.join(field.model_class, "LEFT OUTER")
+                query = query.join(field.model, "LEFT OUTER")
                 joins.add(model_name)
 
         return query
@@ -1591,9 +1591,8 @@ class ViewMembersAdmin(AppModelView):
         query, joins = super()._order_by(query, joins, order)
         # add ID only if all fields are NULLable (exlcude ones given by str):
         if all(not isinstance(f, str) and f.null for (f, _) in order):
-            clauses = query._order_by
-            clauses.append(self.model.id.desc() if order[0][1] else self.model.id)
-            query = query.order_by(*clauses)
+            query = query.order_by(*query._order_by,
+                                   self.model.id.desc() if order[0][1] else self.model.id)
         return query, joins
 
     def get_one(self, rec_id):
@@ -1613,8 +1612,8 @@ class ViewMembersAdmin(AppModelView):
         org = current_user.organisation
         token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
 
-        if UserOrg.select().where((UserOrg.user_id == model.id) & (UserOrg.org_id == org.id)
-                                  & UserOrg.is_admin).exists():
+        if UserOrg.select().where(UserOrg.user_id == model.id, UserOrg.org_id == org.id,
+                                  UserOrg.is_admin).exists():
             flash(
                 f"Failed to delete record for {model}, As User appears to be one of the admins. "
                 f"Please contact orcid@royalsociety.org.nz for support", "danger")
@@ -1643,12 +1642,12 @@ class ViewMembersAdmin(AppModelView):
         try:
             self.on_model_delete(model)
             if model.organisations.count() < 2:
-                model.delete_instance(recursive=True)
+                model.delete_instance()
             else:
                 if model.organisation == user_org.org:
                     model.organisation = model.organisations.first()
                     model.save()
-                user_org.delete_instance(recursive=True)
+                user_org.delete_instance()
 
         except Exception as ex:
             if not self.handle_view_exception(ex):

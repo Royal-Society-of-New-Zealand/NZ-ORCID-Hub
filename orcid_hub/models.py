@@ -535,7 +535,7 @@ class BaseModel(Model):
 # User = ModelDeferredRelation()
 
 
-class AuditMixin(Model):
+class AuditedModel(BaseModel):
     """Mixing for getting data necessary for data change audit trail maintenance."""
 
     created_at = DateTimeField(default=datetime.utcnow)
@@ -580,7 +580,7 @@ class File(BaseModel):
         table_alias = "f"
 
 
-class Organisation(BaseModel, AuditMixin):
+class Organisation(AuditedModel):
     """Research organisation."""
 
     country_choices = [(c.alpha_2, c.name) for c in countries]
@@ -679,7 +679,7 @@ class Organisation(BaseModel, AuditMixin):
         table_alias = "o"
 
 
-class User(BaseModel, UserMixin, AuditMixin):
+class User(AuditedModel, UserMixin):
     """
     ORCiD Hub user.
 
@@ -937,7 +937,7 @@ class OrgInfo(BaseModel):
         return reader.line_num - 1
 
 
-class OrgInvitation(BaseModel, AuditMixin):
+class OrgInvitation(AuditedModel):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
@@ -965,7 +965,7 @@ class OrgInvitation(BaseModel, AuditMixin):
         table_alias = "oi"
 
 
-class UserOrg(BaseModel, AuditMixin):
+class UserOrg(AuditedModel):
     """Linking object for many-to-many relationship."""
 
     user = ForeignKeyField(User, on_delete="CASCADE", index=True, backref="user_orgs")
@@ -1012,7 +1012,7 @@ class UserOrg(BaseModel, AuditMixin):
         indexes = ((("user", "org"), True), )
 
 
-class OrcidToken(BaseModel, AuditMixin):
+class OrcidToken(AuditedModel):
     """For Keeping ORCID token in the table."""
 
     user = ForeignKeyField(
@@ -1031,7 +1031,7 @@ class OrcidToken(BaseModel, AuditMixin):
         table_alias = "ot"
 
 
-class UserOrgAffiliation(BaseModel, AuditMixin):
+class UserOrgAffiliation(AuditedModel):
     """For Keeping the information about the affiliation."""
 
     user = ForeignKeyField(User, on_delete="CASCADE", backref="org_affiliations")
@@ -1088,7 +1088,7 @@ class OrcidAuthorizeCall(BaseModel):
         table_alias = "oac"
 
 
-class Task(BaseModel, AuditMixin):
+class Task(AuditedModel):
     """Batch processing task created form CSV/TSV file."""
 
     org = ForeignKeyField(
@@ -1399,7 +1399,7 @@ class Log(BaseModel):
         return super().save(*args, **kwargs)
 
 
-class UserInvitation(BaseModel, AuditMixin):
+class UserInvitation(AuditedModel):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
@@ -3611,7 +3611,7 @@ class Delegate(BaseModel):
     hostname = CharField()
 
 
-class Url(BaseModel, AuditMixin):
+class Url(AuditedModel):
     """Shortened URLs."""
 
     short_id = CharField(unique=True, max_length=5)
@@ -3640,7 +3640,7 @@ class Funding(BaseModel):
     url = TextField()
 
 
-class Client(BaseModel, AuditMixin):
+class Client(AuditedModel):
     """API Client Application/Consumer.
 
     A client is the app which wants to use the resource of a user.
