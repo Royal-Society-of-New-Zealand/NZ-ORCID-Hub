@@ -339,7 +339,7 @@ def test_link_orcid_auth_callback_with_affiliation(name, mocker, client):
         orcid="ABC123",
         confirmed=True)
 
-    UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
+    UserOrg.create(user=test_user, org=org, affiliations=(Affiliation.EMP | Affiliation.EDU))
 
     client.login(test_user)
     resp = client.get("/link")

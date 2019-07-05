@@ -630,7 +630,7 @@ class Organisation(BaseModel, AuditMixin):
     @property
     def invitation_sent_at(self):
         """Get the timestamp of the most recent invitation sent to the technical contact."""
-        row = self.orginvitation_set.select(
+        row = self.org_invitations.select(
             fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
                 OrgInvitation.invitee_id == self.tech_contact_id).first()
         if row:
@@ -639,7 +639,7 @@ class Organisation(BaseModel, AuditMixin):
     @property
     def invitation_confirmed_at(self):
         """Get the timestamp when the invitation link was opened."""
-        row = self.orginvitation_set.select(
+        row = self.org_invitations.select(
             fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
                 OrgInvitation.invitee_id == self.tech_contact_id).where(
                     OrgInvitation.confirmed_at.is_null(False)).first()
@@ -976,7 +976,7 @@ class UserOrg(BaseModel, AuditMixin):
         null=True, default=False, help_text="User is an administrator for the organisation")
 
     # Affiliation bit-map:
-    affiliations = SmallIntegerField(default=Affiliation.NONE, null=True, verbose_name="EDU Person Affiliations")
+    affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
     # created_by = ForeignKeyField(
     #     User, on_delete="SET NULL", null=True, backref="created_user_orgs")
     # updated_by = ForeignKeyField(

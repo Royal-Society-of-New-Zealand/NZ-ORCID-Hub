@@ -672,18 +672,17 @@ def orcid_callback():
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     orcid_token.expires_in = token["expires_in"]
-    with db.atomic():
+    with db.atomic() as transaction:
         try:
             orcid_token.save()
             user.save()
         except Exception as ex:
-            db.rollback()
+            transaction.rollback()
             flash(f"Failed to save data: {ex}")
             app.logger.exception("Failed to save ORCID token.")
 
-    app.logger.info("User %r authorized %r to have %r access to the profile "
-                    "and now trying to update employment or education record", user,
-                    user.organisation, scope_list)
+    app.logger.info(f"User {user} authorized {user.organisation} to have {scope_list} access to the profile "
+                    "and now trying to update employment or education record")
 
     if scopes.ACTIVITIES_UPDATE in scope_list and orcid_token_found:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
