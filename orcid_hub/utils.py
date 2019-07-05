@@ -547,7 +547,6 @@ def send_user_invitation(inviter,
                          disambiguation_source=None,
                          cc_email=None,
                          invitation_template=None,
-                         token_expiry_in_sec=1300000,
                          **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
@@ -1180,18 +1179,12 @@ def process_work_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                token_expiry_in_sec = 2600000
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    # For researcher invitation the expiry is 30 days, if it is reset then it is 2 weeks.
-                    if WorkInvitee.select().where(
-                            WorkInvitee.email == email, WorkInvitee.status ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *k,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
 
                     (WorkInvitee.update(status=WorkInvitee.status + "\n" + status).where(
                         WorkInvitee.status.is_null(False), WorkInvitee.email == email).execute())
@@ -1311,18 +1304,12 @@ def process_peer_review_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                token_expiry_in_sec = 2600000
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    if PeerReviewInvitee.select().where(PeerReviewInvitee.email == email,
-                                                        PeerReviewInvitee.status
-                                                        ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *k,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
 
                     (PeerReviewInvitee.update(
                         status=PeerReviewInvitee.status + "\n" + status).where(
@@ -1443,18 +1430,12 @@ def process_funding_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                token_expiry_in_sec = 2600000
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    if FundingInvitee.select().where(
-                            FundingInvitee.email == email,
-                            FundingInvitee.status ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *k,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
 
                     (FundingInvitee.update(status=FundingInvitee.status + "\n" + status).where(
                         FundingInvitee.status.is_null(False),
@@ -1575,18 +1556,11 @@ def process_affiliation_records(max_rows=20, record_id=None):
             }
             for invitation, affiliations in invitation_dict.items():
                 email = invitation[2]
-                token_expiry_in_sec = 2600000
                 try:
-                    # For researcher invitation the expiry is 30 days, if it is reset then it 2 weeks.
-                    if AffiliationRecord.select().where(
-                            AffiliationRecord.task_id == task_id, AffiliationRecord.email == email,
-                            AffiliationRecord.status ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *invitation,
                         affiliation_types=affiliations,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
                 except Exception as ex:
                     (AffiliationRecord.update(
                         processed_at=datetime.utcnow(),
