@@ -3877,7 +3877,7 @@ def drop_tables(db):
         m.bind(db)
         if m.table_exists():
             try:
-                m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)
+                m.drop_table(fail_silently=True, safe=True, cascade=hasattr(db, "drop_cascade") and db.drop_cascade)
             except OperationalError:
                 pass
 

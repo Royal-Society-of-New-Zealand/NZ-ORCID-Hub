@@ -34,7 +34,10 @@ from playhouse import db_url
 
 from orcid_hub import app as _app, models, views, authcontroller, reports
 _app.config["DATABASE_URL"] = DATABASE_URL
-views.db = _app.db = _db = db_url.connect(DATABASE_URL, autorollback=True)
+db_params = dict(autorollback=True)
+if "sqlite" in DATABASE_URL:
+    db_params["pragmas"] = [("foreign_keys", "on")]
+views.db = _app.db = _db = db_url.connect(DATABASE_URL, **db_params)
 authcontroller.db = _db
 reports.db = _db
 models.db = _db

@@ -2435,10 +2435,10 @@ def test_edit_record(request_ctx):
 def test_delete_profile_entries(client, mocker):
     """Test delete an employment record."""
     admin = User.get(email="admin@test0.edu")
-    user = User.select().join(OrcidToken,
-                              JOIN.LEFT_OUTER).where(User.organisation == admin.organisation,
-                                                     User.orcid.is_null(),
-                                                     OrcidToken.id.is_null()).first()
+    user = User.select().join(OrcidToken, JOIN.LEFT_OUTER,
+                              on=OrcidToken.user).where(User.organisation == admin.organisation,
+                                                        User.orcid.is_null(),
+                                                        OrcidToken.id.is_null()).first()
 
     client.login(user)
     resp = client.post(f"/section/{user.id}/EMP/1212/delete")
