@@ -551,139 +551,92 @@ class MemberAPIMixin:
         """Create or update funding record of a user."""
         fr = task_by_user.record
         fi = fr.invitee
-
-        if not fr.title:
-            title = None
-
-        city = fr.city
-        country = fr.country
-        region = fr.region
-        disambiguated_id = fr.disambiguated_id
-        disambiguation_source = fr.disambiguation_source
-        org_name = fr.org_name
-        funding_type = fr.type
-
         put_code = fi.put_code
-
-        if not city:
-            city = None
-        if not region:
-            region = None
-        if not self.org.state:
-            self.org.state = None
-
-        organisation_address = OrganizationAddress(
-            city=city or self.org.city,
-            country=country or self.org.country,
-            region=region or self.org.state)
-
-        disambiguated_organization_details = DisambiguatedOrganization(
-            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
-            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
-        rec = Funding()  # noqa: F405
-
-        rec.organization = Organization(
-            name=org_name or self.org.name,
-            address=organisation_address,
-            disambiguated_organization=disambiguated_organization_details)
-
-        organization_defined_type = fr.organization_defined_type
-        title = Title(value=fr.title)  # noqa: F405
-        translated_title = None
-        if fr.translated_title:
-            translated_title = TranslatedTitle(  # noqa: F405
-                value=fr.translated_title,  # noqa: F405
-                language_code=fr.translated_title_language_code)  # noqa: F405
-        short_description = fr.short_description
-        amount = fr.amount
-        currency_code = fr.currency
-        start_date = fr.start_date
-        end_date = fr.end_date
-
-        rec.source = self.source
-        rec.type = funding_type
-        rec.organization_defined_type = organization_defined_type
-        rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
-        rec.short_description = short_description
-        rec.amount = Amount(value=amount, currency_code=currency_code)  # noqa: F405
         visibility = fi.visibility
 
-        if visibility:
-            rec.visibility = visibility
+        rec = v3.FundingV30()  # noqa: F405
 
         if put_code:
             rec.put_code = put_code
 
-        if start_date:
-            rec.start_date = start_date.as_orcid_dict()
-        if end_date:
-            rec.end_date = end_date.as_orcid_dict()
+        if fr.type:
+            rec.type = fr.type.replace('_', '-').lower()
 
-        funding_contributors = FundingCont.select().where(FundingCont.record_id == fr.id).order_by(
-            FundingCont.id)
+        if fr.organization_defined_type:
+            rec.organization_defined_type = v3.OrganizationDefinedFundingSubTypeV30(
+                value=fr.organization_defined_type)  # noqa: F405
 
-        funding_contributor_list = []
-        if funding_contributors:
-            for f in funding_contributors:
-                path = None
-                uri = None
-                host = None
-                credit_name = None
-                contributor_email = None
-                contributor_orcid = None
-                contributor_attributes = None
-                if f.name:
-                    credit_name = CreditName(value=f.name)  # noqa: F405
+        if fr.title:
+            title = v3.TitleV30(value=fr.title)  # noqa: F405
+            translated_title = None
+            if fr.translated_title and fr.translated_title_language_code:
+                translated_title = v3.TranslatedTitleV30(value=fr.translated_title,
+                    language_code=fr.translated_title_language_code)  # noqa: F405
+            rec.title = v3.FundingTitleV30(title=title, translated_title=translated_title)  # noqa: F405
 
-                if f.email:
-                    contributor_email = ContributorEmail(value=f.email)  # noqa: F405
+        if fr.short_description:
+            rec.short_description = fr.short_description
 
-                if f.orcid:
-                    path = f.orcid
+        # ToDO: Fix Amount
+        """        if fr.amount and fr.currency:
+                    rec.amount = v3.AmountV30(value=fr.amount,
+                                              currency_code=v3.Currency(currency_code=fr.currency))  # noqa: F405
+        """
+        if fr.start_date:
+            rec.start_date = fr.start_date.as_orcid_dict()
+        if fr.end_date:
+            rec.end_date = fr.end_date.as_orcid_dict()
 
-                if path:
-                    url = urlparse(ORCID_BASE_URL)
-                    uri = "http://" + url.hostname + "/" + path
-                    host = url.hostname
-                    contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
+        organisation_address = v3.OrganizationAddressV30(
+            city=fr.city or self.org.city,
+            country=fr.country or self.org.country,
+            region=fr.region or self.org.state)
 
-                if f.role:
-                    contributor_attributes = FundingContributorAttributes(  # noqa: F405
-                        contributor_role=f.role.upper())
+        disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
+            disambiguated_organization_identifier=fr.disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=fr.disambiguation_source or self.org.disambiguation_source)
 
-                funding_contributor_list.append(
-                    FundingContributor(  # noqa: F405
-                        contributor_orcid=contributor_orcid,
-                        credit_name=credit_name,
-                        contributor_email=contributor_email,
-                        contributor_attributes=contributor_attributes))
+        rec.organization = v3.OrganizationV30(
+            name=fr.org_name or self.org.name,
+            address=organisation_address,
+            disambiguated_organization=disambiguated_organization_details)
 
-            rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
-        external_id_list = []
+        external_ids = []
+        contributors = []
 
-        external_ids = ExternalIdModel.select().where(ExternalIdModel.record_id == fr.id).order_by(
-            ExternalIdModel.id)
+        if fr.id:
+            external_ids = [
+                v3.ExternalIDV30(  # noqa: F405
+                    external_id_type=eid.type if eid.type else "grant_number",
+                    external_id_value=eid.value,
+                    external_id_url=v3.UrlV30(value=eid.url) if eid.url else None,
+                    external_id_relationship=eid.relationship.replace('_', '-').lower()
+                    if eid.relationship else "self") for eid in ExternalIdModel.select().where(
+                    ExternalIdModel.record_id == fr.id).order_by(ExternalIdModel.id)
+            ]
+            url = urlparse(ORCID_BASE_URL)
+            contributors = [
+                v3.FundingContributorV30(  # noqa: F405
+                    contributor_orcid=v3.ContributorOrcidV30(uri="https://" + url.hostname + "/" + fid.orcid,
+                                                             path=fid.orcid, host=url.hostname) if fid.orcid else None,
+                    credit_name=v3.CreditNameV30(value=fid.name) if fid.name else None,
+                    contributor_email=v3.ContributorEmailV30(value=fid.email) if fid.email else None,
+                    contributor_attributes=v3.FundingContributorAttributesV30(
+                        contributor_role=fid.role.replace('_', '-').lower()) if fid.role else None)
+                for fid in FundingCont.select().where(
+                    FundingCont.record_id == fr.id).order_by(FundingCont.id)
+            ]
+        if external_ids:
+            rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
-        for exi in external_ids:
-            # Orcid is expecting external type as 'grant_number'
-            external_id_type = exi.type if exi.type else "grant_number"
-            external_id_value = exi.value
-            external_id_url = None
-            if exi.url:
-                external_id_url = Url(value=exi.url)  # noqa: F405
-            # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
-            external_id_relationship = exi.relationship.upper() if exi.relationship else "SELF"
-            external_id_list.append(
-                ExternalID(  # noqa: F405
-                    external_id_type=external_id_type,
-                    external_id_value=external_id_value,
-                    external_id_url=external_id_url,
-                    external_id_relationship=external_id_relationship))
+        if contributors:
+            rec.contributors = v3.FundingContributorsV30(contributor=contributors)  # noqa: F405
 
-        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
+        if visibility:
+            rec.visibility = visibility.lower()
 
         try:
-            api_call = self.update_funding if put_code else self.create_funding
+            api_call = self.update_fundingv3 if put_code else self.create_fundingv3
 
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
@@ -705,7 +658,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                visibility = json.loads(resp.data).get("visibility").upper() if hasattr(resp, "data") and json.loads(
+                    resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:

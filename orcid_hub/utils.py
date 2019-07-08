@@ -441,10 +441,9 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
     """Create or update funding record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
 
     profile_record = api.get_record()
-
     if profile_record:
         activities = profile_record.get("activities-summary")
 
@@ -469,13 +468,10 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("title") is None and r.get("title").get("title") is None
-                     and r.get("title").get("title").get("value") is None and r.get("type") is None
-                     and r.get("organization") is None
-                     and r.get("organization").get("name") is None)
-                        or (r.get("title").get("title").get("value") == record.title
-                            and r.get("type") == record.type
-                            and r.get("organization").get("name") == record.org_name)):
+                if record.title and record.type and record.org_name and r.get(
+                    "title", "title", "value", default='').lower() == record.title.lower() and r.get(
+                        "type", default='').lower() == record.type.lower() and r.get(
+                        "organization", "name", default='').lower() == record.org_name.lower():
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -488,7 +484,6 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
             fr = task_by_user.record
             fi = task_by_user.record.invitee
             match_put_code(fundings, fr, fi)
-
         for task_by_user in records:
             fi = task_by_user.record.invitee
 
