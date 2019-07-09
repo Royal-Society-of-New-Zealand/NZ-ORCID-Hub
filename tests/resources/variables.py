@@ -1,15 +1,15 @@
-from os import environ
+from os import getenv
 
 SERVER = 'dev.orcidhub.org.nz'
-BROWSER = environ.get('BROWSER', 'phantomjs')
+BROWSER = getenv('BROWSER', 'phantomjs')
 DELAY = 0.1
 URL = 'https://' + SERVER
 LOGIN_URL = 'https://' + SERVER + '/Tuakiri/login'
 ONBOARD_URL = 'https://' + SERVER + '/invite/organisation'
 ORG_ADMIN_URL = 'https://' + SERVER + '/admin/organisation'
 
-TEST_USERNAME = environ.get('TEST_USERNAME')
-TEST_PASSWORD = environ.get('TEST_PASSWORD')
+TEST_USERNAME = getenv('TEST_USERNAME')
+TEST_PASSWORD = getenv('TEST_PASSWORD')
 
 UOA_IDP = 'http://iam.test.auckland.ac.nz/idp'
 UOA_FORM_NAME = '_eventId_proceed'
@@ -17,7 +17,7 @@ UOA_FORM_NAME = '_eventId_proceed'
 ORGANISATION = '0000 TEST ORGANISATION'
 ORGANISATION_EMAIL = 'researcher.23232zzdfdf@mailinator.com'
 ORGANISATION_ORCID_CLIENT_ID = 'APP-5ZVH4JRQ0C27RVH5'
-ORGANISATION_ORCID_SECRET = environ.get('ORGANISATION_ORCID_SECRET', '1234')
+ORGANISATION_ORCID_SECRET = getenv('ORGANISATION_ORCID_SECRET', '1234')
 
 ORCID_URL = 'https://sandbox.orcid.org/signin'
 ORCID_USER = 'orcidtestmailuser@mailinator.com'
