@@ -22,7 +22,7 @@ from urllib.parse import urlencode
 import validators
 import yaml
 from flask_login import UserMixin, current_user
-from peewee import JOIN, BlobField
+from peewee import JOIN, BlobField, SqliteDatabase
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
@@ -3867,8 +3867,12 @@ def create_audit_tables(db):
     #     db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
 
 
-def drop_tables(db):
+def drop_tables():
     """Drop all model tables."""
+    if isinstance(db, SqliteDatabase):
+        foreign_keys = db.pragma("foreign_keys")
+        db.pragma("foreign_keys", 0)
+
     for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, OtherIdRecord, FundingContributor, FundingInvitee,
               FundingRecord, PropertyRecord, PeerReviewInvitee, PeerReviewExternalId,
@@ -3880,6 +3884,8 @@ def drop_tables(db):
                 m.drop_table(fail_silently=True, safe=True, cascade=hasattr(db, "drop_cascade") and db.drop_cascade)
             except OperationalError:
                 pass
+    if isinstance(db, SqliteDatabase):
+        db.pragma("foreign_keys", foreign_keys)
 
 
 def load_yaml_json(filename=None, source=None, content_type=None):

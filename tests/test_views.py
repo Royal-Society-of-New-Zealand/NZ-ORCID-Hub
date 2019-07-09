@@ -1539,7 +1539,7 @@ def test_logo_file(request_ctx):
 
 def test_affiliation_deletion_task(client, mocker):
     """Test affilaffiliation task upload."""
-    user = OrcidToken.select().join(User).where(User.orcid.is_null(False)).first().user
+    user = OrcidToken.select().join(User, on=OrcidToken.user).where(User.orcid.is_null(False)).first().user
     org = user.organisation
     admin = org.admins.first()
 
@@ -4377,8 +4377,8 @@ def test_export_affiliations(client, mocker):
 
 def test_delete_affiliations(client, mocker):
     """Test export of existing affiliation records."""
-    user = OrcidToken.select().join(User).where(User.first_name.is_null(False),
-                                                User.orcid.is_null(False)).first().user
+    user = OrcidToken.select().join(User, on=OrcidToken.user).where(
+        User.first_name.is_null(False), User.orcid.is_null(False)).first().user
     org = user.organisation
 
     mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org=org, user=user))

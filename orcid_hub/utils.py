@@ -777,15 +777,14 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                     )
                     break
 
-        for task_by_user in records:
+        for rr in (t.record for t in records):
             try:
-                rr = task_by_user.record
                 no_orcid_call = match_put_code(rr)
                 if no_orcid_call:
                     rr.add_status_line("Researcher property record unchanged.")
                 else:
                     if rr.type == "URL":
-                        put_code, orcid, created, visibility = api.create_or_update_researcher_url(**rr.__data)
+                        put_code, orcid, created, visibility = api.create_or_update_researcher_url(**rr.__data__)
                     elif rr.type == "NAME":
                         put_code, orcid, created, visibility = api.create_or_update_other_name(**rr.__data__)
                     elif rr.type == "COUNTRY":
