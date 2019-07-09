@@ -125,7 +125,7 @@ class MemberAPIMixin:
         self.source_clientid = SourceClientId(
             host=url.hostname,
             path=org.orcid_client_id,
-            uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
+            uri="https://" + url.hostname + "/client/" + org.orcid_client_id)
         self.source = Source(
             source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
 
@@ -1581,6 +1581,123 @@ class MemberAPIV3(MemberAPIMixin, v3.api.DevelopmentMemberAPIV30Api):
         """Overwrite the default host."""
         super().__init__(org=org, user=user, access_token=access_token, version="v3.0", *args, **kwargs)
         self.api_client.configuration.host = host
+
+    def new_organisation(
+            self, name=None, city=None, country=None, region=None, disambiguated_id=None,
+            disambiguation_source=None):
+        """Create an organisation object."""
+        return v3.OrganizationV30(
+            name=name,
+            address=v3.OrganizationAddressV30(
+                city=city,
+                country=country,
+                region=region) if (city or country or region) else None,
+            disambiguated_organization=v3.DisambiguatedOrganizationV30(
+                disambiguated_organization_identifier=disambiguated_id,
+                disambiguation_source=disambiguation_source) if disambiguated_id else None)
+
+    def new_hosts(self, hosts=None):
+        """Create a resource hosts object."""
+        return v3.ResearchResourceHostsV30(
+            organization=[
+                self.new_organisation(**h) for h in hosts
+            ]) if hosts else None
+
+    def new_resoucre_item(self, name=None, type=None, hosts=None, external_ids=None, url=None):
+        """Create a resource item object."""
+        return v3.ResearchResourceItemV30(
+            resource_name=name,
+            resource_type=type,
+            hosts=self.new_hosts(hosts),
+            external_ids=self.new_exeternal_ids(external_ids),
+            url=url)
+
+    def new_exeternal_ids(self, external_ids):
+        """Create an external ids object."""
+        return v3.ExternalIDsV30(external_id=[
+            v3.ExternalIDV30(external_id_type=eid.get("type"),
+                             external_id_value=eid.get("value"),
+                             external_id_url=eid.get("url"),
+                             external_id_relationship=eid.get("relationship"))
+            for eid in external_ids if (eid.get("value") and eid.get("type"))
+        ]) if external_ids else None
+
+    def create_or_update_resource(
+            self,
+            put_code=None,
+
+            # Proposal:
+            title=None,
+            translated_title=None,
+            translated_title_language=None,
+            hosts=None,
+            external_ids=None,
+            start_date=None,
+            end_date=None,
+            url=None,
+
+            # Resource items:
+            items=None,
+            display_index=None,
+            visibility=None,
+
+            *args,
+            **kwargs):
+        """Create or update research resource."""
+        rec = v3.ResearchResourceV30(
+                source=self.source,
+                visibility=visibility,
+                put_code=put_code,
+                display_index=display_index)
+
+        rec.proposal = v3.ResearchResourceProposalV30(
+            title=v3.ResearchResourceTitleV30(
+                title=v3.TitleV30(value=title),
+                translated_title=v3.TranslatedTitleV30(value=translated_title,
+                                                       language_code=translated_title_language)
+                if translated_title else None),
+            hosts=v3.ResearchResourceHostsV30(
+                organization=[
+                    self.new_organisation(**h) for h in hosts
+                ]) if hosts else None,
+            external_ids=self.new_exeternal_ids(external_ids),
+            start_date=start_date,
+            end_date=end_date,
+            url=url)
+
+        rec.resource_item = [
+                self.new_resoucre_item(**ri) for ri in items] if items else None
+
+        try:
+
+            api_call = self.update_research_resourcev3 if put_code else self.create_research_resourcev3
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created, visibility)
 
 
 # yapf: disable

@@ -13,11 +13,13 @@ from flask_login import logout_user
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
-from orcid_hub import config
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
+os.environ["DATABASE_URL"] = DATABASE_URL
+
+from orcid_hub import config
 config.DATABASE_URL = DATABASE_URL
 config.RQ_CONNECTION_CLASS = "fakeredis.FakeStrictRedis"
-os.environ["DATABASE_URL"] = DATABASE_URL
+
 # Patch it before is gets patched by 'orcid_client'
 # import orcid_api
 # from unittest.mock import MagicMock
@@ -29,16 +31,22 @@ from flask import _request_ctx_stack
 
 import pytest
 from playhouse import db_url
-from playhouse.test_utils import test_database
 
-from orcid_hub import app as _app, models, views
+from orcid_hub import app as _app, models, views, authcontroller, reports
 _app.config["DATABASE_URL"] = DATABASE_URL
+db_params = dict(autorollback=True)
+if "sqlite" in DATABASE_URL:
+    db_params["pragmas"] = [("foreign_keys", "on")]
+views.db = _app.db = _db = db_url.connect(DATABASE_URL, **db_params)
+authcontroller.db = _db
+reports.db = _db
+models.db = _db
+
 from orcid_hub.models import *  # noqa: F401, F403
 from orcid_hub.authcontroller import *  # noqa: F401, F403
 from orcid_hub.views import *  # noqa: F401, F403
 from orcid_hub.reports import *  # noqa: F401, F403
 
-db = _app.db = _db = db_url.connect(DATABASE_URL, autorollback=True)
 
 ORCIDS = [
     "1009-2009-3009-00X3", "1017-2017-3017-00X3", "1025-2025-3025-00X3", "1033-2033-3033-00X3",
@@ -75,7 +83,7 @@ class HubClient(FlaskClient):
         """Log in with the given user."""
         org = user.organisation or user.organisations.first()
         if affiliations is None:
-            uo = user.userorg_set.where(UserOrg.org == org).first()
+            uo = user.user_orgs.where(UserOrg.org == org).first()
             if uo and uo.affiliations:
                 affiliations = ';'.join([
                     "staff" if a == Affiliation.EMP else "student" for a in Affiliation
@@ -158,36 +166,9 @@ def no_sentry(mocker):
 
 
 @pytest.fixture
-def app():
-    """Session-wide test `Flask` application."""
-    # Establish an application context before running the tests.
-    ctx = _app.app_context()
-    ctx.push()
-    _app.config['TESTING'] = True
-    logger = logging.getLogger("peewee")
-    if logger:
-        logger.setLevel(logging.INFO)
-
-    with test_database(
-            _db,
-        (File, Organisation, User, UserOrg, OrcidToken, OrcidApiCall, UserOrgAffiliation, OrgInfo, Task, Log,
-         AffiliationRecord, AffiliationExternalId, FundingRecord, FundingContributor, FundingInvitee, GroupIdRecord,
-         OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
-         Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitee, PeerReviewRecord,
-         PeerReviewInvitee, PeerReviewExternalId, PropertyRecord, OrcidApiCall,
-         OtherIdRecord),
-            fail_silently=True):  # noqa: F405
-        _app.db = models.db = views.db = _db
-        _app.config["DATABASE_URL"] = DATABASE_URL
-        _app.config["EXTERNAL_SP"] = None
-        _app.config["SENTRY_DSN"] = None
-        _app.config["WTF_CSRF_ENABLED"] = False
-        _app.config["DEBUG_TB_ENABLED"] = False
-        _app.config["LOAD_TEST"] = True
-        #_app.config["SERVER_NAME"] = "ORCIDHUB"
-        _app.sentry = None
-        _app.config["RQ_CONNECTION_CLASS"] = "fakeredis.FakeStrictRedis"
-        _app.extensions["rq2"].init_app(_app)
+def testdb():
+    with _db:
+        models.create_tables()
 
         # Add some data:
         for org_no in range(2):
@@ -261,7 +242,6 @@ def app():
             fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at,
                     UserOrg.affiliations]).execute()
 
-        _app.test_client_class = HubClient
         org = Organisation.create(
             name="THE ORGANISATION",
             tuakiri_name="THE ORGANISATION",
@@ -345,9 +325,37 @@ def app():
             organisation=org2)
         super_user = User.create(
             email="super_user@test0.edu", organisation=org, roles=Role.SUPERUSER, confirmed=True)
+        _db.data = locals()
+        yield _db
 
-        _app.data = locals()
-        yield _app
+
+@pytest.fixture
+def app(testdb):
+    """Session-wide test `Flask` application."""
+    # Establish an application context before running the tests.
+    ctx = _app.app_context()
+    ctx.push()
+
+    _app.config['TESTING'] = True
+    _app.test_client_class = HubClient
+    #_app.config["SERVER_NAME"] = "ORCIDHUB"
+    _app.sentry = None
+    _app.db = models.db = views.db = testdb
+    _app.config["DATABASE_URL"] = DATABASE_URL
+    _app.config["EXTERNAL_SP"] = None
+    _app.config["SENTRY_DSN"] = None
+    _app.config["WTF_CSRF_ENABLED"] = False
+    _app.config["DEBUG_TB_ENABLED"] = False
+    _app.config["LOAD_TEST"] = True
+    _app.config["RQ_CONNECTION_CLASS"] = "fakeredis.FakeStrictRedis"
+    _app.extensions["rq2"].init_app(_app)
+
+    logger = logging.getLogger("peewee")
+    if logger:
+        logger.setLevel(logging.INFO)
+
+    _app.data = testdb.data
+    yield _app
 
     ctx.pop()
 
@@ -357,6 +365,7 @@ def client(app):
     """A Flask test client. An instance of :class:`flask.testing.TestClient` by default."""
     with app.test_client() as client:
         client.data = app.data
+        client.db = app.db
         yield client
     if "EXTERNAL_SP" in app.config:
         del(app.config["EXTERNAL_SP"])

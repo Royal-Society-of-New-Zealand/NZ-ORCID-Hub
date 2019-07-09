@@ -110,8 +110,8 @@ def test_login(request_ctx):
 def test_org_switch(client):
     """Test organisation switching."""
     user = User.get(orcid=User.select(fn.COUNT(User.orcid).alias("id_count"), User.orcid).group_by(
-        User.orcid).having(fn.COUNT(User.orcid) > 1).naive().first().orcid)
-    user_orgs = UserOrg.select().join(User).where(User.orcid == user.orcid)
+        User.orcid).having(fn.COUNT(User.orcid) > 1).objects().first().orcid)
+    user_orgs = UserOrg.select().join(User, on=UserOrg.user).where(User.orcid == user.orcid)
     new_org = Organisation.select().where(Organisation.id.not_in([uo.org_id for uo in user_orgs])).first()
     UserOrg.create(user=user, org=new_org, affiliations=0)
 
@@ -121,13 +121,13 @@ def test_org_switch(client):
     assert current_user == user
 
     # Nothing changes if it is the same organisation
-    uo = user.userorg_set.where(UserOrg.org_id == user.organisation_id).first()
+    uo = user.user_orgs.where(UserOrg.org_id == user.organisation_id).first()
     resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
     assert User.get(user.id).organisation_id == user.organisation_id
     assert user.email.encode() in resp.data
 
     # The current org changes if it's a dirrerent org on the list
-    uo = user.userorg_set.where(UserOrg.org_id != user.organisation_id).first()
+    uo = user.user_orgs.where(UserOrg.org_id != user.organisation_id).first()
     resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
     assert User.get(user.id).organisation_id != user.organisation_id
     assert User.get(user.id).organisation_id == uo.org_id

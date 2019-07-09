@@ -7,7 +7,6 @@ from unittest.mock import Mock, patch
 import pytest
 from flask_login import login_user
 from peewee import Model, SqliteDatabase
-from playhouse.test_utils import test_database
 
 from orcid_hub import utils
 from orcid_hub.models import *
@@ -163,7 +162,7 @@ def test_enqueue_user_records(client, mocker):
     data_dir = os.path.join(os.path.dirname(__file__), "data")
     raw_data = open(os.path.join(data_dir, "example_works.json"), "r").read()
 
-    user = User.select().join(OrcidToken).where(User.orcid.is_null(False)).first()
+    user = User.select().join(OrcidToken, on=OrcidToken.user).where(User.orcid.is_null(False)).first()
     org = user.organisation
     admin = org.admins.first()
     client.login(admin)
