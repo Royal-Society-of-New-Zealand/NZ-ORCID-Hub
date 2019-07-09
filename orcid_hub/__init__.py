@@ -23,9 +23,7 @@ from flask import Flask, request
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
 from flask_restful import Api
-from peewee import PostgresqlDatabase
 from playhouse import db_url
-from playhouse.shortcuts import RetryOperationalError
 # disable Sentry if there is no SENTRY_DSN:
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
@@ -46,10 +44,10 @@ except pkg_resources.DistributionNotFound:
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
-class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase):
-    """Support for reconnecting closed DB connectios."""
+# class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase):
+#     """Support for reconnecting closed DB connectios."""
 
-    pass
+#     pass
 
 
 cache = SimpleCache()
@@ -60,7 +58,8 @@ app = Flask(__name__, instance_path=instance_path)
 app.config.from_object(config)
 if not app.config.from_pyfile(settings_filename, silent=True) and app.debug:
     print(f"*** WARNING: Failed to load local application configuration from '{settings_filename}'")
-
+# if "DATABASE_URL" in os.environ:
+#     app.config["DATABASE_URL"] = os.getenv("DATABASE_URL")
 
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
@@ -80,7 +79,7 @@ DATABASE_URL = app.config.get("DATABASE_URL")
 
 # TODO: implement connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
-db_url.PostgresqlDatabase = ReconnectablePostgresqlDatabase
+# db_url.PostgresqlDatabase = ReconnectablePostgresqlDatabase
 if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:

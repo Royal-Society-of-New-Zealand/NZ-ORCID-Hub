@@ -6,7 +6,6 @@ from itertools import product
 
 import pytest
 from peewee import Model, SqliteDatabase
-from playhouse.test_utils import test_database
 
 from orcid_hub import JSONEncoder
 from orcid_hub.models import (
@@ -16,30 +15,6 @@ from orcid_hub.models import (
     PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TaskTypeField,
     TextField, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
     WorkInvitee, WorkRecord, app, create_tables, drop_tables, load_yaml_json, validate_orcid_id)
-
-
-@pytest.fixture
-def testdb():
-    """Peewee Test DB context.
-
-    Example:
-
-    def test_NAME(testdb):
-        u = models.User(email="test@test.org", name="TESTER TESTERON")
-        u.save()
-        asser modls.User.count() == 1
-    """
-    _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
-    with test_database(
-            _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo, OrcidToken,
-                  OrcidApiCall, UserOrgAffiliation, Task, AffiliationRecord, AffiliationExternalId, ExternalId,
-                  FundingRecord, FundingContributor, FundingInvitee, WorkRecord, WorkContributor,
-                  WorkExternalId, WorkInvitee, PropertyRecord, PeerReviewRecord, PeerReviewExternalId,
-                  PeerReviewInvitee),
-            fail_silently=True) as _test_db:
-        yield _test_db
-
-    return
 
 
 @pytest.fixture
@@ -75,8 +50,10 @@ def models(testdb):
         dict(user=u.id, org=u.organisation_id)
         for u in User.select().where(User.orcid == "ABC-123")).execute()
 
-    UserOrg.insert_many((dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
-                         for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
+    UserOrg.insert_many(
+        dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
+        for (u, o) in product(range(2, 60, 4), range(2, 10))
+        if not UserOrg.select().where(UserOrg.user == u, UserOrg.org == o).exists()).execute()
 
     UserOrg.insert_many((dict(is_admin=True, user=43, org=o) for o in range(1, 11))).execute()
 
@@ -329,9 +306,9 @@ def test_user_org_link_org_constraint(models):
 
 def test_test_database(models):
     """Test of the consitency of the test database."""
-    assert Organisation.select().count() == 10
-    assert User.select().count() == 63
-    assert OrcidToken.select().count() == 60
+    assert Organisation.select().count() == 14
+    assert User.select().count() == 95
+    assert OrcidToken.select().count() == 76
     assert AffiliationRecord.select().count() == 10
     assert AffiliationExternalId.select().count() == 10
     assert FundingRecord.select().count() == 10
@@ -355,7 +332,7 @@ def test_test_database(models):
     assert User.get(id=1).admin_for.count() == 0
     assert User.get(id=42).admin_for.count() > 0
     assert User.get(id=2).organisations.count() > 0
-    assert Organisation.get(id=1).admins.count() == 1
+    assert Organisation.get(id=1).admins.count() == 2
     assert Organisation.get(id=5).users.count() > 0
     assert Organisation.get(id=5).admins.count() > 0
     assert User.select().where(User.orcid == User.get(
@@ -364,7 +341,7 @@ def test_test_database(models):
 
     user = User.get(email="user0@org0.org.nz")
     available_organisations = user.available_organisations
-    assert available_organisations.count() == 10
+    assert available_organisations.count() == 14
 
     admin = User.create(email="admin@org0.org.nz", organisation=user.organisation, confirmed=True,
             first_name="TEST", last_name="ADMIN", roles=Role.ADMIN)
@@ -430,7 +407,7 @@ def test_admin_is_admin(models):
 def test_drop_tables(models):
     drop_tables()
     assert not User.table_exists()
-    assert not Organisation.table_exists()
+    # assert not Organisation.table_exists()
     assert not UserOrg.table_exists()
 
 
@@ -616,7 +593,7 @@ def test_field_is_updated(testdb):
 
 
 def test_load_task_from_csv(models):
-    org = Organisation.create(name="TEST0")
+    org, _ = Organisation.get_or_create(name="TEST0")
     # flake8: noqa
     test = Task.load_from_csv(
         """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title	Start date	End date	Student/Staff

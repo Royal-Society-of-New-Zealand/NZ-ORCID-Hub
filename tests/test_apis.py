@@ -966,7 +966,7 @@ records:
 """)
     assert resp.status_code == 400
     assert resp.json["error"] == "Unhandled exception occurred."
-    assert "Instance matching query does not exist" in resp.json["exception"]
+    assert "instance matching query does not exist" in resp.json["exception"]
 
     with patch.object(AffiliationRecord, "get", side_effect=Exception("ERROR")):
         resp = client.put(
@@ -1445,7 +1445,7 @@ def test_property_api(client, mocker):
                        data=json.dumps(records))
     assert resp.status_code == 200
     assert Task.select().count() == 6
-    assert UserInvitation.select().count() == 7
+    assert UserInvitation.select().count() == 10
     get_profile.assert_called()
     send_email.assert_called()
     create_or_update_researcher_url.assert_called_once()

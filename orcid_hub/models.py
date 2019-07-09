@@ -22,9 +22,9 @@ from urllib.parse import urlencode
 import validators
 import yaml
 from flask_login import UserMixin, current_user
-from peewee import JOIN, BlobField
+from peewee import JOIN, BlobField, SqliteDatabase
 from peewee import BooleanField as BooleanField_
-from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
+from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
@@ -277,7 +277,7 @@ class BooleanField(BooleanField_):
 class PartialDateField(Field):
     """Partial date custom DB data field mapped to varchar(10)."""
 
-    db_field = "varchar(10)"
+    field_type = "varchar(10)"
 
     def db_value(self, value):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
@@ -510,14 +510,6 @@ class BaseModel(Model):
             return self.__to_dashes(o)
         return o
 
-    def reload(self):
-        """Refresh the object from the DB."""
-        newer_self = self.get(self._meta.primary_key == self._get_pk_value())
-        for field_name in self._meta.fields.keys():
-            val = getattr(newer_self, field_name)
-            setattr(self, field_name, val)
-        self._dirty.clear()
-
     def has_field(self, field_name):
         """Check if the model has a field."""
         return field_name in self._meta.fields
@@ -525,38 +517,43 @@ class BaseModel(Model):
     class Meta:  # noqa: D101,D106
         database = db
         only_save_dirty = True
+        legacy_table_names = False
 
 
-class ModelDeferredRelation(DeferredRelation):
-    """Fixed DefferedRelation to allow inheritance and mixins."""
+# class ModelDeferredRelation(DeferredRelation):
+#     """Fixed DefferedRelation to allow inheritance and mixins."""
 
-    def set_model(self, rel_model):
-        """Include model in the generated "related_name" to make it unique."""
-        for model, field, name in self.fields:
-            if isinstance(field, ForeignKeyField) and not field._related_name:
-                field._related_name = "%s_%s_set" % (model.model_class_name(), name)
+#     def set_model(self, rel_model):
+#         """Include model in the generated "backref" to make it unique."""
+#         for model, field, name in self.fields:
+#             if isinstance(field, ForeignKeyField) and not field._backref:
+#                 field._backref = "%s_%s_set" % (model.model_class_name(), name)
 
-        super().set_model(rel_model)
-
-
-DeferredUser = ModelDeferredRelation()
+#         super().set_model(rel_model)
 
 
-class AuditMixin(Model):
+# User = ModelDeferredRelation()
+
+
+class AuditedModel(BaseModel):
     """Mixing for getting data necessary for data change audit trail maintenance."""
 
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(null=True, default=None)
     is_deleted = BooleanField(null=True, default=False)
 
-    # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    # created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    # updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    # created_by = IntegerField(null=True, index=True)
+    # updated_by = IntegerField(null=True, index=True)
+    created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref='+')
+    updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref='+')
 
     def save(self, *args, **kwargs):  # noqa: D102
         if self.is_dirty() and self._dirty != {"orcid_updated_at"}:
             self.updated_at = datetime.utcnow()
             if current_user and hasattr(current_user, "id"):
-                if hasattr(self, "created_by") and self.created_by and hasattr(self, "updated_by"):
+                if self.created_by:
                     self.updated_by_id = current_user.id
                 elif hasattr(self, "created_by"):
                     self.created_by_id = current_user.id
@@ -576,14 +573,14 @@ class File(BaseModel):
 
     filename = CharField(max_length=100)
     data = BlobField()
-    mimetype = CharField(max_length=30, db_column="mime_type")
+    mimetype = CharField(max_length=30, column_name="mime_type")
     token = FixedCharField(max_length=8, unique=True, default=lambda: secrets.token_urlsafe(8)[:8])
 
     class Meta:  # noqa: D101,D106
         table_alias = "f"
 
 
-class Organisation(BaseModel, AuditMixin):
+class Organisation(AuditedModel):
     """Research organisation."""
 
     country_choices = [(c.alpha_2, c.name) for c in countries]
@@ -605,14 +602,14 @@ class Organisation(BaseModel, AuditMixin):
     disambiguated_id = CharField(null=True)
     disambiguation_source = CharField(null=True, choices=disambiguation_source_choices)
     is_email_sent = BooleanField(default=False)
-    tech_contact = ForeignKeyField(
-        DeferredUser,
-        related_name="tech_contact_of",
+    tech_contact = DeferredForeignKey(
+        "User",
+        backref="tech_contact_of",
         on_delete="SET NULL",
         null=True,
         help_text="Organisation technical contact")
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    # created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
+    # updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
 
     api_credentials_requested_at = DateTimeField(
         null=True,
@@ -633,7 +630,7 @@ class Organisation(BaseModel, AuditMixin):
     @property
     def invitation_sent_at(self):
         """Get the timestamp of the most recent invitation sent to the technical contact."""
-        row = self.orginvitation_set.select(
+        row = self.org_invitations.select(
             fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
                 OrgInvitation.invitee_id == self.tech_contact_id).first()
         if row:
@@ -642,7 +639,7 @@ class Organisation(BaseModel, AuditMixin):
     @property
     def invitation_confirmed_at(self):
         """Get the timestamp when the invitation link was opened."""
-        row = self.orginvitation_set.select(
+        row = self.org_invitations.select(
             fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
                 OrgInvitation.invitee_id == self.tech_contact_id).where(
                     OrgInvitation.confirmed_at.is_null(False)).first()
@@ -660,7 +657,7 @@ class Organisation(BaseModel, AuditMixin):
         """Get organisation's administrator query."""
         return self.users.where(UserOrg.is_admin)
 
-    def __repr__(self):
+    def __str__(self):
         return self.name or self.tuakiri_name
 
     def save(self, *args, **kwargs):
@@ -682,101 +679,7 @@ class Organisation(BaseModel, AuditMixin):
         table_alias = "o"
 
 
-class OrgInfo(BaseModel):
-    """Preloaded organisation data."""
-
-    name = CharField(max_length=100, unique=True, help_text="Organisation name")
-    tuakiri_name = CharField(max_length=100, unique=True, null=True, help_text="TUAKIRI Name")
-    title = CharField(null=True, help_text="Contact Person Tile")
-    first_name = CharField(null=True, help_text="Contact Person's First Name")
-    last_name = CharField(null=True, help_text="Contact Person's Last Name")
-    role = CharField(null=True, help_text="Contact Person's Role")
-    email = CharField(null=True, help_text="Contact Person's Email Address")
-    phone = CharField(null=True, help_text="Contact Person's Phone")
-    is_public = BooleanField(
-        null=True, default=False, help_text="Permission to post contact information to WEB")
-    country = CharField(null=True, help_text="Country Code", default=DEFAULT_COUNTRY)
-    city = CharField(null=True, help_text="City of Home Campus")
-    disambiguated_id = CharField(
-        null=True, verbose_name="Identifier",
-        help_text="Organisation disambiguated identifier")
-    disambiguation_source = CharField(
-        null=True,
-        verbose_name="Source",
-        help_text="Organisation disambiguated ID source",
-        choices=disambiguation_source_choices)
-
-    def __repr__(self):
-        return self.name or self.disambiguated_id or super().__repr__()
-
-    class Meta:  # noqa: D101,D106
-        db_table = "org_info"
-        table_alias = "oi"
-
-    @classmethod
-    def load_from_csv(cls, source):
-        """Load data from CSV file or a string."""
-        if isinstance(source, str):
-            source = StringIO(source, newline='')
-        reader = csv.reader(source)
-        header = next(reader)
-
-        assert len(header) >= 3, \
-            "Wrong number of fields. Expected at least 3 fields " \
-            "(name, disambiguated organisation ID, and disambiguation source). " \
-            "Read header: %s" % header
-        header_rexs = [
-            re.compile(ex, re.I)
-            for ex in ("organisation|name", "title", r"first\s*(name)?", r"last\s*(name)?", "role",
-                       "email", "phone", "public|permission to post to web", r"country\s*(code)?",
-                       "city", "(common:)?disambiguated.*identifier",
-                       "(common:)?disambiguation.*source", r"tuakiri\s*(name)?")
-        ]
-
-        def index(rex):
-            """Return first header column index matching the given regex."""
-            for i, column in enumerate(header):
-                if rex.match(column):
-                    return i
-            else:
-                return None
-
-        idxs = [index(rex) for rex in header_rexs]
-
-        def val(row, i, default=None):
-            if idxs[i] is None:
-                return default
-            else:
-                v = row[idxs[i]].strip()
-                return None if v == '' else v
-
-        for row in reader:
-            # skip empty lines:
-            if not row or row is None or len(row) == 0 or (len(row) == 1 and row[0].strip() == ''):
-                continue
-
-            name = val(row, 0)
-            oi, _ = cls.get_or_create(name=name)
-
-            oi.title = val(row, 1)
-            oi.first_name = val(row, 2)
-            oi.last_name = val(row, 3)
-            oi.role = val(row, 4)
-            oi.email = normalize_email(val(row, 5))
-            oi.phone = val(row, 6)
-            oi.is_public = val(row, 7) and val(row, 7).upper() == "YES"
-            oi.country = val(row, 8) or DEFAULT_COUNTRY
-            oi.city = val(row, 9)
-            oi.disambiguated_id = val(row, 10)
-            oi.disambiguation_source = val(row, 11)
-            oi.tuakiri_name = val(row, 12)
-
-            oi.save()
-
-        return reader.line_num - 1
-
-
-class User(BaseModel, UserMixin, AuditMixin):
+class User(AuditedModel, UserMixin):
     """
     ORCiD Hub user.
 
@@ -800,15 +703,14 @@ class User(BaseModel, UserMixin, AuditMixin):
     # TODO: many-to-many
     # NB! Deprecated!
     # TODO: we still need to remember the organisation that last authenticated the user
-    organisation = ForeignKeyField(
-        Organisation, related_name="members", on_delete="SET NULL", null=True)
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    organisation = ForeignKeyField(Organisation, backref="members", on_delete="SET NULL", null=True)
+    created_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref='+')
+    updated_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref='+')
 
-    def __repr__(self):
+    def __str__(self):
         if self.name and (self.eppn or self.email):
-            return "%s (%s)" % (self.name, self.email or self.eppn)
-        return self.name or self.email or self.orcid or super().__repr__()
+            return f"{self.name} ({self.email or self.eppn})"
+        return self.name or self.email or self.orcid or super().__str__()
 
     @property
     def username(self):
@@ -822,7 +724,7 @@ class User(BaseModel, UserMixin, AuditMixin):
             Organisation, (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
             ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
                 UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
-                .naive())
+                .objects())
 
     @lazy_property
     def org_links(self):
@@ -841,7 +743,7 @@ class User(BaseModel, UserMixin, AuditMixin):
         return [
             r for r in q.select(UserOrg.id, UserOrg.org_id, Organisation.name.alias("org_name"))
             .join(Organisation, on=(
-                Organisation.id == UserOrg.org_id)).order_by(Organisation.name).naive()
+                Organisation.id == UserOrg.org_id)).order_by(Organisation.name).objects()
         ]
 
     @property
@@ -942,16 +844,106 @@ class User(BaseModel, UserMixin, AuditMixin):
         return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
 
 
-DeferredUser.set_model(User)
+class OrgInfo(BaseModel):
+    """Preloaded organisation data."""
+
+    name = CharField(max_length=100, unique=True, help_text="Organisation name")
+    tuakiri_name = CharField(max_length=100, unique=True, null=True, help_text="TUAKIRI Name")
+    title = CharField(null=True, help_text="Contact Person Tile")
+    first_name = CharField(null=True, help_text="Contact Person's First Name")
+    last_name = CharField(null=True, help_text="Contact Person's Last Name")
+    role = CharField(null=True, help_text="Contact Person's Role")
+    email = CharField(null=True, help_text="Contact Person's Email Address")
+    phone = CharField(null=True, help_text="Contact Person's Phone")
+    is_public = BooleanField(
+        null=True, default=False, help_text="Permission to post contact information to WEB")
+    country = CharField(null=True, help_text="Country Code", default=DEFAULT_COUNTRY)
+    city = CharField(null=True, help_text="City of Home Campus")
+    disambiguated_id = CharField(
+        null=True, verbose_name="Identifier",
+        help_text="Organisation disambiguated identifier")
+    disambiguation_source = CharField(
+        null=True,
+        verbose_name="Source",
+        help_text="Organisation disambiguated ID source",
+        choices=disambiguation_source_choices)
+
+    def __str__(self):
+        return self.name or self.disambiguated_id or super().__str__()
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "oi"
+
+    @classmethod
+    def load_from_csv(cls, source):
+        """Load data from CSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source, newline='')
+        reader = csv.reader(source)
+        header = next(reader)
+
+        assert len(header) >= 3, \
+            "Wrong number of fields. Expected at least 3 fields " \
+            "(name, disambiguated organisation ID, and disambiguation source). " \
+            "Read header: %s" % header
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in ("organisation|name", "title", r"first\s*(name)?", r"last\s*(name)?", "role",
+                       "email", "phone", "public|permission to post to web", r"country\s*(code)?",
+                       "city", "(common:)?disambiguated.*identifier",
+                       "(common:)?disambiguation.*source", r"tuakiri\s*(name)?")
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        def val(row, i, default=None):
+            if idxs[i] is None:
+                return default
+            else:
+                v = row[idxs[i]].strip()
+                return None if v == '' else v
+
+        for row in reader:
+            # skip empty lines:
+            if not row or row is None or len(row) == 0 or (len(row) == 1 and row[0].strip() == ''):
+                continue
+
+            name = val(row, 0)
+            oi, _ = cls.get_or_create(name=name)
+
+            oi.title = val(row, 1)
+            oi.first_name = val(row, 2)
+            oi.last_name = val(row, 3)
+            oi.role = val(row, 4)
+            oi.email = normalize_email(val(row, 5))
+            oi.phone = val(row, 6)
+            oi.is_public = val(row, 7) and val(row, 7).upper() == "YES"
+            oi.country = val(row, 8) or DEFAULT_COUNTRY
+            oi.city = val(row, 9)
+            oi.disambiguated_id = val(row, 10)
+            oi.disambiguation_source = val(row, 11)
+            oi.tuakiri_name = val(row, 12)
+
+            oi.save()
+
+        return reader.line_num - 1
 
 
-class OrgInvitation(BaseModel, AuditMixin):
+class OrgInvitation(AuditedModel):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
-        User, on_delete="CASCADE", null=True, related_name="received_org_invitations")
+        User, on_delete="CASCADE", null=True, backref="received_org_invitations")
     inviter = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="sent_org_invitations")
+        User, on_delete="SET NULL", null=True, backref="sent_org_invitations")
     org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
     email = TextField(
         help_text="The email address the invitation was sent to.",
@@ -970,26 +962,25 @@ class OrgInvitation(BaseModel, AuditMixin):
         return self.created_at
 
     class Meta:  # noqa: D101,D106
-        db_table = "org_invitation"
         table_alias = "oi"
 
 
-class UserOrg(BaseModel, AuditMixin):
+class UserOrg(AuditedModel):
     """Linking object for many-to-many relationship."""
 
-    user = ForeignKeyField(User, on_delete="CASCADE", index=True)
+    user = ForeignKeyField(User, on_delete="CASCADE", index=True, backref="user_orgs")
     org = ForeignKeyField(
-        Organisation, on_delete="CASCADE", index=True, verbose_name="Organisation")
+        Organisation, on_delete="CASCADE", index=True, verbose_name="Organisation", backref="user_orgs")
 
     is_admin = BooleanField(
         null=True, default=False, help_text="User is an administrator for the organisation")
 
     # Affiliation bit-map:
-    affiliations = SmallIntegerField(default=Affiliation.NONE, null=True, verbose_name="EDU Person Affiliations")
-    created_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="created_user_orgs")
-    updated_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="updated_user_orgs")
+    affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
+    # created_by = ForeignKeyField(
+    #     User, on_delete="SET NULL", null=True, backref="created_user_orgs")
+    # updated_by = ForeignKeyField(
+    #     User, on_delete="SET NULL", null=True, backref="updated_user_orgs")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
@@ -1017,16 +1008,15 @@ class UserOrg(BaseModel, AuditMixin):
             return super().save(*args, **kwargs)
 
     class Meta:  # noqa: D101,D106
-        db_table = "user_org"
         table_alias = "uo"
         indexes = ((("user", "org"), True), )
 
 
-class OrcidToken(BaseModel, AuditMixin):
+class OrcidToken(AuditedModel):
     """For Keeping ORCID token in the table."""
 
     user = ForeignKeyField(
-        User, null=True, index=True,
+        User, null=True, index=True, backref="orcid_tokens",
         on_delete="CASCADE")  # TODO: add validation for 3-legged authorization tokens
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scopes = TextField(null=True)
@@ -1034,18 +1024,17 @@ class OrcidToken(BaseModel, AuditMixin):
     issue_time = DateTimeField(default=datetime.utcnow)
     refresh_token = CharField(max_length=36, unique=True, null=True)
     expires_in = IntegerField(default=0)
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    # created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    # updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
 
     class Meta:  # noqa: D101,D106
-        db_table = "orcid_token"
         table_alias = "ot"
 
 
-class UserOrgAffiliation(BaseModel, AuditMixin):
+class UserOrgAffiliation(AuditedModel):
     """For Keeping the information about the affiliation."""
 
-    user = ForeignKeyField(User, on_delete="CASCADE")
+    user = ForeignKeyField(User, on_delete="CASCADE", backref="org_affiliations")
     organisation = ForeignKeyField(
         Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation")
     disambiguated_id = CharField(verbose_name="Disambiguation ORG Id", null=True)
@@ -1059,11 +1048,11 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     role_title = TextField(null=True)
     put_code = IntegerField(null=True)
     path = TextField(null=True)
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    # created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    # updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
 
     class Meta:  # noqa: D101,D106
-        db_table = "user_organisation_affiliation"
+        table_name = "user_organisation_affiliation"
         table_alias = "oua"
 
 
@@ -1071,7 +1060,7 @@ class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
+    user = ForeignKeyField(User, null=True, on_delete="SET NULL", backref="orcid_api_calls")
     method = TextField()
     url = TextField()
     query_params = TextField(null=True)
@@ -1081,7 +1070,6 @@ class OrcidApiCall(BaseModel):
     response_time_ms = IntegerField(null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "orcid_api_call"
         table_alias = "oac"
 
 
@@ -1089,7 +1077,7 @@ class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True, default=None, on_delete="SET NULL")
+    user = ForeignKeyField(User, null=True, default=None, on_delete="SET NULL", backref="orcid_auth_calls")
     method = TextField(null=True, default="GET")
     url = TextField(null=True)
     token = TextField(null=True)
@@ -1097,28 +1085,27 @@ class OrcidAuthorizeCall(BaseModel):
     response_time_ms = IntegerField(null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "orcid_authorize_call"
         table_alias = "oac"
 
 
-class Task(BaseModel, AuditMixin):
+class Task(AuditedModel):
     """Batch processing task created form CSV/TSV file."""
 
     org = ForeignKeyField(
-        Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE")
+        Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE", backref="tasks")
     completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
-    created_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="created_tasks")
-    updated_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="updated_tasks")
+    # created_by = ForeignKeyField(
+    #     User, on_delete="SET NULL", null=True, backref="created_tasks")
+    # updated_by = ForeignKeyField(
+    #     User, on_delete="SET NULL", null=True, backref="updated_tasks")
     task_type = TaskTypeField(
         default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
     status = CharField(null=True, max_length=10, choices=[(v, v) for v in ["ACTIVE", "RESET"]])
 
-    def __repr__(self):
+    def __str__(self):
         return ("Synchronization task" if self.task_type == TaskType.SYNC else (
             self.filename
             or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"))
@@ -1136,7 +1123,7 @@ class Task(BaseModel, AuditMixin):
     @property
     def record_model(self):
         """Get record model class."""
-        return self.records.model_class
+        return self.records.model
 
     @lazy_property
     def records(self):
@@ -1222,7 +1209,7 @@ class Task(BaseModel, AuditMixin):
                 v = row[idxs[i]].strip()
                 return default if v == '' else v
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 for row_no, row in enumerate(reader):
@@ -1341,7 +1328,7 @@ class Task(BaseModel, AuditMixin):
                             raise ModelException(f"Invalid record: {validator.errors}")
                         ae.save()
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load affiliation file.")
                 raise
 
@@ -1364,7 +1351,7 @@ class Task(BaseModel, AuditMixin):
                 r.to_dict(
                     to_dashes=to_dashes,
                     recurse=recurse,
-                    exclude=[self.records.model_class._meta.fields["task"]]) for r in self.records
+                    exclude=[self.records.model._meta.fields["task"]]) for r in self.records
             ]
         return task_dict
 
@@ -1391,15 +1378,14 @@ class Log(BaseModel):
     """Task log entries."""
 
     created_at = DateTimeField(default=datetime.utcnow)
-    created_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="created_task_log_entries")
+    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
     task = ForeignKeyField(
         Task,
         on_delete="CASCADE",
         null=True,
         index=True,
         verbose_name="Task",
-        related_name="log_entries")
+        backref="log_entries")
     message = TextField(null=True)
 
     class Meta:  # noqa: D101,D106
@@ -1413,16 +1399,24 @@ class Log(BaseModel):
         return super().save(*args, **kwargs)
 
 
-class UserInvitation(BaseModel, AuditMixin):
+class UserInvitation(AuditedModel):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
-        User, on_delete="CASCADE", null=True, related_name="received_user_invitations")
+        User, on_delete="CASCADE", null=True, backref="received_user_invitations")
     inviter = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
-    org = ForeignKeyField(
-        Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
-    task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
+        User, on_delete="SET NULL", null=True, backref="sent_user_invitations")
+    org = ForeignKeyField(Organisation,
+                          on_delete="CASCADE",
+                          null=True,
+                          verbose_name="Organisation",
+                          backref="user_invitations")
+    task = ForeignKeyField(Task,
+                           on_delete="CASCADE",
+                           null=True,
+                           index=True,
+                           verbose_name="Task",
+                           backref="user_invitations")
     email = CharField(
         index=True, null=True, max_length=80,
         help_text="The email address the invitation was sent to.")
@@ -1454,7 +1448,7 @@ class UserInvitation(BaseModel, AuditMixin):
         return self.created_at
 
     class Meta:  # noqa: D101,D106
-        db_table = "user_invitation"
+        table_alias = "ui"
 
 
 class RecordModel(BaseModel):
@@ -1473,7 +1467,7 @@ class RecordModel(BaseModel):
     def invitee_model(self):
         """Get invitee model class."""
         if hasattr(self, "invitees"):
-            return self.invitees.model_class
+            return self.invitees.model
 
     def to_export_dict(self):
         """Map the common record parts to dict for export into JSON/YAML."""
@@ -1545,10 +1539,9 @@ class GroupIdRecord(RecordModel):
                      help_text="One of the specified types: publisher; institution; journal; conference; newspaper; "
                                "newsletter; magazine; peer-review service.")
     organisation = ForeignKeyField(
-        Organisation, related_name="organisation", on_delete="CASCADE", null=True)
+        Organisation, backref="group_id_records", on_delete="CASCADE", null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "group_id_record"
         table_alias = "gid"
 
 
@@ -1557,7 +1550,7 @@ class AffiliationRecord(RecordModel):
 
     is_active = BooleanField(
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
-    task = ForeignKeyField(Task, related_name="affiliation_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="affiliation_records", on_delete="CASCADE")
     put_code = IntegerField(null=True)
     local_id = CharField(
         max_length=100,
@@ -1592,7 +1585,6 @@ class AffiliationRecord(RecordModel):
     display_index = CharField(max_length=100, null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "affiliation_record"
         table_alias = "ar"
 
     _regex_field_map = [
@@ -1630,7 +1622,7 @@ class AffiliationRecord(RecordModel):
         if not task and "id" in data:
             task_id = int(data["id"])
             task = Task.select().where(Task.id == task_id).first()
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if not task:
                     filename = (filename or data.get("filename")
@@ -1651,8 +1643,8 @@ class AffiliationRecord(RecordModel):
                         k = k.replace('-', '_')
                         if k in ["visibility", "disambiguation_source"] and v:
                             v = v.upper()
-                        if k in record_fields and rec._data.get(k) != v:
-                            rec._data[k] = PartialDate.create(v) if k.endswith("date") else v
+                        if k in record_fields and rec.__data__.get(k) != v:
+                            rec.__data__[k] = PartialDate.create(v) if k.endswith("date") else v
                             rec._dirty.add(k)
                     if rec.is_dirty():
                         validator = ModelValidator(rec)
@@ -1660,7 +1652,7 @@ class AffiliationRecord(RecordModel):
                             raise ModelException(f"Invalid record: {validator.errors}")
                         rec.save()
             except:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load affiliation record task file.")
                 raise
         return task
@@ -1671,7 +1663,7 @@ class FundingRecord(RecordModel):
 
     funiding_type_choices = [(v, v.replace('_', ' ').title()) for v in FUNDING_TYPES]
 
-    task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="funding_records", on_delete="CASCADE")
     title = CharField(max_length=255)
     translated_title = CharField(null=True, max_length=255)
     translated_title_language_code = CharField(null=True, max_length=10, choices=language_choices)
@@ -1874,7 +1866,7 @@ class FundingRecord(RecordModel):
                         url=val(row, 21),
                         relationship=external_id_relationship)))
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
                 for funding, records in groupby(rows, key=lambda row: row["funding"].items()):
@@ -1904,7 +1896,7 @@ class FundingRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load funding file.")
                 raise
 
@@ -1925,7 +1917,7 @@ class FundingRecord(RecordModel):
                 schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
             validator.validate(raise_exception=True)
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -2032,12 +2024,11 @@ class FundingRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load funding file.")
                 raise
 
     class Meta:  # noqa: D101,D106
-        db_table = "funding_record"
         table_alias = "fr"
 
 
@@ -2047,7 +2038,7 @@ class PeerReviewRecord(RecordModel):
     subject_type_choices = [(v, v.replace('_', ' ').title()) for v in SUBJECT_TYPES]
     reviewer_role_choices = [(v, v.title()) for v in REVIEWER_ROLES]
 
-    task = ForeignKeyField(Task, related_name="peer_review_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="peer_review_records", on_delete="CASCADE")
     review_group_id = CharField(
         max_length=255, verbose_name="Group ID", help_text="Review Group ID")
     reviewer_role = CharField(
@@ -2345,7 +2336,7 @@ class PeerReviewRecord(RecordModel):
                         url=val(row, 31),
                         relationship=external_id_relationship)))
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
                 for peer_review, records in groupby(rows, key=lambda row: row["peer_review"].items()):
@@ -2372,34 +2363,34 @@ class PeerReviewRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None, task=None, **kwargs):
         """Load data from JSON file or a string."""
-        if isinstance(source, str):
-            # import data from file based on its extension; either it is YAML or JSON
-            data_list = load_yaml_json(filename=filename, source=source)
-            if not filename:
-                if isinstance(data_list, dict):
-                    filename = data_list.get("filename")
-                else:
-                    filename = "peer_review_" + datetime.utcnow().isoformat(
-                        timespec="seconds") + ".json"
+        # import data from file based on its extension; either it is YAML or JSON
+        data_list = load_yaml_json(filename=filename, source=source)
+        if not filename:
             if isinstance(data_list, dict):
-                data_list = data_list.get("records")
+                filename = data_list.get("filename")
+            else:
+                filename = "peer_review_" + datetime.utcnow().isoformat(
+                    timespec="seconds") + ".json"
+        if isinstance(data_list, dict):
+            data_list = data_list.get("records")
 
-            for data in data_list:
-                validation_source_data = copy.deepcopy(data)
-                validation_source_data = del_none(validation_source_data)
+        for data in data_list:
+            validation_source_data = copy.deepcopy(data)
+            validation_source_data = del_none(validation_source_data)
 
-                validator = Core(
-                    source_data=validation_source_data,
-                    schema_files=[os.path.join(SCHEMA_DIR, "peer_review_schema.yaml")])
-                validator.validate(raise_exception=True)
+            validator = Core(
+                source_data=validation_source_data,
+                schema_files=[os.path.join(SCHEMA_DIR, "peer_review_schema.yaml")])
+            validator.validate(raise_exception=True)
 
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -2410,91 +2401,40 @@ class PeerReviewRecord(RecordModel):
 
                 for data in data_list:
 
-                    review_group_id = data.get("review-group-id") if data.get(
-                        "review-group-id") else None
-
-                    reviewer_role = data.get("reviewer-role") if data.get(
-                        "reviewer-role") else None
-
-                    review_url = data.get("review-url").get("value") if data.get(
-                        "review-url") else None
-
-                    review_type = data.get("review-type") if data.get("review-type") else None
-
+                    review_group_id = data.get("review-group-id")
+                    reviewer_role = data.get("reviewer-role")
+                    review_url = data.get("review-url", "value")
+                    review_type = data.get("review-type")
                     review_completion_date = PartialDate.create(data.get("review-completion-date"))
+                    subject_external_id_type = data.get("subject-external-identifier",
+                                                        "external-id-type")
+                    subject_external_id_value = data.get("subject-external-identifier",
+                                                         "external-id-value")
+                    subject_external_id_url = data.get("subject-external-identifier",
+                                                       "external-id-url", "value")
+                    subject_external_id_relationship = data.get("subject-external-identifier",
+                                                                "external-id-relationship")
 
-                    subject_external_id_type = data.get("subject-external-identifier").get(
-                        "external-id-type") if data.get(
-                        "subject-external-identifier") else None
-
-                    subject_external_id_value = data.get("subject-external-identifier").get(
-                        "external-id-value") if data.get(
-                        "subject-external-identifier") else None
-
-                    subject_external_id_url = data.get("subject-external-identifier").get(
-                        "external-id-url").get("value") if data.get(
-                        "subject-external-identifier") and data.get("subject-external-identifier").get(
-                        "external-id-url") else None
-
-                    subject_external_id_relationship = data.get("subject-external-identifier").get(
-                        "external-id-relationship") if data.get(
-                        "subject-external-identifier") else None
-
-                    subject_container_name = data.get("subject-container-name").get(
-                        "value") if data.get(
-                        "subject-container-name") else None
-
-                    subject_type = data.get("subject-type") if data.get(
-                        "subject-type") else None
-
-                    subject_name_title = data.get("subject-name").get("title").get(
-                        "value") if data.get(
-                        "subject-name") and data.get("subject-name").get("title") else None
-
-                    subject_name_subtitle = data.get("subject-name").get("subtitle").get(
-                        "value") if data.get(
-                        "subject-name") and data.get("subject-name").get("subtitle") else None
-
-                    subject_name_translated_title_lang_code = data.get("subject-name").get(
-                        "translated-title").get(
-                        "language-code") if data.get(
-                        "subject-name") and data.get("subject-name").get("translated-title") else None
-
-                    subject_name_translated_title = data.get("subject-name").get(
-                        "translated-title").get(
-                        "value") if data.get(
-                        "subject-name") and data.get("subject-name").get("translated-title") else None
-
-                    subject_url = data.get("subject-url").get("value") if data.get(
-                        "subject-name") else None
-
-                    convening_org_name = data.get("convening-organization").get(
-                        "name") if data.get(
-                        "convening-organization") else None
-
-                    convening_org_city = data.get("convening-organization").get("address").get(
-                        "city") if data.get("convening-organization") and data.get(
-                        "convening-organization").get("address") else None
-
-                    convening_org_region = data.get("convening-organization").get("address").get(
-                        "region") if data.get("convening-organization") and data.get(
-                        "convening-organization").get("address") else None
-
-                    convening_org_country = data.get("convening-organization").get("address").get(
-                        "country") if data.get("convening-organization") and data.get(
-                        "convening-organization").get("address") else None
-
+                    subject_container_name = data.get("subject-container-name", "value")
+                    subject_type = data.get("subject-type")
+                    subject_name_title = data.get("subject-name", "title", "value")
+                    subject_name_subtitle = data.get("subject-name", "subtitle", "value")
+                    subject_name_translated_title_lang_code = data.get(
+                        "subject-name", "translated-title", "language-code")
+                    subject_name_translated_title = data.get("subject-name", "translated-title",
+                                                             "value")
+                    subject_url = data.get("subject-url", "value")
+                    convening_org_name = data.get("convening-organization", "name")
+                    convening_org_city = data.get("convening-organization", "address", "city")
+                    convening_org_region = data.get("convening-organization", "address", "region")
+                    convening_org_country = data.get("convening-organization", "address",
+                                                     "country")
                     convening_org_disambiguated_identifier = data.get(
-                        "convening-organization").get("disambiguated-organization").get(
-                        "disambiguated-organization-identifier") if data.get(
-                        "convening-organization") and data.get("convening-organization").get(
-                        "disambiguated-organization") else None
-
-                    convening_org_disambiguation_source = data.get(
-                        "convening-organization").get("disambiguated-organization").get(
-                        "disambiguation-source") if data.get(
-                        "convening-organization") and data.get("convening-organization").get(
-                        "disambiguated-organization") else None
+                        "convening-organization", "disambiguated-organization",
+                        "disambiguated-organization-identifier")
+                    convening_org_disambiguation_source = data.get("convening-organization",
+                                                                   "disambiguated-organization",
+                                                                   "disambiguation-source")
 
                     record = cls.create(
                         task=task,
@@ -2565,7 +2505,7 @@ class PeerReviewRecord(RecordModel):
 
                 return task
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
 
@@ -2626,14 +2566,13 @@ class PeerReviewRecord(RecordModel):
         return d
 
     class Meta:  # noqa: D101,D106
-        db_table = "peer_review_record"
         table_alias = "pr"
 
 
 class PropertyRecord(RecordModel):
     """Researcher Url record loaded from Json file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="property_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="property_records", on_delete="CASCADE")
     type = CharField(verbose_name="Propery Type", choices=property_type_choices)
     display_index = IntegerField(null=True)
     name = CharField(null=True,
@@ -2712,7 +2651,7 @@ class PropertyRecord(RecordModel):
                 v = row[idxs[i]].strip()
             return default if v == '' else v
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.PROPERTY)
                 for row_no, row in enumerate(reader):
@@ -2785,7 +2724,7 @@ class PropertyRecord(RecordModel):
                         raise ModelException(f"Invalid record: {validator.errors}")
                     rr.save()
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load Researcher Url Record file.")
                 raise
 
@@ -2821,7 +2760,7 @@ class PropertyRecord(RecordModel):
                 }.get(task_type)
         else:
             records = data
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -2880,7 +2819,7 @@ class PropertyRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load Researcher property file.")
                 raise
 
@@ -2891,14 +2830,13 @@ class PropertyRecord(RecordModel):
         return d
 
     class Meta:  # noqa: D101,D106
-        db_table = "property_record"
         table_alias = "pr"
 
 
 class WorkRecord(RecordModel):
     """Work record loaded from Json file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="work_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="work_records", on_delete="CASCADE")
     title = CharField(max_length=255)
     subtitle = CharField(null=True, max_length=255)
     translated_title = CharField(null=True, max_length=255)
@@ -3096,7 +3034,7 @@ class WorkRecord(RecordModel):
                         url=val(row, 19),
                         relationship=external_id_relationship)))
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
                 for work, records in groupby(rows, key=lambda row: row["work"].items()):
@@ -3126,32 +3064,32 @@ class WorkRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load work file.")
                 raise
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None, task=None, **kwargs):
         """Load data from JSON file or a string."""
-        if isinstance(source, str):
-            # import data from file based on its extension; either it is YAML or JSON
-            data = load_yaml_json(filename=filename, source=source)
-            if not filename and isinstance(data, dict):
-                filename = data.get("filename")
-            if isinstance(data, dict):
-                data = data.get("records")
+        # import data from file based on its extension; either it is YAML or JSON
+        data = load_yaml_json(filename=filename, source=source)
+        if not filename and isinstance(data, dict):
+            filename = data.get("filename")
+        if isinstance(data, dict):
+            data = data.get("records")
 
-            # TODO: validation of uploaded work file
-            for r in data:
-                validation_source_data = copy.deepcopy(r)
-                validation_source_data = del_none(validation_source_data)
+        # TODO: validation of uploaded work file
+        for r in data:
+            validation_source_data = copy.deepcopy(r)
+            validation_source_data = del_none(validation_source_data)
 
-                # Adding schema validation for Work
-                validator = Core(
-                    source_data=validation_source_data,
-                    schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")])
-                validator.validate(raise_exception=True)
+            # Adding schema validation for Work
+            validator = Core(
+                source_data=validation_source_data,
+                schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")])
+            validator.validate(raise_exception=True)
 
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -3263,7 +3201,7 @@ class WorkRecord(RecordModel):
 
                 return task
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load work record file.")
                 raise
 
@@ -3290,7 +3228,6 @@ class WorkRecord(RecordModel):
         return d
 
     class Meta:  # noqa: D101,D106
-        db_table = "work_record"
         table_alias = "wr"
 
 
@@ -3315,11 +3252,10 @@ class WorkContributor(ContributorModel):
     """Researcher or contributor - related to work."""
 
     record = ForeignKeyField(
-        WorkRecord, related_name="contributors", on_delete="CASCADE")
+        WorkRecord, backref="contributors", on_delete="CASCADE")
     contributor_sequence = CharField(max_length=120, null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "work_contributor"
         table_alias = "wc"
 
     def to_export_dict(self):
@@ -3332,10 +3268,9 @@ class WorkContributor(ContributorModel):
 class FundingContributor(ContributorModel):
     """Researcher or contributor - receiver of the funding."""
 
-    record = ForeignKeyField(FundingRecord, related_name="contributors", on_delete="CASCADE")
+    record = ForeignKeyField(FundingRecord, backref="contributors", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "funding_contributor"
         table_alias = "fc"
 
 
@@ -3369,10 +3304,9 @@ class PeerReviewInvitee(InviteeModel):
     """Researcher or Invitee - related to peer review."""
 
     record = ForeignKeyField(
-        PeerReviewRecord, related_name="invitees", on_delete="CASCADE")
+        PeerReviewRecord, backref="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "peer_review_invitee"
         table_alias = "pi"
 
 
@@ -3380,10 +3314,9 @@ class WorkInvitee(InviteeModel):
     """Researcher or Invitee - related to work."""
 
     record = ForeignKeyField(
-        WorkRecord, related_name="invitees", on_delete="CASCADE")
+        WorkRecord, backref="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "work_invitee"
         table_alias = "wi"
 
 
@@ -3391,10 +3324,9 @@ class FundingInvitee(InviteeModel):
     """Researcher or Invitee - related to funding."""
 
     record = ForeignKeyField(
-        FundingRecord, related_name="invitees", on_delete="CASCADE")
+        FundingRecord, backref="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "funding_invitee"
         table_alias = "fi"
 
 
@@ -3422,10 +3354,9 @@ class WorkExternalId(ExternalIdModel):
     """Work ExternalId loaded for batch processing."""
 
     record = ForeignKeyField(
-        WorkRecord, related_name="external_ids", on_delete="CASCADE")
+        WorkRecord, backref="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "work_external_id"
         table_alias = "wei"
 
 
@@ -3433,37 +3364,53 @@ class PeerReviewExternalId(ExternalIdModel):
     """Peer Review ExternalId loaded for batch processing."""
 
     record = ForeignKeyField(
-        PeerReviewRecord, related_name="external_ids", on_delete="CASCADE")
+        PeerReviewRecord, backref="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "peer_review_external_id"
         table_alias = "pei"
 
 
+# TODO: refacore to use many-to-many relation
 class ExternalId(ExternalIdModel):
     """Funding ExternalId loaded for batch processing."""
 
-    record = ForeignKeyField(FundingRecord, related_name="external_ids", on_delete="CASCADE")
+    record = ForeignKeyField(FundingRecord, null=True, backref="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "external_id"
         table_alias = "ei"
+
+
+class Resource(BaseModel):
+    """Research resource."""
+
+    title = CharField(max_length=1000)
+    display_index = IntegerField(null=True)
+    visibility = CharField(max_length=10, choices=visibility_choices)
+
+
+class ResoureceExternalId(BaseModel):
+    """Linkage between resoucrece and ExternalId."""
+
+    external_id = ForeignKeyField(ExternalId, index=True, on_delete="CASCADE")
+    resource = ForeignKeyField(Resource, index=True, on_delete="CASCADE")
+
+    class Meta:  # noqa: D106
+        table_alias = "rei"
 
 
 class AffiliationExternalId(ExternalIdModel):
     """Affiliation ExternalId loaded for batch processing."""
 
-    record = ForeignKeyField(AffiliationRecord, related_name="external_ids", on_delete="CASCADE")
+    record = ForeignKeyField(AffiliationRecord, backref="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "affiliation_external_id"
         table_alias = "aei"
 
 
 class OtherIdRecord(ExternalIdModel):
     """Other ID record loaded from json/csv file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="other_id_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="other_id_records", on_delete="CASCADE")
     display_index = IntegerField(null=True)
     email = CharField(max_length=120, null=True)
     first_name = CharField(max_length=120, null=True)
@@ -3535,7 +3482,7 @@ class OtherIdRecord(ExternalIdModel):
                 v = row[idxs[i]].strip()
             return default if v == '' else v
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_ID)
                 for row_no, row in enumerate(reader):
@@ -3596,7 +3543,7 @@ class OtherIdRecord(ExternalIdModel):
                         raise ModelException(f"Invalid record: {validator.errors}")
                     rr.save()
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load Other IDs Record file.")
                 raise
 
@@ -3612,7 +3559,7 @@ class OtherIdRecord(ExternalIdModel):
             else:
                 jsonschema.validate(data, schemas.other_id_record_list)
         records = data["records"] if isinstance(data, dict) else data
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -3650,12 +3597,11 @@ class OtherIdRecord(ExternalIdModel):
                 return task
 
             except Exception:
-                db.rollback()
+                transaction.rollback()
                 app.logger.exception("Failed to load Other IDs file.")
                 raise
 
     class Meta:  # noqa: D101,D106
-        db_table = "other_id_record"
         table_alias = "oir"
 
 
@@ -3665,7 +3611,7 @@ class Delegate(BaseModel):
     hostname = CharField()
 
 
-class Url(BaseModel, AuditMixin):
+class Url(AuditedModel):
     """Shortened URLs."""
 
     short_id = CharField(unique=True, max_length=5)
@@ -3694,7 +3640,7 @@ class Funding(BaseModel):
     url = TextField()
 
 
-class Client(BaseModel, AuditMixin):
+class Client(AuditedModel):
     """API Client Application/Consumer.
 
     A client is the app which wants to use the resource of a user.
@@ -3708,7 +3654,7 @@ class Client(BaseModel, AuditMixin):
         null=True, max_length=400, help_text="human readable description, not required")
     user = ForeignKeyField(
         User, null=True, on_delete="SET NULL", help_text="creator of the client, not required")
-    org = ForeignKeyField(Organisation, on_delete="CASCADE", related_name="client_applications")
+    org = ForeignKeyField(Organisation, on_delete="CASCADE", backref="client_applications")
 
     client_id = CharField(max_length=100, unique=True)
     client_secret = CharField(max_length=55, unique=True)
@@ -3766,7 +3712,7 @@ class Client(BaseModel, AuditMixin):
         """Validate client requested scopes."""
         return "/webhook" in scopes or not scopes
 
-    def __repr__(self):  # noqa: D102
+    def __str__(self):  # noqa: D102
         return self.name or self.homepage_url or self.description
 
 
@@ -3838,6 +3784,9 @@ class Token(BaseModel):
         return self.expires
 
 
+DeferredForeignKey.resolve(User)
+
+
 def readup_file(input_file):
     """Read up the whole content and decode it and return the whole content."""
     raw = input_file.read()
@@ -3849,7 +3798,7 @@ def readup_file(input_file):
     return raw.decode("latin-1")
 
 
-def create_tables():
+def create_tables(safe=True, drop=False):
     """Create all DB tables."""
     try:
         db.connect()
@@ -3893,11 +3842,14 @@ def create_tables():
             Delegate,
     ]:
 
+        model.bind(db)
+        if drop and model.table_exists():
+            model.drop_table()
         if not model.table_exists():
-            model.create_table()
+            model.create_table(safe=safe)
 
 
-def create_audit_tables():
+def create_audit_tables(db):
     """Create all DB audit tables for PostgreSQL DB."""
     try:
         db.connect()
@@ -3917,16 +3869,23 @@ def create_audit_tables():
 
 def drop_tables():
     """Drop all model tables."""
+    if isinstance(db, SqliteDatabase):
+        foreign_keys = db.pragma("foreign_keys")
+        db.pragma("foreign_keys", 0)
+
     for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, OtherIdRecord, FundingContributor, FundingInvitee,
               FundingRecord, PropertyRecord, PeerReviewInvitee, PeerReviewExternalId,
               PeerReviewRecord, WorkInvitee, WorkExternalId, WorkContributor, WorkRecord,
               AffiliationRecord, AffiliationExternalId, ExternalId, Url, UserInvitation, Task, Organisation):
+        m.bind(db)
         if m.table_exists():
             try:
-                m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)
+                m.drop_table(fail_silently=True, safe=True, cascade=hasattr(db, "drop_cascade") and db.drop_cascade)
             except OperationalError:
                 pass
+    if isinstance(db, SqliteDatabase):
+        db.pragma("foreign_keys", foreign_keys)
 
 
 def load_yaml_json(filename=None, source=None, content_type=None):

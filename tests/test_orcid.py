@@ -4,6 +4,7 @@
 import json
 import time
 from unittest.mock import DEFAULT, MagicMock, Mock, call, patch
+from requests.packages.urllib3.response import HTTPHeaderDict
 
 import pytest
 import requests_oauthlib
@@ -338,7 +339,7 @@ def test_link_orcid_auth_callback_with_affiliation(name, mocker, client):
         orcid="ABC123",
         confirmed=True)
 
-    UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
+    UserOrg.create(user=test_user, org=org, affiliations=(Affiliation.EMP | Affiliation.EDU))
 
     client.login(test_user)
     resp = client.get("/link")
@@ -574,3 +575,60 @@ def test_member_api_v3(app, mocker):
     request_mock = mocker.patch(
             "orcid_api_v3.rest.RESTClientObject.request",
             return_value=Mock(data=None, status_code=200))
+
+
+def test_create_or_update_resource(app, mocker):
+    """Test research resources."""
+    mocker.patch.multiple("orcid_hub.app.logger", error=DEFAULT, exception=DEFAULT, info=DEFAULT)
+    org = Organisation.get(name="THE ORGANISATION")
+    user = User.create(
+        orcid="1001-0001-0001-0001",
+        name="TEST USER 123",
+        email="test123@test.test.net",
+        organisation=org,
+        confirmed=True)
+    UserOrg.create(user=user, org=org, affiliation=Affiliation.EDU)
+
+    api = MemberAPIV3(user=user, org=org, access_token="ACCESS000")
+    assert api.api_client.configuration.access_token == 'ACCESS000'
+
+    OrcidToken.create(access_token="ACCESS123",
+                      user=user,
+                      org=org,
+                      scopes="/read-limited,/activities/update",
+                      expires_in='121')
+    api = MemberAPIV3(user=user, org=org)
+    assert api.api_client.configuration.access_token == "ACCESS123"
+
+    # Test API call auditing:
+    request_mock = mocker.patch.object(
+        api.api_client.rest_client.pool_manager, "request",
+        MagicMock(return_value=Mock(
+            headers=HTTPHeaderDict({
+                'Server': 'nginx/1.10.0', 'Date': 'Wed, 26 Jun 2019 05:26:32 GMT',
+                'Content-Type': 'application/json;charset=UTF-8',
+                'Content-Length': '0',
+                'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'no-cache, no-store, max-age=0, must-revalidate',
+                'Pragma': 'no-cache', 'Expires': '0',
+                'X-XSS-Protection': '1; mode=block',
+                'X-Frame-Options': 'DENY',
+                'X-Content-Type-Options': 'nosniff',
+                'Location': f'http://api.sandbox.orcid.org/v3.0/{user.orcid}/research-resource/2052'}),
+            data=b'', status=201)))
+
+    hosts = [dict(
+        name="TEST HOST",
+        city="Auckland", country="NZ", disambiguated_id="3232", disambiguation_source="RINGGOLD",)]
+    external_ids = [dict(value="ABC123", type="agr", relationship="self")]
+
+    put_code, orcid, created, _ = api.create_or_update_resource(
+        title="TEST",
+        hosts=hosts,
+        external_ids=external_ids,
+        items=[{"name": "TEST", "type": "equipment", "hosts": hosts, "external_ids": external_ids, }],
+        display_index=999, visibility="public", )
+
+    request_mock.assert_called_once()
+    assert put_code == 2052
+    assert orcid == user.orcid
