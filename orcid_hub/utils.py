@@ -22,7 +22,7 @@ from flask_login import current_user
 from html2text import html2text
 from jinja2 import Template
 from orcid_api.rest import ApiException
-from peewee import JOIN, SQL
+from peewee import JOIN
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
 
@@ -209,8 +209,8 @@ def new_invitation_token(length=5):
     """Generate a unique invitation token."""
     while True:
         token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
-        if not (UserInvitation.select(SQL("1")).where(UserInvitation.token == token)
-                | OrgInvitation.select(SQL("1")).where(OrgInvitation.token == token)).exists():
+        if not (UserInvitation.select().where(UserInvitation.token == token).exists() or
+                OrgInvitation.select().where(OrgInvitation.token == token).exists()):
             break
     return token
 
@@ -771,21 +771,20 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                     )
                     break
 
-        for task_by_user in records:
+        for rr in (t.record for t in records):
             try:
-                rr = task_by_user.record
                 no_orcid_call = match_put_code(rr)
                 if no_orcid_call:
                     rr.add_status_line("Researcher property record unchanged.")
                 else:
                     if rr.type == "URL":
-                        put_code, orcid, created, visibility = api.create_or_update_researcher_url(**rr._data)
+                        put_code, orcid, created, visibility = api.create_or_update_researcher_url(**rr.__data__)
                     elif rr.type == "NAME":
-                        put_code, orcid, created, visibility = api.create_or_update_other_name(**rr._data)
+                        put_code, orcid, created, visibility = api.create_or_update_other_name(**rr.__data__)
                     elif rr.type == "COUNTRY":
-                        put_code, orcid, created, visibility = api.create_or_update_address(**rr._data)
+                        put_code, orcid, created, visibility = api.create_or_update_address(**rr.__data__)
                     else:
-                        put_code, orcid, created, visibility = api.create_or_update_keyword(**rr._data)
+                        put_code, orcid, created, visibility = api.create_or_update_keyword(**rr.__data__)
 
                     if created:
                         rr.add_status_line("Researcher property record was created.")
@@ -818,7 +817,7 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
 # TODO: delete
 def create_or_update_other_id(user, org_id, records, *args, **kwargs):
     """Create or update Other Id record of a user."""
-    records = list(unique_everseen(records, key=lambda t: t.other_id_record.id))
+    records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
@@ -834,11 +833,11 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
         ]
 
         taken_put_codes = {
-            r.other_id_record.put_code
-            for r in records if r.other_id_record.put_code
+            r.record.put_code
+            for r in records if r.record.put_code
         }
 
-        def match_put_code(records, other_id_record):
+        def match_put_code(records, record):
             """Match and assign put-code to the existing ORCID records."""
             for r in records:
                 try:
@@ -847,15 +846,15 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
-                if (r.get("external-id-type") == other_id_record.type
-                    and get_val(r, "external-id-value") == other_id_record.value
-                    and get_val(r, "external-id-url", "value") == other_id_record.url
-                    and get_val(r, "external-id-relationship") == other_id_record.relationship):        # noqa: E129
-                    other_id_record.put_code = put_code
-                    other_id_record.orcid = orcid
+                if (r.get("external-id-type") == record.type
+                    and get_val(r, "external-id-value") == record.value
+                    and get_val(r, "external-id-url", "value") == record.url
+                    and get_val(r, "external-id-relationship") == record.relationship):        # noqa: E129
+                    record.put_code = put_code
+                    record.orcid = orcid
                     return True
 
-                if other_id_record.put_code:
+                if record.put_code:
                     return
 
                 if put_code in taken_put_codes:
@@ -863,25 +862,25 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
 
                 if ((r.get("external-id-type") is None and r.get("external-id-value") is None and get_val(
                     r, "external-id-url", "value") is None and get_val(r, "external-id-relationship") is None)
-                    or (r.get("external-id-type") == other_id_record.type
-                        and get_val(r, "external-id-value") == other_id_record.value)):
-                    other_id_record.put_code = put_code
-                    other_id_record.orcid = orcid
+                    or (r.get("external-id-type") == record.type
+                        and get_val(r, "external-id-value") == record.value)):
+                    record.put_code = put_code
+                    record.orcid = orcid
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the other id record "
-                        f"(ID: {other_id_record.id}, Task ID: {other_id_record.task_id})")
+                        f"(ID: {record.id}, Task ID: {record.task_id})")
                     break
 
         for task_by_user in records:
             try:
-                rr = task_by_user.other_id_record
+                rr = task_by_user.record
                 no_orcid_call = match_put_code(other_id_records, rr)
 
                 if no_orcid_call:
                     rr.add_status_line("Other ID record unchanged.")
                 else:
-                    put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr._data)
+                    put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr.__data__)
                     if created:
                         rr.add_status_line("Other ID record was created.")
                     else:
@@ -1043,7 +1042,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:
                     put_code, orcid, created, visibility = api.create_or_update_affiliation(
-                        affiliation=affiliation, **ar._data)
+                        affiliation=affiliation, **ar.__data__)
                     if created:
                         ar.add_status_line(f"{str(affiliation)} record was created.")
                     else:
@@ -1122,7 +1121,7 @@ def process_work_records(max_rows=20, record_id=None):
             (OrcidToken.id.is_null(False)
              | ((WorkInvitee.status.is_null())
                 | (WorkInvitee.status.contains("sent").__invert__())))).join(
-                    WorkRecord, on=(Task.id == WorkRecord.task_id).alias("record")).join(
+                    WorkRecord, on=(Task.id == WorkRecord.task_id), attr="record").join(
                         WorkInvitee,
                         on=(WorkRecord.id == WorkInvitee.record_id).alias("invitee")).join(
                             User,
@@ -1248,7 +1247,7 @@ def process_peer_review_records(max_rows=20, record_id=None):
             (OrcidToken.id.is_null(False)
              | ((PeerReviewInvitee.status.is_null())
                 | (PeerReviewInvitee.status.contains("sent").__invert__())))).join(
-                    PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id).alias("record")).join(
+                    PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id), attr="record").join(
                         PeerReviewInvitee,
                         on=(PeerReviewRecord.id == PeerReviewInvitee.record_id).alias("invitee")).join(
                             User,
@@ -1377,7 +1376,7 @@ def process_funding_records(max_rows=20, record_id=None):
             (OrcidToken.id.is_null(False)
              | ((FundingInvitee.status.is_null())
                 | (FundingInvitee.status.contains("sent").__invert__())))).join(
-                    FundingRecord, on=(Task.id == FundingRecord.task_id).alias("record")).join(
+                    FundingRecord, on=(Task.id == FundingRecord.task_id), attr="record").join(
                         FundingInvitee,
                         on=(FundingRecord.id == FundingInvitee.record_id).alias("invitee")).join(
                             User,
@@ -1501,7 +1500,7 @@ def process_affiliation_records(max_rows=20, record_id=None):
                 & UserInvitation.id.is_null()
                 & (AffiliationRecord.status.is_null()
                    | AffiliationRecord.status.contains("sent").__invert__())))).join(
-                       AffiliationRecord, on=(Task.id == AffiliationRecord.task_id).alias("record")).join(
+                       AffiliationRecord, on=(Task.id == AffiliationRecord.task_id), attr="record").join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == AffiliationRecord.email)
@@ -1616,7 +1615,7 @@ def process_property_records(max_rows=20, record_id=None):
                 & (PropertyRecord.status.is_null()
                    | PropertyRecord.status.contains("sent").__invert__())))).join(
                        PropertyRecord,
-                       on=(Task.id == PropertyRecord.task_id).alias("record")).join(
+                       on=(Task.id == PropertyRecord.task_id), attr="record").join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == PropertyRecord.email)
@@ -1717,7 +1716,7 @@ def process_other_id_records(max_rows=20, record_id=None):
                 & UserInvitation.id.is_null()
                 & (OtherIdRecord.status.is_null()
                    | OtherIdRecord.status.contains("sent").__invert__())))).join(
-                       OtherIdRecord, on=(Task.id == OtherIdRecord.task_id)).join(
+                       OtherIdRecord, on=(Task.id == OtherIdRecord.task_id), attr="record").join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == OtherIdRecord.email)
@@ -1745,14 +1744,14 @@ def process_other_id_records(max_rows=20, record_id=None):
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.other_id_record.user, )):
+            t.record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scopes.contains("/person/update"))).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
-                    lambda t: (t.created_by, t.org, t.other_id_record.email, t.other_id_record.first_name,
-                               t.other_id_record.last_name)):  # noqa: E501
+                    lambda t: (t.created_by, t.org, t.record.email, t.record.first_name,
+                               t.record.last_name)):  # noqa: E501
                 try:
                     email = k[2]
                     send_user_invitation(*k, task_id=task_id)
@@ -1921,7 +1920,7 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Content-Length": "0"
     }
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
-    if local_handler and resp.status_code // 200 == 1:
+    if local_handler and resp.status_code in [201, 204]:
         if delete:
             user.webhook_enabled = False
         else:
@@ -2081,7 +2080,7 @@ def sync_profile(task_id, delay=0.1):
     for u in task.org.users.select(User, OrcidToken.access_token.alias("access_token")).where(
             User.orcid.is_null(False)).join(
             OrcidToken,
-            on=((OrcidToken.user_id == User.id) & OrcidToken.scopes.contains("/activities/update"))).naive():
+            on=((OrcidToken.user_id == User.id) & OrcidToken.scopes.contains("/activities/update"))).objects():
         Log.create(task=task_id, message=f"Processing user {u} / {u.orcid} profile.")
         api.sync_profile(user=u, access_token=u.access_token, task=task)
         count += 1
@@ -2188,7 +2187,7 @@ def reset_all_records(task):
                     record.processed_at = None
                     record.status = status
 
-                    invitee_class = record.invitees.model_class
+                    invitee_class = record.invitees.model
                     invitee_class.update(
                         processed_at=None,
                         status=status).where(invitee_class.record == record.id).execute()

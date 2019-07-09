@@ -17,7 +17,7 @@ from flask_login import current_user, login_user
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 
-from . import api, app, db, models, oauth, schemas
+from . import api, app, models, oauth, schemas
 from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
                      PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User, UserOrg,
@@ -297,7 +297,7 @@ class TaskResource(AppResource):
                 task = Task.get(id=task)
             except Task.DoesNotExist:
                 return jsonify({"error": "The task doesn't exist."}), 404
-            if task.created_by != current_user:
+            if task.created_by_id != current_user.id:
                 return jsonify({"error": "Access denied."}), 403
         if request.method != "HEAD":
             if task.task_type in [
@@ -323,7 +323,7 @@ class TaskResource(AppResource):
             app.logger.exception(f"Failed to find the task with ID: {task_id}")
             return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 
-        if task.created_by != current_user:
+        if task.created_by_id != current_user.id:
             abort(403)
         task.delete_instance()
         return {"message": "The task was successfully deleted."}
@@ -361,7 +361,7 @@ class TaskResource(AppResource):
                 task = Task.get(id=task_id)
             except Task.DoesNotExist:
                 return jsonify({"error": "The task doesn't exist."}), 404
-            if task.created_by != current_user:
+            if task.created_by_id != current_user.id:
                 return jsonify({"error": "Access denied."}), 403
         try:
             task = AffiliationRecord.load(
@@ -371,7 +371,6 @@ class TaskResource(AppResource):
                 skip_schema_validation=True,
                 override=(request.method == "POST"))
         except Exception as ex:
-            db.rollback()
             app.logger.exception("Failed to handle affiliation API request.")
             return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 
@@ -386,7 +385,7 @@ class TaskResource(AppResource):
                     task = Task.get(id=task_id)
                 except Task.DoesNotExist:
                     return jsonify({"error": "The task doesn't exist."}), 404
-                if task.created_by != current_user:
+                if task.created_by_id != current_user.id:
                     return jsonify({"error": "Access denied."}), 403
             else:
                 task = None
@@ -537,7 +536,7 @@ class TaskAPI(TaskList):
                     task = Task.get(id=task_id)
                 except Task.DoesNotExist:
                     return jsonify({"error": "The task doesn't exist."}), 404
-                if task.created_by != current_user:
+                if task.created_by_id != current_user.id:
                     return jsonify({"error": "Access denied."}), 403
             else:
                 task_type = TaskType(data["task-type"]) if "task-type" in data else None
@@ -2928,7 +2927,7 @@ def orcid_proxy(version, orcid, rest=None):
         validate_orcid_id(orcid)
     except Exception as ex:
         return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 415
-    token = OrcidToken.select().join(User).where(
+    token = OrcidToken.select().join(User, on=OrcidToken.user).where(
         User.orcid == orcid, OrcidToken.org == current_user.organisation).first()
     if not token:
         return jsonify({"message": "The user hasn't granted access to the user profile"}), 403

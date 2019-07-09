@@ -192,6 +192,7 @@ class AppModelView(ModelView):
     """ModelView customization."""
 
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
+    column_editable_list = ["name", "is_active", "email", "role", "city", "state", "value", "url", "display_index"]
     roles_required = Role.SUPERUSER
     export_types = [
         "csv",
@@ -229,6 +230,7 @@ class AppModelView(ModelView):
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
     form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
     model_form_converter = AppCustomModelConverter
+    column_display_pk = False
 
     def __init__(self, model=None, *args, **kwargs):
         """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
@@ -247,11 +249,11 @@ class AppModelView(ModelView):
     # TODO: remove when it gets merged into the upstream repo (it's a workaround to make
     # joins LEFT OUTER)
     def _handle_join(self, query, field, joins):
-        if field.model_class != self.model:
-            model_name = field.model_class.__name__
+        if field.model != self.model:
+            model_name = field.model.__name__
 
             if model_name not in joins:
-                query = query.join(field.model_class, "LEFT OUTER")
+                query = query.join(field.model, "LEFT OUTER")
                 joins.add(model_name)
 
         return query
@@ -311,17 +313,17 @@ class AppModelView(ModelView):
                 Role.ADMIN):
             # Show only rows related to the current organisation the user is admin for.
             # Skip this part for SUPERUSER.
-            db_columns = [c.db_column for c in self.model._meta.fields.values()]
-            if "org_id" in db_columns or "organisation_id" in db_columns:
-                if "org_id" in db_columns:
+            column_names = [c.column_name for c in self.model._meta.fields.values()]
+            if "org_id" in column_names or "organisation_id" in column_names:
+                if "org_id" in column_names:
                     query = query.where(self.model.org_id == current_user.organisation.id)
                 else:
                     query = query.where(self.model.organisation_id == current_user.organisation.id)
 
         if request.args and any(a.endswith("_id") for a in request.args):
             for f in self.model._meta.fields.values():
-                if f.db_column.endswith("_id") and f.db_column in request.args:
-                    query = query.where(f == int(request.args[f.db_column]))
+                if f.column_name.endswith("_id") and f.column_name in request.args:
+                    query = query.where(f == int(request.args[f.column_name]))
         return query
 
     def _get_list_extra_args(self):
@@ -331,12 +333,12 @@ class AppModelView(ModelView):
             k: v
             for k, v in request.args.items()
             if k not in (
-                'page',
-                'page_size',
-                'sort',
-                'desc',
-                'search',
-            ) and not k.startswith('flt')
+                "page",
+                "page_size",
+                "sort",
+                "desc",
+                "search",
+            ) and not k.startswith("flt")
         }
         view_args.extra_args = extra_args
         return view_args
@@ -741,7 +743,7 @@ class RecordModelView(AppModelView):
         """Reset batch task records."""
         status = "The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
         task_id = None
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if request.method == "POST" and request.form.get("rowid"):
                     # get the first ROWID:
@@ -769,7 +771,7 @@ class RecordModelView(AppModelView):
                     self.enqueue_record(record_id)
 
             except Exception as ex:
-                db.rollback()
+                transaction.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
 
@@ -951,7 +953,7 @@ class InviteeAdmin(RecordChildAdmin):
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
@@ -964,7 +966,7 @@ class InviteeAdmin(RecordChildAdmin):
                     rec_class.is_active, rec_class.id == record_id).execute()
                 getattr(utils, f"process_{rec_class.underscore_name()}s").queue(record_id)
             except Exception as ex:
-                db.rollback()
+                transaction.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
@@ -1277,7 +1279,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
 
         ext_ids = [r.id for r in
                    ExternalId.select(models.fn.min(ExternalId.id).alias("id")).join(FundingRecord).where(
-                       FundingRecord.task == self.current_task_id).group_by(FundingRecord.id).naive()]
+                       FundingRecord.task == self.current_task_id).group_by(FundingRecord.id).objects()]
 
         return count, query.select(
             self.model,
@@ -1298,7 +1300,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
             on=(ExternalId.record_id == self.model.id)).where(ExternalId.id << ext_ids).join(
             FundingInvitee,
             JOIN.LEFT_OUTER,
-            on=(FundingInvitee.record_id == self.model.id)).naive()
+            on=(FundingInvitee.record_id == self.model.id)).objects()
 
 
 class WorkRecordAdmin(CompositeRecordModelView):
@@ -1352,7 +1354,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
 
         ext_ids = [r.id for r in
                    WorkExternalId.select(models.fn.min(WorkExternalId.id).alias("id")).join(WorkRecord).where(
-                       WorkRecord.task == self.current_task_id).group_by(WorkRecord.id).naive()]
+                       WorkRecord.task == self.current_task_id).group_by(WorkRecord.id).objects()]
 
         return count, query.select(
             self.model,
@@ -1373,7 +1375,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
             on=(WorkExternalId.record_id == self.model.id)).where(WorkExternalId.id << ext_ids).join(
             WorkInvitee,
             JOIN.LEFT_OUTER,
-            on=(WorkInvitee.record_id == self.model.id)).naive()
+            on=(WorkInvitee.record_id == self.model.id)).objects()
 
 
 class PeerReviewRecordAdmin(CompositeRecordModelView):
@@ -1457,7 +1459,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         ext_ids = [r.id for r in
                    PeerReviewExternalId.select(models.fn.min(PeerReviewExternalId.id).alias("id")).join(
                        PeerReviewRecord).where(
-                       PeerReviewRecord.task == self.current_task_id).group_by(PeerReviewRecord.id).naive()]
+                       PeerReviewRecord.task == self.current_task_id).group_by(PeerReviewRecord.id).objects()]
 
         return count, query.select(
             self.model,
@@ -1478,7 +1480,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
             on=(PeerReviewExternalId.record_id == self.model.id)).where(PeerReviewExternalId.id << ext_ids).join(
                 PeerReviewInvitee,
                 JOIN.LEFT_OUTER,
-                on=(PeerReviewInvitee.record_id == self.model.id)).naive()
+                on=(PeerReviewInvitee.record_id == self.model.id)).objects()
 
 
 class AffiliationRecordAdmin(RecordModelView):
@@ -1589,9 +1591,8 @@ class ViewMembersAdmin(AppModelView):
         query, joins = super()._order_by(query, joins, order)
         # add ID only if all fields are NULLable (exlcude ones given by str):
         if all(not isinstance(f, str) and f.null for (f, _) in order):
-            clauses = query._order_by
-            clauses.append(self.model.id.desc() if order[0][1] else self.model.id)
-            query = query.order_by(*clauses)
+            query = query.order_by(*query._order_by,
+                                   self.model.id.desc() if order[0][1] else self.model.id)
         return query, joins
 
     def get_one(self, rec_id):
@@ -1611,8 +1612,8 @@ class ViewMembersAdmin(AppModelView):
         org = current_user.organisation
         token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
 
-        if UserOrg.select().where((UserOrg.user_id == model.id) & (UserOrg.org_id == org.id)
-                                  & UserOrg.is_admin).exists():
+        if UserOrg.select().where(UserOrg.user_id == model.id, UserOrg.org_id == org.id,
+                                  UserOrg.is_admin).exists():
             flash(
                 f"Failed to delete record for {model}, As User appears to be one of the admins. "
                 f"Please contact orcid@royalsociety.org.nz for support", "danger")
@@ -1641,12 +1642,12 @@ class ViewMembersAdmin(AppModelView):
         try:
             self.on_model_delete(model)
             if model.organisations.count() < 2:
-                model.delete_instance(recursive=True)
+                model.delete_instance()
             else:
                 if model.organisation == user_org.org:
                     model.organisation = model.organisations.first()
                     model.save()
-                user_org.delete_instance(recursive=True)
+                user_org.delete_instance()
 
         except Exception as ex:
             if not self.handle_view_exception(ex):
@@ -2460,11 +2461,11 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     if section_type in ["FUN", "PRR", "WOR"]:
-        records = (fs for g in data.get("group", default=[]) for fs in g.get({
+        records = (fs for g in data.get("group") for fs in g.get({
             "FUN": "funding-summary",
             "WOR": "work-summary",
             "PRR": "peer-review-summary",
-        }[section_type]))
+        }[section_type])) if data.get("group") else None
     elif section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
         records = (ss.get({"EDU": "education-summary",
                            "EMP": "employment-summary",
@@ -2515,7 +2516,7 @@ def search_group_id_record():
         id_type = request.form.get('type')
         put_code = request.form.get('put_code')
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 gir, created = GroupIdRecord.get_or_create(organisation=current_user.organisation,
                                                            group_id=group_id, name=name, description=description,
@@ -2530,7 +2531,7 @@ def search_group_id_record():
                 gir.save()
 
             except Exception as ex:
-                db.rollback()
+                transaction.rollback()
                 flash(f"Failed to save GroupID Record: {ex}", "warning")
                 app.logger.exception(f"Failed to save GroupID Record: {ex}")
 
@@ -2984,18 +2985,6 @@ def invite_organisation():
         cache.set("org_info", org_info, timeout=60)
 
     return render_template("registration.html", form=form, org_info=org_info)
-
-
-@app.route("/user/<int:user_id>/organisations", methods=["GET", "POST"])
-@roles_required(Role.SUPERUSER)
-def user_organisations(user_id):
-    """Manage user organisaions."""
-    user_orgs = (Organisation.select(
-        Organisation.id, Organisation.name,
-        (Organisation.tech_contact_id == user_id).alias("is_tech_contact"), UserOrg.is_admin).join(
-            UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == user_id)))
-                 .naive())
-    return render_template("user_organisations.html", user_orgs=user_orgs)
 
 
 @app.route("/invite/user", methods=["GET", "POST"])
