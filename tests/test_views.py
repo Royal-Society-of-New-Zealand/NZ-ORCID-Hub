@@ -2321,7 +2321,8 @@ def test_edit_record(request_ctx):
                     "grant_number": "TEST123",
                     "disambiguation_source": "RINGGOLD",
                     "disambiguated_id": "test",
-                    "grant_relationship": "SELF"
+                    "grant_relationship": "SELF",
+                    "visibility": "PUBLIC"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
