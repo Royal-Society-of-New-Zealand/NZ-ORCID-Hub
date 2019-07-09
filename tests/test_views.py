@@ -446,8 +446,8 @@ def test_show_record_section(client, mocker):
         view_works.assert_called_once_with(user.orcid, _preload_content=False)
 
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_fundings",
+        orcid_client.MemberAPIV3,
+        "view_fundingsv3",
         return_value=Mock(data='{"test": "TEST1234567890"}')
     ) as view_fundings:
         resp = client.get(f"/section/{user.id}/FUN/list")
@@ -2216,8 +2216,8 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_education.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_funding",
+        orcid_client.MemberAPIV3,
+        "view_fundingv3",
         MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "external-ids": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
              "external-id-relationship": "SELF"}]}}"""))
@@ -2302,7 +2302,7 @@ def test_edit_record(request_ctx):
         # checking if the UserOrgAffiliation record is updated with put_code supplied from fake response
         assert 12399 == affiliation_record.put_code
     with patch.object(
-            orcid_client.MemberAPIV20Api, "create_funding",
+            orcid_client.MemberAPIV3, "create_fundingv3",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/FUN/new",
                 method="POST",
@@ -2319,6 +2319,8 @@ def test_edit_record(request_ctx):
                     "grant_type": "https://test.com",
                     "grant_url": "https://test.com",
                     "grant_number": "TEST123",
+                    "disambiguation_source": "RINGGOLD",
+                    "disambiguated_id": "test",
                     "grant_relationship": "SELF"
                 }) as ctx:
         login_user(admin)
@@ -2492,7 +2494,7 @@ def test_delete_profile_entries(client, mocker):
     delete_education.assert_called_once_with(user.orcid, 54321)
 
     delete_funding = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_funding",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_fundingv3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/FUN/54321/delete")
     assert resp.status_code == 302

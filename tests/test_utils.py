@@ -430,8 +430,8 @@ def test_create_or_update_funding(app, mocker):
     """Test create or update funding."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch(
-        "orcid_api.MemberAPIV20Api.create_funding", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+        "orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_fundingv3", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
 
     org = app.data["org"]
     u = User.create(
@@ -450,7 +450,7 @@ def test_create_or_update_funding(app, mocker):
         task=t,
         title="Test titile",
         translated_title="Test title",
-        translated_title_language_code="Test",
+        translated_title_language_code="hi",
         type="GRANT",
         organization_defined_type="Test org",
         short_description="Test desc",
