@@ -577,11 +577,9 @@ class MemberAPIMixin:
         if fr.short_description:
             rec.short_description = fr.short_description
 
-        # ToDO: Fix Amount
-        """        if fr.amount and fr.currency:
-                    rec.amount = v3.AmountV30(value=fr.amount,
-                                              currency_code=v3.Currency(currency_code=fr.currency))  # noqa: F405
-        """
+        if fr.amount and fr.currency:
+            rec.amount = v3.AmountV30(value=fr.amount, currency_code=fr.currency)  # noqa: F405
+
         if fr.start_date:
             rec.start_date = fr.start_date.as_orcid_dict()
         if fr.end_date:
