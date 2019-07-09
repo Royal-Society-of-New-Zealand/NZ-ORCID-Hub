@@ -24,8 +24,29 @@ The extension based on the version v1.5.#}
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.min.js"></script>
   <script>
 $(document).ready(function(){
+  $("time").each(function () {
+     var el = $(this);
+     var dt = moment.utc(el.attr("datetime")).local();
+     el.html(dt.format(el.data("format") || "YYYY[&#8209;]MM[&#8209;]DD[&nbsp;]HH:mm"));
+  });
   $('[data-toggle="tooltip"]').tooltip();
   $("#{{request.endpoint.replace('.', '\\\\.')}}").addClass("active");
 });
+  // Catch exception when closing dialog with <esc> key
+  // and prevent accidental deletions.
+  function safeConfirm(msg) {
+    try {
+      var isconfirmed = confirm(msg);
+      if (isconfirmed == true) {
+        return true;
+      }
+      else {
+        return false;
+      }
+    }
+    catch(err) {
+      return false;
+    }
+  }
   </script>
 {% endblock %}

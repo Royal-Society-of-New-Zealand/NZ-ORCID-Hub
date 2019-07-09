@@ -5,13 +5,14 @@ Swagger generated client 'monkey-patch' for logging API requests.
 isort:skip_file
 """
 
-from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
+from .config import ORCID_API_BASE, ORCID_BASE_URL
 from flask_login import current_user
-from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
-                     as UserModel, ExternalId as ExternalIdModel)
+from .models import (OrcidApiCall, Affiliation, AffiliationExternalId, OrcidToken, FundingContributor as FundingCont,
+                     Log, ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
+                     WorkExternalId, PeerReviewExternalId)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
-                       OrganizationAddress, DisambiguatedOrganization, Employment, Education,
-                       Organization)
+                       OrganizationAddress, DisambiguatedOrganization, Organization)
+import orcid_api_v3 as v3
 from orcid_api.rest import ApiException
 from time import time
 from urllib.parse import urlparse
@@ -19,10 +20,18 @@ from . import app
 import json
 
 url = urlparse(ORCID_API_BASE)
-configuration.host = url.scheme + "://" + url.hostname
+host = url.scheme + "://" + url.hostname
+configuration.host = host
 
 
-class OrcidRESTClientObject(rest.RESTClientObject):
+# ORCID API Scopes:
+ACTIVITIES_UPDATE = "/activities/update"
+READ_LIMITED = "/read-limited"
+AUTHENTICATE = "/authenticate"
+PERSON_UPDATE = "/person/update"
+
+
+class OrcidRESTClientObjectMixing:
     """REST Client with call logging."""
 
     def request(self,
@@ -48,6 +57,7 @@ class OrcidRESTClientObject(rest.RESTClientObject):
                 put_code=put_code)
         except Exception:
             app.logger.exception("Failed to create API call log entry.")
+            oac = None
         res = super().request(
             method=method,
             url=url,
@@ -68,74 +78,90 @@ class OrcidRESTClientObject(rest.RESTClientObject):
         return res
 
 
-class MemberAPI(MemberAPIV20Api):
+class OrcidRESTClientObject(OrcidRESTClientObjectMixing, rest.RESTClientObject):
+    """REST Client with call logging."""
+
+    pass
+
+
+class OrcidRESTClientObjectV3(OrcidRESTClientObjectMixing, v3.rest.RESTClientObject):
+    """REST Client with call logging."""
+
+    def __init__(self, *args, **kwargs):
+        """Override the default host."""
+        super().__init__(*args, **kwargs)
+        self.host = host
+
+
+class MemberAPIMixin:
     """ORCID Mmeber API extension."""
 
-    def __init__(self, org=None, user=None, access_token=None, *args, **kwargs):
+    DEFAULT_VERSION = "v2.0"
+    content_type = "application/json"
+
+    def __init__(self, org=None, user=None, access_token=None, version=DEFAULT_VERSION, *args, **kwargs):
         """Set up the configuration with the access token given to the org. by the user."""
         super().__init__(*args, **kwargs)
-        self.set_config(org, user)
+        self.set_config(org, user, access_token, version)
 
-    def set_config(self, org=None, user=None, access_token=None):
+    def get_token(self, scopes=READ_LIMITED + "," + ACTIVITIES_UPDATE):
+        """Retrieve the user ORCID API access token given the the organisation."""
+        return OrcidToken.select().where(
+            OrcidToken.user_id == self.user.id,
+            OrcidToken.org_id == self.org.id,
+            OrcidToken.scopes.contains(scopes)).first()
+
+    def set_config(self, org=None, user=None, access_token=None, version=None):
         """Set up clietn configuration."""
-        global configuration
+        # global configuration
         if org is None:
             org = user.organisation
         self.org = org
         self.user = user
-        if access_token is None:
-            try:
-                orcid_token = OrcidToken.get(
-                    user_id=user.id,
-                    org_id=org.id,
-                    scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-            except Exception as ex:
-                app.logger.exception("Exception occured while retriving ORCID Token")
-                return None
-
-            configuration.access_token = orcid_token.access_token
-        else:
-            configuration.access_token = access_token
+        if version:
+            self.version = version
 
         url = urlparse(ORCID_BASE_URL)
         self.source_clientid = SourceClientId(
             host=url.hostname,
             path=org.orcid_client_id,
             uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
-
         self.source = Source(
             source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
 
+        if access_token is None and user:
+            orcid_token = self.get_token()
+            if not orcid_token:
+                access_token = None
+                app.logger.error("Failed to find an ORCID API access token.")
+            else:
+                access_token = orcid_token.access_token
+
+        if access_token:
+            if hasattr(self.api_client, "configuration"):
+                self.api_client.configuration.access_token = access_token
+            else:
+                configuration.access_token = access_token
+
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
-        header_params = {
-            "Accept":
-            self.api_client.select_header_content_type([
-                'application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3',
-                'application/xml', 'application/vnd.orcid+json; qs=4',
-                'application/orcid+json; qs=2', 'application/json'
-            ])
-        }
         try:
             resp, code, headers = self.api_client.call_api(
-                f"/v2.0/{self.user.orcid}",
+                f"/{self.version}/{self.user.orcid}",
                 "GET",
-                header_params=header_params,
+                header_params={"Accept": self.content_type},
                 response_type=None,
                 auth_settings=["orcid_auth"],
                 _preload_content=False)
-        except ApiException as ex:
+        except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 401:
-                try:
-                    orcid_token = OrcidToken.get(
-                        user_id=self.user.id,
-                        org_id=self.org.id,
-                        scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+                orcid_token = self.get_token()
+                if orcid_token:
                     orcid_token.delete_instance()
-                except Exception as ex:
-                    app.logger.exception("Exception occured while retriving ORCID Token")
+                else:
+                    app.logger.exception("Exception occurred while retrieving ORCID Token")
                     return None
-            app.logger.error(f"ApiException Occured: {ex}")
+            app.logger.error(f"ApiException Occurred: {ex}")
             return None
 
         if code != 200:
@@ -144,7 +170,7 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.info(f"Body: {resp.data.decode()}")
             return None
 
-        return json.loads(resp.data.decode())
+        return json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
 
     def is_emp_or_edu_record_present(self, affiliation_type):
         """Determine if there is already an affiliation record for the user.
@@ -155,22 +181,23 @@ class MemberAPI(MemberAPIV20Api):
         """
         try:
             if affiliation_type == Affiliation.EMP:
-                resp = self.view_employments(self.user.orcid, _preload_content=False)
+                resp = self.view_employmentsv3(self.user.orcid, _preload_content=False)
             else:
-                resp = self.view_educations(self.user.orcid, _preload_content=False)
+                resp = self.view_educationsv3(self.user.orcid, _preload_content=False)
 
-            if resp:
-                data = json.loads(resp.data)
-                records = data.get("employment-summary"
-                                   if affiliation_type == Affiliation.EMP else "education-summary")
-                for r in records:
-                    if ("source-client-id" in r["source"] and
-                            self.org.orcid_client_id == r["source"]["source-client-id"]["path"]):
-                        app.logger.info(f"For {self.user} there is {affiliation_type!s} "
-                                        "present on ORCID profile.")
-                        return r["put-code"]
+            data = json.loads(resp.data)
 
-        except ApiException as apiex:
+            for record in data.get("affiliation-group"):
+                r = record.get("summaries")[0].get("employment-summary") if affiliation_type == Affiliation.EMP \
+                    else record.get("summaries")[0].get("education-summary")
+
+                if (r.get("source").get("source-client-id") and self.org.orcid_client_id == r.get(
+                        "source").get("source-client-id").get("path")):
+                    app.logger.info(f"For {self.user} there is {affiliation_type!s} "
+                                    "present on ORCID profile.")
+                    return r["put-code"]
+
+        except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.error(
                 f"For {self.user} while checking for employment and education records, Encountered Exception: {apiex}"
             )
@@ -180,10 +207,350 @@ class MemberAPI(MemberAPIV20Api):
             return False
         return False
 
+    def create_or_update_record_id_group(self, org=None, group_name=None, group_id=None, description=None,
+                                         type=None, put_code=None):
+        """Create or update group id record."""
+        rec = GroupIdRecord()  # noqa: F405
+
+        rec.name = group_name
+        rec.group_id = group_id
+        rec.description = description
+        rec.type = type
+        if put_code:
+            rec.put_code = put_code
+
+        try:
+            api_call = self.update_group_id_record if put_code else self.create_group_id_record
+
+            params = dict(body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    _, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except:
+                    app.logger.exception("Failed to get put-code from the response.")
+                    raise Exception("Failed to get put-code from the response.")
+        except (ApiException, v3.rest.ApiException) as ex:
+            if ex.status == 404:
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise ex
+        except:
+            app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, created)
+
+    def create_or_update_peer_review(self, task_by_user, *args, **kwargs):
+        """Create or update peer review record of a user."""
+        pr = task_by_user.record
+        pi = pr.invitee
+
+        rec = PeerReview()    # noqa: F405
+
+        # Source is an optional, so it does not matter whether we set that field in request or not.
+        rec.source = self.source
+
+        if pr.reviewer_role:
+            rec.reviewer_role = pr.reviewer_role.upper()
+
+        if pr.review_url:
+            rec.review_url = Url(value=pr.review_url)  # noqa: F405
+
+        if pr.review_type:
+            rec.review_type = pr.review_type.upper()
+
+        if pr.review_completion_date:
+            rec.review_completion_date = pr.review_completion_date.as_orcid_dict()
+
+        if pr.review_group_id:
+            rec.review_group_id = pr.review_group_id
+
+        if pr.subject_external_id_type and pr.subject_external_id_value:
+            subject_external_id_relationship = None
+            if pr.subject_external_id_relationship:
+                subject_external_id_relationship = pr.subject_external_id_relationship.upper()
+            subject_external_id_url = None
+            if pr.subject_external_id_url:
+                subject_external_id_url = Url(value=pr.subject_external_id_url)     # noqa: F405
+            rec.subject_external_identifier = ExternalID(external_id_type=pr.subject_external_id_type,  # noqa: F405
+                                                         external_id_value=pr.subject_external_id_value,
+                                                         external_id_relationship=subject_external_id_relationship,
+                                                         external_id_url=subject_external_id_url)
+
+        if pr.subject_container_name:
+            rec.subject_container_name = Title(value=pr.subject_container_name)     # noqa: F405
+
+        if pr.subject_type:
+            rec.subject_type = pr.subject_type.upper()
+
+        if pr.subject_name_title:
+            title = Title(value=pr.subject_name_title)  # noqa: F405
+            subtitle = None
+            if pr.subject_name_subtitle:
+                subtitle = Subtitle(value=pr.subject_name_subtitle)  # noqa: F405
+            translated_title = None
+            if pr.subject_name_translated_title_lang_code and pr.subject_name_translated_title:
+                translated_title = TranslatedTitle(value=pr.subject_name_translated_title,  # noqa: F405
+                                                   language_code=pr.subject_name_translated_title_lang_code)
+            rec.subject_name = WorkTitle(title=title, subtitle=subtitle,    # noqa: F405
+                                         translated_title=translated_title)
+
+        if pr.subject_url:
+            rec.subject_url = Url(value=pr.subject_url)     # noqa: F405
+
+        if pr.convening_org_name:
+            address = None
+            if pr.convening_org_city and pr.convening_org_country:
+                region = None
+                if pr.convening_org_region:
+                    region = pr.convening_org_region
+                address = OrganizationAddress(city=pr.convening_org_city, region=region,        # noqa: F405
+                                              country=pr.convening_org_country)
+            disambiguated_organization = None
+            if pr.convening_org_disambiguated_identifier and pr.convening_org_disambiguation_source:
+                disambiguated_organization = DisambiguatedOrganization(     # noqa: F405
+                    disambiguated_organization_identifier=pr.convening_org_disambiguated_identifier,
+                    disambiguation_source=pr.convening_org_disambiguation_source)
+            rec.convening_organization = Organization(name=pr.convening_org_name, address=address,  # noqa: F405
+                                                      disambiguated_organization=disambiguated_organization)
+
+        put_code = pi.put_code
+        if put_code:
+            rec.put_code = pi.put_code
+
+        visibility = pi.visibility
+        if visibility:
+            rec.visibility = visibility
+
+        external_id_list = []
+        external_ids = PeerReviewExternalId.select().where(
+            PeerReviewExternalId.record_id == pr.id).order_by(PeerReviewExternalId.id)
+
+        for exi in external_ids:
+            external_id_type = exi.type
+            external_id_value = exi.value
+            external_id_url = None
+            if exi.url:
+                external_id_url = Url(value=exi.url)  # noqa: F405
+            # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+            external_id_relationship = exi.relationship.upper() if exi.relationship else "SELF"
+            external_id_list.append(
+                ExternalID(  # noqa: F405
+                    external_id_type=external_id_type,
+                    external_id_value=external_id_value,
+                    external_id_url=external_id_url,
+                    external_id_relationship=external_id_relationship))
+
+        rec.review_identifiers = ExternalIDs(external_id=external_id_list)  # noqa: F405
+
+        try:
+            api_call = self.update_peer_review if put_code else self.create_peer_review
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as ex:
+            if ex.status == 404:
+                pi.put_code = None
+                pi.save()
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise ex
+        except:
+            app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, orcid, created, visibility)
+
+    def create_or_update_work(self, task_by_user, *args, **kwargs):
+        """Create or update work record of a user."""
+        wr = task_by_user.record
+        wi = wr.invitee
+
+        rec = Work()    # noqa: F405
+        title = None
+        if wr.title:
+            title = Title(value=wr.title)  # noqa: F405
+        subtitle = None
+        if wr.subtitle:
+            subtitle = Subtitle(value=wr.subtitle)     # noqa: F405
+        translated_title = None
+        if wr.translated_title and wr.translated_title_language_code:
+            translated_title = TranslatedTitle(value=wr.translated_title,  # noqa: F405
+                                               language_code=wr.translated_title_language_code)  # noqa: F405
+        rec.title = WorkTitle(title=title, subtitle=subtitle, translated_title=translated_title)  # noqa: F405
+
+        if wr.journal_title:
+            rec.journal_title = Title(value=wr.journal_title)  # noqa: F405
+
+        short_description = None
+        if wr.short_description:
+            short_description = wr.short_description
+        rec.short_description = short_description
+
+        rec.source = self.source
+
+        work_type = None
+        if wr.type:
+            work_type = wr.type
+        rec.type = work_type
+
+        if wr.publication_date:
+            publication_date = wr.publication_date.as_orcid_dict()
+            if wr.publication_media_type:
+                publication_date['media-type'] = wr.publication_media_type.upper()
+            rec.publication_date = publication_date
+
+        put_code = wi.put_code
+        if put_code:
+            rec.put_code = wi.put_code
+
+        visibility = wi.visibility
+        if visibility:
+            rec.visibility = visibility
+
+        if wr.language_code:
+            rec.language_code = wr.language_code
+
+        if wr.country:
+            rec.country = Country(value=wr.country)  # noqa: F405
+
+        if wr.url:
+            rec.url = Url(value=wr.url)  # noqa: F405
+
+        if wr.citation_type and wr.citation_value:
+            rec.citation = Citation(citation_type=wr.citation_type, citation_value=wr.citation_value)  # noqa: F405
+
+        work_contributors = WorkCont.select().where(WorkCont.record_id == wr.id).order_by(
+            WorkCont.contributor_sequence)
+
+        work_contributor_list = []
+        for w in work_contributors:
+            path = None
+            credit_name = None
+            contributor_orcid = None
+            contributor_attributes = None
+            contributor_email = None
+
+            if w.orcid:
+                path = w.orcid
+
+            if path:
+                url = urlparse(ORCID_BASE_URL)
+                uri = "http://" + url.hostname + "/" + path
+                host = url.hostname
+                contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
+
+            if w.name:
+                credit_name = CreditName(value=w.name)  # noqa: F405
+
+            if w.email:
+                contributor_email = ContributorEmail(value=w.email)  # noqa: F405
+
+            if w.role and w.contributor_sequence:
+                contributor_attributes = ContributorAttributes(  # noqa: F405
+                    contributor_role=w.role.upper(), contributor_sequence=w.contributor_sequence.upper())
+            elif w.role:
+                contributor_attributes = ContributorAttributes(contributor_role=w.role.upper())  # noqa: F405
+            elif w.contributor_sequence:
+                contributor_attributes = ContributorAttributes(     # noqa: F405
+                    contributor_sequence=w.contributor_sequence.upper())
+
+            work_contributor_list.append(
+                Contributor(  # noqa: F405
+                    contributor_orcid=contributor_orcid,
+                    credit_name=credit_name,
+                    contributor_email=contributor_email,
+                    contributor_attributes=contributor_attributes))
+
+        rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
+
+        external_id_list = []
+        external_ids = WorkExternalId.select().where(WorkExternalId.record_id == wr.id).order_by(WorkExternalId.id)
+
+        for exi in external_ids:
+            external_id_type = exi.type
+            external_id_value = exi.value
+            external_id_url = None
+            if exi.url:
+                external_id_url = Url(value=exi.url)  # noqa: F405
+            # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+            external_id_relationship = exi.relationship.upper() if exi.relationship else "SELF"
+            external_id_list.append(
+                ExternalID(  # noqa: F405
+                    external_id_type=external_id_type,
+                    external_id_value=external_id_value,
+                    external_id_url=external_id_url,
+                    external_id_relationship=external_id_relationship))
+
+        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
+
+        try:
+            api_call = self.update_work if put_code else self.create_work
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as ex:
+            if ex.status == 404:
+                wi.put_code = None
+                wi.save()
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise ex
+        except:
+            app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, orcid, created, visibility)
+
     def create_or_update_funding(self, task_by_user, *args, **kwargs):
         """Create or update funding record of a user."""
-        fr = task_by_user.funding_record
-        fc = task_by_user.funding_record.funding_contributor
+        fr = task_by_user.record
+        fi = fr.invitee
 
         if not fr.title:
             title = None
@@ -191,12 +558,12 @@ class MemberAPI(MemberAPIV20Api):
         city = fr.city
         country = fr.country
         region = fr.region
-        disambiguated_id = fr.disambiguated_org_identifier
+        disambiguated_id = fr.disambiguated_id
         disambiguation_source = fr.disambiguation_source
         org_name = fr.org_name
         funding_type = fr.type
 
-        put_code = fc.put_code
+        put_code = fi.put_code
 
         if not city:
             city = None
@@ -224,8 +591,9 @@ class MemberAPI(MemberAPIV20Api):
         title = Title(value=fr.title)  # noqa: F405
         translated_title = None
         if fr.translated_title:
-            translated_title = TranslatedTitle(value=fr.translated_title,       # noqa: F405
-                                               language_code=fr.translated_title_language_code)  # noqa: F405
+            translated_title = TranslatedTitle(  # noqa: F405
+                value=fr.translated_title,  # noqa: F405
+                language_code=fr.translated_title_language_code)  # noqa: F405
         short_description = fr.short_description
         amount = fr.amount
         currency_code = fr.currency
@@ -238,6 +606,10 @@ class MemberAPI(MemberAPIV20Api):
         rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
         rec.short_description = short_description
         rec.amount = Amount(value=amount, currency_code=currency_code)  # noqa: F405
+        visibility = fi.visibility
+
+        if visibility:
+            rec.visibility = visibility
 
         if put_code:
             rec.put_code = put_code
@@ -246,46 +618,51 @@ class MemberAPI(MemberAPIV20Api):
             rec.start_date = start_date.as_orcid_dict()
         if end_date:
             rec.end_date = end_date.as_orcid_dict()
-        funding_contributors = FundingCont.select().where(FundingCont.funding_record_id == fr.id)
+
+        funding_contributors = FundingCont.select().where(FundingCont.record_id == fr.id).order_by(
+            FundingCont.id)
 
         funding_contributor_list = []
-        for f in funding_contributors:
-            contributor_from_user_table = UserModel.get(UserModel.email == f.email)
-            path = None
-            uri = None
-            host = None
-            credit_name = None
-            contributor_orcid = None
-            if f.name:
-                credit_name = CreditName(value=f.name)  # noqa: F405
-            elif contributor_from_user_table and contributor_from_user_table.name:
-                credit_name = CreditName(value=contributor_from_user_table.name)  # noqa: F405
+        if funding_contributors:
+            for f in funding_contributors:
+                path = None
+                uri = None
+                host = None
+                credit_name = None
+                contributor_email = None
+                contributor_orcid = None
+                contributor_attributes = None
+                if f.name:
+                    credit_name = CreditName(value=f.name)  # noqa: F405
 
-            if contributor_from_user_table and contributor_from_user_table.orcid:
-                path = contributor_from_user_table.orcid
-            elif f.orcid:
-                path = f.orcid
+                if f.email:
+                    contributor_email = ContributorEmail(value=f.email)  # noqa: F405
 
-            if path:
-                url = urlparse(ORCID_BASE_URL)
-                uri = "http://" + url.hostname + "/" + path
-                host = url.hostname
-                contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
-            # As Contributor email is by default private so, we are not sending it in funding payload
-            # contributor_email = ContributorEmail(value=f.email)  # noqa: F405
-            contributor_attributes = FundingContributorAttributes(  # noqa: F405
-                contributor_role=f.role.upper())
+                if f.orcid:
+                    path = f.orcid
 
-            funding_contributor_list.append(
-                FundingContributor(  # noqa: F405
-                    contributor_orcid=contributor_orcid,
-                    credit_name=credit_name,
-                    contributor_attributes=contributor_attributes))
+                if path:
+                    url = urlparse(ORCID_BASE_URL)
+                    uri = "http://" + url.hostname + "/" + path
+                    host = url.hostname
+                    contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
 
-        rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
+                if f.role:
+                    contributor_attributes = FundingContributorAttributes(  # noqa: F405
+                        contributor_role=f.role.upper())
+
+                funding_contributor_list.append(
+                    FundingContributor(  # noqa: F405
+                        contributor_orcid=contributor_orcid,
+                        credit_name=credit_name,
+                        contributor_email=contributor_email,
+                        contributor_attributes=contributor_attributes))
+
+            rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
         external_id_list = []
 
-        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id)
+        external_ids = ExternalIdModel.select().where(ExternalIdModel.record_id == fr.id).order_by(
+            ExternalIdModel.id)
 
         for exi in external_ids:
             # Orcid is expecting external type as 'grant_number'
@@ -322,23 +699,363 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
-                    fc.put_code = put_code
-                    fc.save()
+                    visibility = None
+                except:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as ex:
+            if ex.status == 404:
+                fi.put_code = None
+                fi.save()
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise ex
+        except:
+            app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, orcid, created, visibility)
+
+    def create_or_update_individual_funding(self, funding_title=None, funding_translated_title=None,
+                                            translated_title_language=None, funding_type=None, funding_subtype=None,
+                                            funding_description=None, total_funding_amount=None,
+                                            total_funding_amount_currency=None, org_name=None, city=None, state=None,
+                                            country=None, start_date=None, end_date=None, disambiguated_id=None,
+                                            disambiguation_source=None, grant_data_list=None, put_code=None, *args,
+                                            **kwargs):
+        """Create or update individual funding record via UI."""
+        rec = Funding()  # noqa: F405
+        rec.source = self.source
+
+        title = Title(value=funding_title)  # noqa: F405
+        translated_title = None
+        if funding_translated_title:
+            translated_title = TranslatedTitle(  # noqa: F405
+                value=funding_translated_title,  # noqa: F405
+                language_code=translated_title_language)  # noqa: F405
+        rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
+
+        rec.type = funding_type
+        rec.organization_defined_type = funding_subtype
+        rec.short_description = funding_description
+
+        if total_funding_amount:
+            rec.amount = Amount(value=total_funding_amount, currency_code=total_funding_amount_currency)  # noqa: F405
+
+        organisation_address = OrganizationAddress(
+            city=city or self.org.city,
+            country=country or self.org.country,
+            region=state)
+
+        disambiguated_organization_details = None
+        disambiguated_organization_details = DisambiguatedOrganization(
+            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+
+        rec.organization = Organization(
+            name=org_name or self.org.name,
+            address=organisation_address,
+            disambiguated_organization=disambiguated_organization_details)
+
+        if put_code:
+            rec.put_code = put_code
+
+        if start_date:
+            rec.start_date = start_date.as_orcid_dict()
+        if end_date:
+            rec.end_date = end_date.as_orcid_dict()
+
+        external_id_list = []
+
+        for exi in grant_data_list:
+            if exi['grant_number']:
+                # Orcid is expecting external type as 'grant_number'
+                external_id_type = exi['grant_type'] if exi['grant_type'] else "grant_number"
+                external_id_value = exi['grant_number']
+                external_id_url = None
+                if exi['grant_url']:
+                    external_id_url = Url(value=exi['grant_url'])  # noqa: F405
+                # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+                external_id_relationship = exi['grant_relationship'].upper() if exi['grant_relationship'] else "SELF"
+                external_id_list.append(
+                    ExternalID(  # noqa: F405
+                        external_id_type=external_id_type,
+                        external_id_value=external_id_value,
+                        external_id_url=external_id_url,
+                        external_id_relationship=external_id_relationship))
+
+        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
+
+        try:
+            api_call = self.update_funding if put_code else self.create_funding
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
                 except:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
 
-        except ApiException as ex:
-            if ex.status == 404:
-                fc.put_code = None
-                fc.save()
+        except (ApiException, v3.rest.ApiException) as apiex:
+            if apiex.status == 404:
                 app.logger.exception(
                     f"For {self.user} encountered exception, So updating related put_code")
-            raise ex
-        except:
+            raise apiex
+        except Exception as ex:
             app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created)
+
+    def create_or_update_individual_peer_review(self, org_name=None, disambiguated_id=None, disambiguation_source=None,
+                                                city=None, state=None, country=None, reviewer_role=None,
+                                                review_url=None, review_type=None, review_group_id=None,
+                                                subject_external_identifier_type=None,
+                                                subject_external_identifier_value=None,
+                                                subject_external_identifier_url=None,
+                                                subject_external_identifier_relationship=None,
+                                                subject_container_name=None, subject_type=None, subject_title=None,
+                                                subject_subtitle=None, subject_translated_title=None,
+                                                subject_translated_title_language_code=None, subject_url=None,
+                                                review_completion_date=None, grant_data_list=None, put_code=None, *args,
+                                                **kwargs):
+        """Create or update individual peer review record via UI."""
+        rec = PeerReview()  # noqa: F405
+        rec.source = self.source
+
+        rec.reviewer_role = reviewer_role
+
+        if review_url:
+            rec.review_url = Url(value=review_url)  # noqa: F405
+
+        rec.review_type = review_type
+
+        if review_completion_date.as_orcid_dict():
+            rec.review_completion_date = review_completion_date.as_orcid_dict()
+
+        rec.review_group_id = review_group_id
+
+        if subject_external_identifier_type and subject_external_identifier_value:
+            external_id_url = None
+            if subject_external_identifier_url:
+                external_id_url = Url(value=subject_external_identifier_url)  # noqa: F405
+            # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+            external_id_relationship = subject_external_identifier_relationship.upper() if \
+                subject_external_identifier_relationship else "SELF"
+
+            rec.subject_external_identifier = ExternalID(         # noqa: F405
+                external_id_type=subject_external_identifier_type, external_id_value=subject_external_identifier_value,
+                external_id_url=external_id_url, external_id_relationship=external_id_relationship)
+
+        if subject_container_name:
+            rec.subject_container_name = Title(value=subject_container_name)  # noqa: F405
+
+        if subject_type:
+            rec.subject_type = subject_type
+
+        if subject_title:
+            subtitle = None
+            translated_title = None
+            title = Title(value=subject_title)  # noqa: F405
+            if subject_subtitle:
+                subtitle = Subtitle(value=subject_subtitle)     # noqa: F405
+
+            if subject_translated_title and subject_translated_title_language_code:
+                translated_title = TranslatedTitle(value=subject_translated_title,  # noqa: F405
+                                                   language_code=subject_translated_title_language_code)  # noqa: F405
+
+            rec.subject_name = WorkTitle(title=title, subtitle=subtitle,          # noqa: F405
+                                         translated_title=translated_title)
+
+        if subject_url:
+            rec.subject_url = Url(value=subject_url)        # noqa: F405
+
+        organisation_address = OrganizationAddress(
+            city=city or self.org.city,
+            country=country or self.org.country,
+            region=state)
+
+        disambiguated_organization_details = None
+        disambiguated_organization_details = DisambiguatedOrganization(
+            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+
+        rec.convening_organization = Organization(
+            name=org_name or self.org.name,
+            address=organisation_address,
+            disambiguated_organization=disambiguated_organization_details)
+
+        if put_code:
+            rec.put_code = put_code
+
+        external_id_list = []
+
+        for exi in grant_data_list:
+            if exi['grant_number']:
+                # Orcid is expecting external type as 'source-work-id'
+                external_id_type = exi['grant_type'] if exi['grant_type'] else "source-work-id"
+                external_id_value = exi['grant_number']
+                external_id_url = None
+                if exi['grant_url']:
+                    external_id_url = Url(value=exi['grant_url'])  # noqa: F405
+                # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+                external_id_relationship = exi['grant_relationship'].upper() if exi['grant_relationship'] else "SELF"
+                external_id_list.append(
+                    ExternalID(  # noqa: F405
+                        external_id_type=external_id_type,
+                        external_id_value=external_id_value,
+                        external_id_url=external_id_url,
+                        external_id_relationship=external_id_relationship))
+
+        rec.review_identifiers = ExternalIDs(external_id=external_id_list)  # noqa: F405
+
+        try:
+            api_call = self.update_peer_review if put_code else self.create_peer_review
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            if apiex.status == 404:
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created)
+
+    def create_or_update_individual_work(self, work_type=None, title=None, subtitle=None, translated_title=None,
+                                         translated_title_language_code=None, journal_title=None,
+                                         short_description=None, citation_type=None, citation=None,
+                                         publication_date=None, url=None, language_code=None, country=None,
+                                         grant_data_list=None, put_code=None, *args, **kwargs):
+        """Create or update individual work record via UI."""
+        rec = Work()  # noqa: F405
+        rec.source = self.source
+
+        if work_type:
+            rec.type = work_type
+
+        if title:
+            title = Title(value=title)  # noqa: F405
+            work_translated_title = None
+            if subtitle:
+                subtitle = Subtitle(value=subtitle)  # noqa: F405
+            if translated_title and translated_title_language_code:
+                work_translated_title = TranslatedTitle(value=translated_title,  # noqa: F405
+                                                        language_code=translated_title_language_code)  # noqa: F405
+            rec.title = WorkTitle(title=title, subtitle=subtitle, translated_title=work_translated_title)  # noqa: F405
+
+        if journal_title:
+            rec.journal_title = Title(value=journal_title)  # noqa: F405
+
+        if short_description:
+            rec.short_description = short_description
+
+        if citation_type and citation:
+            rec.citation = Citation(citation_type=citation_type, citation_value=citation)  # noqa: F405
+
+        if publication_date.as_orcid_dict():
+            rec.publication_date = publication_date.as_orcid_dict()
+
+        if url:
+            rec.url = Url(value=url)  # noqa: F405
+
+        if language_code:
+            rec.language_code = language_code
+
+        if country:
+            rec.country = Country(value=country)  # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+
+        external_id_list = []
+        for exi in grant_data_list:
+            if exi['grant_number']:
+                # Orcid is expecting external type as 'grant_number'
+                external_id_type = exi['grant_type'] if exi['grant_type'] else "grant_number"
+                external_id_value = exi['grant_number']
+                external_id_url = None
+                if exi['grant_url']:
+                    external_id_url = Url(value=exi['grant_url'])  # noqa: F405
+                # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+                external_id_relationship = exi['grant_relationship'].upper() if exi['grant_relationship'] else "SELF"
+                external_id_list.append(
+                    ExternalID(  # noqa: F405
+                        external_id_type=external_id_type,
+                        external_id_value=external_id_value,
+                        external_id_url=external_id_url,
+                        external_id_relationship=external_id_relationship))
+
+        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
+
+        try:
+            api_call = self.update_work if put_code else self.create_work
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            if apiex.status == 404:
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
         else:
             return (put_code, orcid, created)
 
@@ -346,6 +1063,7 @@ class MemberAPI(MemberAPIV20Api):
             self,
             affiliation=None,
             role=None,
+            course_or_role=None,
             department=None,
             org_name=None,
             # NB! affiliation_record has 'organisation' field for organisation name
@@ -360,6 +1078,10 @@ class MemberAPI(MemberAPIV20Api):
             end_date=None,
             put_code=None,
             initial=False,
+            visibility=None,
+            url=None,
+            display_index=None,
+            id=None,
             *args,
             **kwargs):
         """Create or update affiliation record of a user.
@@ -389,28 +1111,36 @@ class MemberAPI(MemberAPIV20Api):
             if put_code:
                 return put_code, self.user.orcid, False
 
-        organisation_address = OrganizationAddress(
+        organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
             region=state or region or self.org.state)
 
-        disambiguated_organization_details = DisambiguatedOrganization(
-            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
-            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+        if disambiguation_source:
+            disambiguation_source = disambiguation_source.upper()
+        elif self.org.disambiguation_source:
+            disambiguation_source = self.org.disambiguation_source.upper()
 
-        if affiliation == Affiliation.EMP:
-            rec = Employment()
-        elif affiliation == Affiliation.EDU:
-            rec = Education()
-        else:
+        disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
+            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=disambiguation_source) if disambiguation_source else None
+
+        rec = {
+            Affiliation.DIST: v3.DistinctionV30,
+            Affiliation.EDU: v3.EducationV30,
+            Affiliation.EMP: v3.EmploymentV30,
+            Affiliation.MEM: v3.MembershipV30,
+            Affiliation.POS: v3.InvitedPositionV30,
+            Affiliation.QUA: v3.QualificationV30,
+            Affiliation.SER: v3.ServiceV30,
+        }.get(affiliation)()
+        if not rec:
             app.logger.info(
                 f"For {self.user} not able to determine affiliaton type with {self.org}")
             raise Exception(
                 f"Unsupported affiliation type '{affiliation}' for {self.user} affiliaton type with {self.org}"
             )
-
-        rec.source = self.source
-        rec.organization = Organization(
+        rec.organization = v3.OrganizationV30(
             name=organisation or org_name or self.org.name,
             address=organisation_address,
             disambiguated_organization=disambiguated_organization_details)
@@ -418,19 +1148,51 @@ class MemberAPI(MemberAPIV20Api):
         if put_code:
             rec.put_code = put_code
 
-        rec.department_name = department
-        rec.role_title = role
+        if visibility:
+            rec.visibility = visibility.lower()
 
-        if start_date:
+        if display_index:
+            rec.display_index = display_index
+
+        if url:
+            rec.url = v3.UrlV30(value=url)  # noqa: F405
+
+        rec.department_name = department
+        rec.role_title = role or course_or_role
+
+        if start_date and not start_date.is_null:
             rec.start_date = start_date.as_orcid_dict()
-        if end_date:
+        if end_date and not end_date.is_null:
             rec.end_date = end_date.as_orcid_dict()
+
+        if id:
+            external_ids = [
+                v3.ExternalIDV30(  # noqa: F405
+                    external_id_type=eid.type,
+                    external_id_value=eid.value,
+                    external_id_url=v3.UrlV30(value=eid.url) if eid.url else None,
+                    external_id_relationship=eid.relationship.replace('_', '-').lower()
+                    if eid.relationship else None) for eid in AffiliationExternalId.select().where(
+                        AffiliationExternalId.record_id == id).order_by(AffiliationExternalId.id)
+            ]
+            if external_ids:
+                rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
         try:
             if affiliation == Affiliation.EMP:
-                api_call = self.update_employment if put_code else self.create_employment
+                api_call = self.update_employmentv3 if put_code else self.create_employmentv3
+            elif affiliation == Affiliation.DIST:
+                api_call = self.update_distinctionv3 if put_code else self.create_distinctionv3
+            elif affiliation == Affiliation.MEM:
+                api_call = self.update_membershipv3 if put_code else self.create_membershipv3
+            elif affiliation == Affiliation.SER:
+                api_call = self.update_servicev3 if put_code else self.create_servicev3
+            elif affiliation == Affiliation.QUA:
+                api_call = self.update_qualificationv3 if put_code else self.create_qualificationv3
+            elif affiliation == Affiliation.POS:
+                api_call = self.update_invited_positionv3 if put_code else self.create_invited_positionv3
             else:
-                api_call = self.update_education if put_code else self.create_education
+                api_call = self.update_educationv3 if put_code else self.create_educationv3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code
@@ -445,23 +1207,363 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
+                    visibility = None
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility").upper() if hasattr(resp, "data") and json.loads(
+                    resp.data).get("visibility") else None
 
-        except ApiException as apiex:
+        except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
             raise apiex
         except Exception as ex:
             app.logger.exception(f"For {self.user} encountered exception")
             raise ex
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
+
+    def create_or_update_researcher_url(self, name=None, value=None, display_index=None, orcid=None,
+                                        put_code=None, visibility=None, *args, **kwargs):
+        """Create or update researcher url record of a user."""
+        rec = ResearcherUrl()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+        if name:
+            rec.url_name = name
+        if value:
+            rec.url = Url(value=value)      # noqa: F405
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_researcher_url if put_code else self.create_researcher_url
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created, visibility)
+
+    def create_or_update_other_name(self, content=None, value=None, display_index=None, orcid=None, put_code=None,
+                                    visibility=None, *args, **kwargs):
+        """Create or update other name record of a user."""
+        rec = OtherName()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+        content = content or value
+        if content:
+            rec.content = content
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_other_name if put_code else self.create_other_name
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created, visibility)
+
+    def create_or_update_address(self, country=None, value=None, display_index=None, orcid=None, put_code=None,
+                                 visibility=None, *args, **kwargs):
+        """Create or update address record of an user."""
+        rec = Address()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+        country = country or value
+        if country:
+            rec.country = Country(value=country)      # noqa: F405
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_address if put_code else self.create_address
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created, visibility)
+
+    def create_or_update_person_external_id(self, type=None, value=None, url=None, relationship=None,
+                                            display_index=None, orcid=None, put_code=None, visibility=None,
+                                            *args, **kwargs):
+        """Create or update person external identifier record of an user."""
+        rec = PersonExternalIdentifier()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+        if type:
+            rec.external_id_type = type
+        if value:
+            rec.external_id_value = value
+        if url:
+            rec.external_id_url = Url(value=url)      # noqa: F405
+        if relationship:
+            rec.external_id_relationship = relationship
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_external_identifier if put_code else self.create_external_identifier
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created, visibility)
+
+    def create_or_update_keyword(self, content=None, value=None, display_index=None, orcid=None, put_code=None,
+                                 visibility=None, *args, **kwargs):
+        """Create or update Keyword record of a user."""
+        rec = Keyword()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+
+        content = content or value
+        if content:
+            rec.content = content
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_keyword if put_code else self.create_keyword
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    visibility = None
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+
+        except (ApiException, v3.rest.ApiException) as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created, visibility)
+
+    def get_webhook_access_token(self):
+        """Retrieve the ORCID webhook access tonke and store it."""
+        pass
+
+    def register_webhook(self, user=None, orcid=None):
+        """Register a webhook for the given ORCID ID or user."""
+        pass
+
+    def sync_profile(self, task, user, access_token):
+        """Synchronize the user profile."""
+        self.set_config(user=user, org=self.org, access_token=access_token)
+        profile = self.get_record()
+
+        if not profile:
+            Log.create(task=task, message=f"The user {user} doesn't have ORCID profile.")
+            return
+
+        for k, s in [
+            ["educations", "education-summary"],
+            ["employments", "employment-summary"],
+        ]:
+            for e in (
+                    ss.get(s)
+                    for ag in profile.get("activities-summary", k, "affiliation-group", default=[])
+                    for ss in ag.get("summaries", default=[])
+            ):
+                source = e.get("source")
+                if not source:
+                    continue
+
+                if source.get("source-client-id", "path") == self.org.orcid_client_id:
+                    do = e.get("organization", "disambiguated-organization")
+                    if not (do and do.get("disambiguated-organization-identifier")
+                            and do.get("disambiguation-source")):
+                        e["organization"]["disambiguated-organization"] = {
+                            "disambiguated-organization-identifier": self.org.disambiguated_id,
+                            "disambiguation-source": self.org.disambiguation_source,
+                        }
+                        api_call = self.update_employmentv3 if k == "employments" else self.update_educationv3
+
+                        try:
+                            api_call(orcid=user.orcid, put_code=e.get("put-code"), body=e)
+                            Log.create(task=task, message=f"Successfully update entry: {e}.")
+                        except Exception as ex:
+                            Log.create(task=task, message=f"Failed to update the entry: {ex}.")
+
+    def get_keywords(self):
+        """Retrieve all the keywords of a record."""
+        resp, status, _ = self.api_client.call_api(
+            f"/{self.version}/{self.user.orcid}/keywords",
+            "GET",
+            header_params={"Accept": self.content_type},
+            auth_settings=["orcid_auth"],
+            _preload_content=False)
+        return json.loads(resp.data) if status == 200 else None
+
+    def get_section(self, section_type):
+        """Retrieve researcher profile section by the section type."""
+        method_name = {
+            "ADR": "view_addresses",
+            "EDU": "view_educations",
+            "EMP": "view_employments",
+            "EXR": "view_external_identifiers",
+            "FUN": "view_fundings",
+            "KWR": "view_keywords",
+            "ONR": "view_other_names",
+            "PRR": "view_peer_reviews",
+            "RUR": "view_researcher_urls",
+            "WOR": "view_works"
+        }[section_type]
+        return getattr(self, method_name)(self.user.orcid, _preload_content=False)
+
+    def delete_section(self, section_type, put_code):
+        """Delete a section from the researcher profile."""
+        method_name = {
+            "ADR": "delete_address",
+            "EDU": "delete_educationv3",
+            "EMP": "delete_employmentv3",
+            "EXR": "delete_external_identifier",
+            "FUN": "delete_funding",
+            "KWR": "delete_keyword",
+            "ONR": "delete_other_name",
+            "PRR": "delete_peer_review",
+            "RUR": "delete_researcher_url",
+            "WOR": "delete_work"
+        }[section_type]
+        return getattr(self, method_name)(self.user.orcid, put_code)
+
+
+class MemberAPI(MemberAPIMixin, MemberAPIV20Api):
+    """ORCID Mmeber API extension."""
+
+    pass
+
+
+class MemberAPIV3(MemberAPIMixin, v3.api.DevelopmentMemberAPIV30Api):
+    """ORCID Mmeber API V3 extension."""
+
+    def __init__(self, org=None, user=None, access_token=None, *args, **kwargs):
+        """Overwrite the default host."""
+        super().__init__(org=org, user=user, access_token=access_token, version="v3.0", *args, **kwargs)
+        self.api_client.configuration.host = host
 
 
 # yapf: disable
 from orcid_api import *  # noqa: F401,F403,F405
 
 api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405
+v3.rest.RESTClientObject = OrcidRESTClientObjectV3  # noqa: F405

@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="container">
+    <div class="jumbotron">
+      <h1>Webservice currently unavailable <small>Error: <br />{{error_message}}</small></h1>
+      <p class="lead">An unexpected condition was encountered.<br />
+      Our service team has been dispatched to bring it back online.</p>
+    </div>
+    {% if config.ENV != "prod" and trace %}
+      <div class="container">
+        <h1>Details</h1>
+        <pre>{{trace}}</pre>
+      </div>
+    {% endif %}
+    <!-- {{ sentry_event_id }} -->
+    {% if sentry_event_id %}
+      <script src="https://browser.sentry-cdn.com/4.5.3/bundle.min.js" crossorigin="anonymous"></script>
+      <script>
+        Sentry.init({ dsn: '{{ config.SENTRY_DSN }}' });
+        Sentry.showReportDialog({
+          eventId: '{{ sentry_event_id }}'
+          {% if current_user.is_authenticated %},
+            user: {
+                name: '{{ current_user.name }}',
+                email: '{{ current_user.email }}'
+            }
+          {% endif %}
+        });
+      </script>
+    {% endif %}
+  </div>
+{% endblock %}

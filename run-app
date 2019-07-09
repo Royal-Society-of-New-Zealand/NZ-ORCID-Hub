@@ -11,14 +11,20 @@ echo "Domain name: \"$DOMAINNAME\""
 echo "Host anem: \"$HOSTNAME\""
 
 ## Shibboleth SP domainname:
-[ -z "$SHIB_SP_DOMAINNAME" ] && SHIB_SP_DOMAINNAME=${DOMAINNAME/$HOSTNAME/$ENV}
+if [ -z "$SHIB_SP_DOMAINNAME" ] ; then
+  if [ "$ENV" == "prod" ] ; then
+    SHIB_SP_DOMAINNAME=${DOMAINNAME/$HOSTNAME./}
+  else
+    SHIB_SP_DOMAINNAME=${DOMAINNAME/$HOSTNAME/$ENV}
+  fi
+fi
 echo "Shibboleth SP Domainname (\$SHIB_SP_DOMAINNAME): \"$SHIB_SP_DOMAINNAME\""
 
 ## Shibboleth SP domainname:
 if [ -z "$SHIB_IDP_DOMAINNAME" ] ; then
   if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_IDP_DOMAINNAME=directory.test.tuakiri.ac.nz
-  else 
+  else
     SHIB_IDP_DOMAINNAME=directory.tuakiri.ac.nz
   fi
 fi
@@ -30,7 +36,7 @@ echo "Shibboleth SSO Discovery URL: $SHIB_SSO_DS_URL"
 if [ -z "$SHIB_METADATA_PROVIDER_URI" ] ; then
   if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_METADATA_PROVIDER_URI=https://${SHIB_IDP_DOMAINNAME}/metadata/tuakiri-test-metadata-signed.xml
-  else 
+  else
     SHIB_METADATA_PROVIDER_URI=https://${SHIB_IDP_DOMAINNAME}/metadata/tuakiri-metadata-signed.xml
   fi
 fi
@@ -39,7 +45,7 @@ echo "Shibboleth metadata provider URI (\$SHIB_METADATA_PROVIDER_URI): $SHIB_MET
 if [ -z "$SHIB_METADATA_CERT_FILE" ] ; then
   if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_METADATA_CERT_FILE=tuakiri-test-metadata-cert.pem
-  else 
+  else
     SHIB_METADATA_CERT_FILE=tuakiri-metadata-cert.pem
   fi
 fi
@@ -56,28 +62,39 @@ chown root /etc/pki/tls/certs/server.crt
 cp /.keys/CA.crt /etc/pki/tls/certs/CA.crt
 chown root /etc/pki/tls/certs/CA.crt
 
-cp /.keys/${ENV}-sp.key /etc/shibboleth/sp-key.pem
-cp /./.keys/${ENV}-sp.crt /etc/shibboleth/sp-cert.pem
-if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then
-  cd /etc/shibboleth
-  ./keygen.sh -f -h $SHIB_SP_DOMAINNAME -e https://$SHIB_SP_DOMAINNAME/shibboleth
-fi
+if [ -z "$EXTERNAL_SP" ] ; then
+    cp /.keys/${ENV}-sp.key /etc/shibboleth/sp-key.pem
+    cp /./.keys/${ENV}-sp.crt /etc/shibboleth/sp-cert.pem
+    if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then
+    cd /etc/shibboleth
+    ./keygen.sh -f -h $SHIB_SP_DOMAINNAME -e https://$SHIB_SP_DOMAINNAME/shibboleth
+    fi
 
-echo "Rendering Shibboleth configuration template ..."
-/conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
+    echo "Rendering Shibboleth configuration template ..."
+    /conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
+
+    # Run Shibboleth:
+    echo "Starting Shibboleth ..."
+
+    /etc/shibboleth/shibd-redhat start
+fi
 
 # Create a dirctory for application logs:
 mkdir -p /var/log/orcidhub
 chown -R apache:apache /var/log/orcidhub
 
-# Run Shibboleth and Apache:
-echo "Starting Shibboleth ..."
-/etc/shibboleth/shibd-redhat start
+# Run Apache:
 rm -f /run/httpd/httpd.pid /usr/local/apache2/logs/httpd.pid /var/lock/subsys/shibd
 echo "Starting Apache2 ..."
 
 # Re-direct all errors to container logs:
 ln -sfT /dev/stderr /var/log/httpd/error_log
 # ln -sfT /dev/stdout /var/log/httpd/access_log
+
+[ -z "$DATABASE_URL" ] && DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?options='-c statement_timeout=3000'
+export DATABASE_URL
+
+[ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://redis:6379/0
+export RQ_REDIS_URL
 
 exec httpd -DFOREGROUND

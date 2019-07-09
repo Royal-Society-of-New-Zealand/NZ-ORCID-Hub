@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag %}
+
+{% block content %}
+{% call form_tag(form) %}
+<div class="row">
+  <div class="col-md-9 col-sm-8 col-xs-12">
+    <h1>{{"Search GroupID Records"}}</h1>
+  </div>
+</div>
+<div class="row">
+  <div class="col-md-6 col-sm-6 col-xs-12">
+    {{ render_field(form.group_id_name) }}
+    {{ render_field(form.page_size) }}
+  </div>
+  <div class="col-md-6 col-sm-6 col-xs-12">
+    {{ render_field(form.page) }}
+    <br>
+    <span class="pull-right" style="padding-bottom: 40px;">
+      {{ form.search }}
+      <a role="button" class="btn btn-default" href="{{_url}}">Cancel</a>
+    </span>
+  </div>
+</div>
+<div class="table-responsive">
+  <table class="table table-striped table-bordered table-hover model-list">
+    <thead>
+    <tr class="info">
+      <th class="col-md-1">&nbsp;</th>
+      <th class="column-header">Group ID Name</th>
+      <th class="column-header">Group ID</th>
+      <th class="column-header">Description</th>
+      <th class="column-header">Type</th>
+      <th class="column-header">Put Code</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    {% if not records %}
+    <tr>
+      <td colspan="999">
+        <div class="text-center">
+          There are no records.
+        </div>
+      </td>
+    </tr>
+    {% endif %}
+    {% for r in records %}
+    <tr>
+      {% if r.get("group-id") %}
+        <td class="list-buttons-column" align="center">
+          <form class="icon" method="POST" action="{{url_for('search_group_id_record')}}">
+            <input id="name" name="name" type="hidden" value="{{r.get('name')}}">
+            <input id="group_id" name="group_id" type="hidden" value="{{r.get('group-id')}}">
+            <input id="description" name="description" type="hidden" value="{{r.get('description')}}">
+            <input id="type" name="type" type="hidden" value="{{r.get('type')}}">
+            <input id="put_code" name="put_code" type="hidden" value="{{r.get('put-code')}}">
+            <button
+              onclick="return safeConfirm('Are you sure you want to add this GroupID Record into your existing list of GroupID Records?');"
+              title="Add record"><span class="fa fa-plus-circle"></span>
+            </button>
+          </form>
+        </td>
+      {% else %}
+        <td class="list-buttons-column"></td>
+      {% endif %}
+      <td>{{r.get("name", "")|default("", True)}}</td>
+      <td>{{r.get("group-id", "")|default("", True)}}</td>
+      <td>{{r.get("description", "")|default("", True)}}</td>
+      <td>{{r.get("type", "")|default("", True)}}</td>
+      <td>{{r.get("put-code")|default("", True)}}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endcall %}
+{% endblock %}

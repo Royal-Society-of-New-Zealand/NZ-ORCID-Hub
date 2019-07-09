@@ -1,0 +1,589 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+  <title>{{user.name}} Curriculum Vitae</title>
+  <meta charset="UTF-8">
+  <meta name="generator" content="{{config.APP_NAME}}"/>
+  <meta name="date.created" content="{{ now.date().isoformat() }}"/>
+  <meta name="description" content="New Zealand Standard Curriculum Vitae Template">
+  <meta name="keywords" content="CV,Curriculum Vitae,Resume">
+  <meta name="author" content="{{config.APP_NAME}}">
+  {% from "macros.html" import publication_info %}
+	<style type="text/css">
+
+		p { margin-bottom: 0.25cm; line-height: 120% }
+		a:link { so-language: zxx }
+    /* defaults  for screen */
+    #print-head, #print-foot {
+      display: none;
+    }
+
+    @page {
+      size: 21.59cm 27.94cm;
+      margin-left: 3.18cm;
+      margin-right: 3.18cm; margin-top: 2.54cm; margin-bottom: 2.54cm;
+      @top-left-corner {content:"";}
+      @top-left {content:"";}
+      @top-center {content:"";}
+      @top-right {content:"";}
+      @top-right-corner {content:"";}
+      @bottom-left-corner {content:"";}
+      @bottom-left {
+        content: counter(page) "/" counter(pages);
+      }
+      @bottom-center {content:"";}
+      @bottom-right {content:"";}
+      @bottom-right-corner {content:"";}
+    }
+    /* print only */
+    @media print {
+
+      h1 {
+         page-break-before: always;
+         padding-top: 2em;
+      }
+
+      body {
+        counter-reset: page;
+      }
+
+      h1:first-child {
+        page-break-before: avoid;
+      }
+
+      #print-head {
+          display: block;
+          position: fixed;
+          top: 0pt;
+          left:0pt;
+          right: 0pt;
+
+          font-size: 200%;
+          text-align: center;
+      }
+
+      #print-foot {
+         display: block;
+         position: fixed;
+         bottom: 0pt;
+         right: 0pt;
+
+        font-size: 200%;
+      }
+
+      #print-foot:after {
+          content: counter(page);
+          counter-increment: page;
+      }
+  }
+	</style>
+</head>
+<body lang="en-NZ" dir="ltr">
+  <p align="center" style="margin-bottom: 0.21cm; line-height: 0.46cm"><font face="Arial, serif"><font size="4" style="font-size: 14pt">
+      <b>New Zealand Standard Curriculum Vitae Template</b>
+    </font></font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="2" style="font-size: 9pt"><i><span style="font-weight: normal">Rows
+and columns may be expanded or reduced, but a CV must be no more than
+two pages for part 1 and no more than three pages for part 2.  Use
+Arial 12 point font.  Do not alter page margins.  Instructions in
+italics should be deleted before you submit your CV.</span></i></font></font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>PART
+1</b></span></font></font></p>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="99">
+	<col width="22">
+	<col width="22">
+	<col width="4358">
+	<col width="101">
+	<col width="33">
+	<col width="57">
+	<col width="4355">
+	<col width="45">
+	<col width="22">
+	<col width="80">
+	<tr>
+		<td colspan="11" width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>1a.
+			  Personal details</b></span></font></font></p>
+		</td>
+	</tr>
+	<tr valign="top">
+		<td width="99" height="18" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Full name</b></span></font></font></p>
+		</td>
+		<td colspan="2" width="57" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <p><font face="Arial, serif"><font size="2" style="font-size: 9pt"><i>Title</i></font></font></p>
+		</td>
+		<td colspan="2" width="105" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      {% if person_data.get('first_name') %}
+        <p><font face="Arial, serif"><font style="font-size: 12pt">{{person_data.get('first_name', '')}}</font></font></p>
+      {% else %}
+        <p><font face="Arial, serif"><font style="font-size: 9pt"><i>First Name</i></font></font></p>
+      {% endif %}
+		</td>
+		</td>
+		<td colspan="4" width="164" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      {% if person_data.get('second_names') %}
+        {% for s in person_data.get('second_names') %}
+          <p><font face="Arial, serif"><font style="font-size: 12pt">{{s}}</font></font></p>
+        {% endfor %}
+      {% else %}
+        <p><font face="Arial, serif"><font style="font-size: 9pt"><i>Second name(s)</i></font></font></p>
+      {% endif %}
+		</td>
+		<td colspan="2" width="116" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      {% if person_data.get('family_name') %}
+        <p><font face="Arial, serif"><font style="font-size: 12pt">{{person_data.get('family_name', '')}}</font></font></p>
+      {% else %}
+        <p><font face="Arial, serif"><font style="font-size: 9pt"><i>Family Name</i></font></font></p>
+      {% endif %}
+		</td>
+	</tr>
+	<tr valign="top">
+		<td colspan="4" width="173" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Present
+			position</b></span></font></font></p>
+		</td>
+    <td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <p>
+        {% if employments %}
+        <font face="Arial, serif"><font style="font-size: 12pt">{{ employments[0] | year_range }}, {{
+          employments[0].get('role-title') }}, {{ employments[0].get('department-name') }}, {{
+          employments[0].get('organization', 'name') }}</font></font>
+        {% endif %}
+        </br>
+      </p>
+    </td>
+  </tr>
+	<tr valign="top">
+		<td colspan="4" width="173" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Organisation/Employer</b></span></font></font></p>
+		</td>
+		<td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <p><font face="Arial, serif"><font style="font-size: 12pt">{{ user.organisation.name }}</font></font></p>
+		</td>
+	</tr>
+	<tr valign="top">
+		<td rowspan="{{person_data.get('address')|length + 2}}" colspan="2" width="134" height="4" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Contact
+			Address</b></span></font></font></p>
+		</td>
+    <td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p style="font-style: normal; font-weight: normal"><br/>
+
+			</p>
+		</td>
+	</tr>
+  {% for c in person_data.get('address') %}
+    <tr valign="top">
+      <td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+        <p><font face="Arial, serif"><font style="font-size: 12pt">Country: {{c}}.<br/>
+
+        </font></font></p>
+      </td>
+    </tr>
+  {% endfor %}
+	<tr valign="top">
+		<td colspan="5" width="259" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p style="font-style: normal; font-weight: normal"><br/>
+
+			</p>
+		</td>
+		<td colspan="3" width="81" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Post
+			code</b></span></font></font></p>
+		</td>
+		<td width="80" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p style="font-style: normal; font-weight: normal"><br/>
+
+			</p>
+		</td>
+	</tr>
+	<tr valign="top">
+		<td colspan="2" width="134" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="justify"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Work
+			telephone</b></span></font></font></p>
+		</td>
+		<td colspan="4" width="188" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p style="font-style: normal; font-weight: normal"><br/>
+
+			</p>
+		</td>
+		<td colspan="2" width="57" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Mobile</b></span></font></font></p>
+		</td>
+		<td colspan="3" width="175" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p style="font-style: normal; font-weight: normal"><br/>
+
+			</p>
+		</td>
+	</tr>
+	<tr valign="top">
+		<td colspan="2" width="134" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Email</b></span></font></font></p>
+		</td>
+		<td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      {% for e in person_data.get('emails') %}
+          <p><font face="Arial, serif"><font style="font-size: 12pt">{{e}}</font></font></p>
+      {% endfor %}
+		</td>
+	</tr>
+	<tr valign="top">
+		<td colspan="2" width="134" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Personal
+			website (if applicable)</b></span></font></font></p>
+		</td>
+		<td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      {% if person_data.get('researcher_urls') %}
+        {% for r in person_data.get('researcher_urls') %}
+          <p><a href="{{r}}"><font face="Arial, serif"><font style="font-size: 12pt">{{r}}</font></font></a></p>
+        {% endfor %}
+      {% else %}
+        <p><a href=""><font face="Arial, serif"><font style="font-size: 9pt"><i>http://</i></font></font></a></p>
+      {% endif %}
+		</td>
+	</tr>
+</table>
+<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal; line-height: 100%">
+<br/>
+
+</p>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="596">
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>1b.
+        Academic qualifications</b></span></font></font></p>
+		</td>
+	</tr>
+</table>
+
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif" size="3" style="font-size: 9pt">[<i><span style="font-weight: normal">
+Delete and start typing here. List in reverse date order.Start each qualification on a new line as per the example:</span></i>]</font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif" size="3" style="font-size: 9pt">[<i><span style="font-weight: normal">e.g.
+Year conferred, qualification, discipline, university/institute.</span></i>]</font></p>
+<ul>
+{% for e in educations %}
+  <li><font face="Arial, serif"><font style="font-size: 12pt">{{ e | year_range }}, {{ e.get('role-title') }}, {{ e.get('department-name') }}, {{ e.get('organization', 'name') }}</font></font></li>
+{% endfor %}
+</ul>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="596">
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>1c.
+			  Professional positions held</b></span></font></font></p>
+		</td>
+	</tr>
+</table>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">Delete
+and start typing here.  List in reverse date order.  Start each
+position on a new line as per the example:</span></i></font></font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">e.g.
+Year-year, job title, organisation.</span></i></font></font></p>
+<ul>
+{% for e in employments %}
+  <li><font face="Arial, serif"><font style="font-size: 12pt">{{ e | year_range }}, {{ e.get('role-title') }}, {{ e.get('department-name') }}, {{ e.get('organization', 'name') }}</font></font></li>
+{% endfor %}
+</ul>
+
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="596">
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>1d.
+			  Present research/professional speciality</b></span></font></font></p>
+		</td>
+	</tr>
+</table>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif" size="3" style="font-size: 9pt">[<i><span style="font-weight: normal">Delete and start typing here.</span></i>]</font></p>
+  <p>
+    {% if record and record.get("person", "biography", "content") %}
+    <font face="Arial, serif"><font style="font-size: 12pt">{{record.get("person", "biography",
+      "content")}}</font></font>
+    {% endif %}<br/>
+  </p>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="353">
+	<col width="229">
+	<tr valign="top">
+		<td width="353" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>1e.
+			  Total years research experience</b></span></font></font></p>
+		</td>
+		<td width="229" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <p align="right"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal"><i>years</i></span></span></font></font></p>
+		</td>
+	</tr>
+</table>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">List any significant interruptions to your career (e.g. sickness, parental leave). Delete and start typing here.</span></i></font></font></p>
+<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal; line-height: 100%"><br/></p>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="596">
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>1f.
+			  Professional distinctions and memberships (including honours,
+			prizes, scholarships, boards or governance roles, etc)</b></span></font></font></p>
+		</td>
+	</tr>
+</table>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">Delete and start typing here.  List in reverse date order. Start each
+professional distinction on a new line as per the example:</span></i></font></font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">e.g.
+Year / year-year, distinction.</span></i></font></font></p>
+<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal; line-height: 100%"><br/></p>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="188">
+	<col width="51">
+	<col width="42">
+	<col width="98">
+	<col width="90">
+	<col width="56">
+	<tr valign="top">
+		<td rowspan="2" width="188" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>1g.
+			  Total number of </b></span></font></font><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><b>peer
+			reviewed</b></i></font></font><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>
+			publications and patents</b></span></font></font></p>
+		</td>
+		<td width="51" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="center"><font face="Arial, serif"><font size="2" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">Journal
+			articles</span></span></font></font></p>
+		</td>
+		<td width="42" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="center"><font face="Arial, serif"><font size="2" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">Books</span></span></font></font></p>
+		</td>
+		<td width="98" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="center"><font face="Arial, serif"><font size="2" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">Book
+			chapters, books edited</span></span></font></font></p>
+		</td>
+		<td width="90" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="center"><font face="Arial, serif"><font size="2" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">Conference
+			proceedings</span></span></font></font></p>
+		</td>
+		<td width="56" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="center"><font face="Arial, serif"><font size="2" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">Patents</span></span></font></font></p>
+		</td>
+	</tr>
+	<tr valign="top">
+		<td width="51" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <p align="center" style="font-style: normal; font-weight: normal">{{work_type_journal|length}}<br/>
+
+      </p>
+		</td>
+		<td width="42" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="center" style="font-style: normal; font-weight: normal">{{work_type_books|length}}<br/>
+
+			</p>
+		</td>
+		<td width="98" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="center" style="font-style: normal; font-weight: normal">{{work_type_book_chapter|length}}<br/>
+
+			</p>
+		</td>
+		<td width="90" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="center" style="font-style: normal; font-weight: normal">{{work_type_conference|length}}<br/>
+
+			</p>
+		</td>
+		<td width="56" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p align="center" style="font-style: normal; font-weight: normal">{{work_type_patent|length}}<br/>
+
+			</p>
+		</td>
+	</tr>
+</table>
+<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal; line-height: 100%">
+<br/>
+
+</p>
+<p style="margin-bottom: 0cm; line-height: 100%"><br/>
+
+</p>
+<p style="margin-bottom: 0cm; line-height: 100%; page-break-before: always">
+<font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">Part
+2 should include information pertinent to your research proposal.
+The following sections should not total more than three pages.</span></i></font></font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>PART
+2</b></span></font></font></p>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="596">
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>2a.
+			  Research publications and dissemination</b></span></font></font>
+			</p>
+		</td>
+	</tr>
+</table>
+<p style="margin-bottom: 0cm; line-height: 100%">
+        <font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">Expand/reduce
+the following table as needed, listing publications relevant to your
+proposal.  List in reverse date order.  </span></i></font></font><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><b>Bold</b></i></font></font><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">
+your name in lists of authors.</span></i></font></font></p>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="596">
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="2" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">Peer-reviewed
+			journal articles</span></span></font></font></p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <ul>
+        {% for j in work_type_journal %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {{ publication_info(j, person_data) }}
+          </font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
+			<br/>
+
+			</p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="2" style="font-size: 11pt"><span style="font-style: normal"><span style="font-weight: normal">Peer
+			reviewed books</span></span></font></font></p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <ul>
+        {% for j in work_type_books %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {{ publication_info(j, person_data) }}
+          </font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
+			<br/>
+
+			</p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="2" style="font-size: 11pt"><span style="font-style: normal"><span style="font-weight: normal">Peer
+			reviewed book chapters, books edited</span></span></font></font></p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <ul>
+        {% for j in work_type_book_chapter %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {{ publication_info(j, person_data) }}
+          </font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
+			<br/>
+
+			</p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="2" style="font-size: 11pt"><span style="font-style: normal"><span style="font-weight: normal">Refereed
+			conference proceedings</span></span></font></font></p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <ul>
+        {% for j in work_type_conference %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {{ publication_info(j, person_data) }}
+          </font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
+			<br/>
+
+			</p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="2" style="font-size: 11pt"><span style="font-style: normal"><span style="font-weight: normal">Patents</span></span></font></font></p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <ul>
+        {% for j in work_type_patent %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {{ publication_info(j, person_data) }}
+          </font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
+			<br/>
+
+			</p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="2" style="font-size: 11pt"><span style="font-style: normal"><span style="font-weight: normal">Other
+			forms of dissemination (reports for clients, technical reports,
+			popular press, etc)</span></span></font></font></p>
+		</td>
+	</tr>
+	<tr>
+		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <ul>
+        {% for j in work_type_other %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {{ publication_info(j, person_data) }}
+          </font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
+			<br/>
+
+			</p>
+		</td>
+	</tr>
+</table>
+<p style="margin-bottom: 0cm; font-style: normal; line-height: 100%"><br/>
+
+</p>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="596">
+	<tr>
+		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>2b.
+			  Previous research work</b></span></font></font></p>
+		</td>
+	</tr>
+</table>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">Repeat
+and expand box below as necessary.</span></i></font></font></p>
+<table width="612" cellpadding="7" cellspacing="0">
+	<col width="596">
+	<tr>
+		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+			<p style="margin-bottom: 0cm"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Research
+			title:</b></span></font></font><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">
+			</span></span></font></font>
+			</p>
+			<p style="margin-bottom: 0cm"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Principal
+			outcome:</b></span></font></font><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">
+			</span></span></font></font>
+			</p>
+			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Principal
+			end-user and contact:</b></span></font></font><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">
+			</span></span></font></font>
+			</p>
+		</td>
+	</tr>
+</table>
+</body>
+</html>

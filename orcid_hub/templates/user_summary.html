@@ -1,15 +1,16 @@
 {% extends "layout.html" %}
+{% block title %}User Summary{% endblock %}
 {% block head %}
   {{ super() }}
-  <script type="text/javascript" src="https://www.google.com/jsapi"></script>
-  <script type="text/javascript">
-google.load("visualization", "1", {packages:["corechart"]});
+  <script src="https://www.google.com/jsapi"></script>
+  <script>
+    google.load("visualization", "1", {packages:["corechart"]});
 google.setOnLoadCallback(drawPieChart);
 function drawPieChart() {
   var data = google.visualization.arrayToDataTable([
-      ['Users','Count'],
-      ['Linked', {{total_linked_user_count}}],
-      ['Non-linked', {{total_user_count - total_linked_user_count}}],
+    ['Users','Count'],
+    ['Linked', {{total_linked_user_count}}],
+    ['Non-linked', {{total_user_count - total_linked_user_count}}],
   ]);
 
   var options = {
@@ -27,35 +28,42 @@ function drawPieChart() {
 {% block content %}
 
   <form method="GET">
-      <label for="from_date">From: </label>{{ form.from_date }}
-      <label for="from_to">To: </label>{{ form.to_date }}
-      <input type="submit" value="Select...">
+    <label for="from_date">From: </label>{{ form.from_date }}
+    <label for="to_date">To: </label>{{ form.to_date }}
+    <input type="submit" value="Select...">
   </form>
 
   <table class="table table-striped table-bordered table-hover model-list">
     <thead>
       <tr>
-        <th class="column-header">
-          Name
+        <th class="column-header"></th>
+        {%- for h, url in headers %}
+        <th class="column-header"><a href="{{url|safe}}" title="Sort by {{h}}">{{h}}
+          {%- if sort == loop.index0 %}
+            {%- if desc and desc == 1 %}
+              <span class="fa fa-chevron-up glyphicon glyphicon-chevron-up"></span>
+            {% else %}
+              <span class="fa fa-chevron-down glyphicon glyphicon-chevron-down"></span>
+            {% endif -%}
+          {% endif -%}</a>
         </th>
-        <th class="column-header">
-          Linked User Count / User Count (%)
-        </th>
+        {% endfor -%}
       </tr>
     </thead>
     <tbody>
       {%- for r in query %}
       <tr>
+        <td class="col-name" style="text-align: right;">{{loop.index}}.</td>
         <td class="col-name">{{r.name}}</td>
         <td class="col-user_count">{{r.linked_user_count}} / {{r.user_count}}
-        {%- if r.user_count %} ({{ "%0.0f%%" % (100 * r.linked_user_count / r.user_count) }}){% endif -%}
+        {%- if r.user_count %} ({{ "%0.0f%%" % (100 * r.linked_user_count / r.user_count if r.linked_user_count else 0.0) }}){% endif -%}
         </td>
       </tr>
     {% endfor %}
     </tbody>
     <tfoot>
       <tr>
-        <td class="column-footer"><strong>Total:</strong></td>
+        <td class="column-footer" colspan="2"><strong>Total:</strong></td>
         <td class="column-footer col-user_count">{{total_linked_user_count}} / {{total_user_count}}
         {%- if total_user_count %} ({{ "%0.0f%%" % (100 * total_linked_user_count / total_user_count) }}){% endif -%}
         </td>
@@ -63,5 +71,4 @@ function drawPieChart() {
     </tfoot>
   </table>
   <div id="piechart"></div>
-  </div>
 {% endblock %}

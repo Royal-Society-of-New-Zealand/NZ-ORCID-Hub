@@ -1,0 +1,1431 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                         xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"
+                         xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+                         xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+                         xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"
+                         xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"
+                         xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:dc="http://purl.org/dc/elements/1.1/"
+                         xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"
+                         xmlns:number="urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0"
+                         xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0"
+                         xmlns:chart="urn:oasis:names:tc:opendocument:xmlns:chart:1.0"
+                         xmlns:dr3d="urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0"
+                         xmlns:math="http://www.w3.org/1998/Math/MathML"
+                         xmlns:form="urn:oasis:names:tc:opendocument:xmlns:form:1.0"
+                         xmlns:script="urn:oasis:names:tc:opendocument:xmlns:script:1.0"
+                         xmlns:ooo="http://openoffice.org/2004/office" xmlns:ooow="http://openoffice.org/2004/writer"
+                         xmlns:oooc="http://openoffice.org/2004/calc" xmlns:dom="http://www.w3.org/2001/xml-events"
+                         xmlns:xforms="http://www.w3.org/2002/xforms" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                         xmlns:rpt="http://openoffice.org/2005/report"
+                         xmlns:of="urn:oasis:names:tc:opendocument:xmlns:of:1.2"
+                         xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:grddl="http://www.w3.org/2003/g/data-view#"
+                         xmlns:officeooo="http://openoffice.org/2009/office"
+                         xmlns:tableooo="http://openoffice.org/2009/table"
+                         xmlns:drawooo="http://openoffice.org/2010/draw"
+                         xmlns:calcext="urn:org:documentfoundation:names:experimental:calc:xmlns:calcext:1.0"
+                         xmlns:loext="urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0"
+                         xmlns:field="urn:openoffice:names:experimental:ooo-ms-interop:xmlns:field:1.0"
+                         xmlns:formx="urn:openoffice:names:experimental:ooxml-odf-interop:xmlns:form:1.0"
+                         xmlns:css3t="http://www.w3.org/TR/css3-text/" office:version="1.2">
+    <office:scripts/>
+    <office:font-face-decls>
+        <style:font-face style:name="OpenSymbol" svg:font-family="OpenSymbol" style:font-charset="x-symbol"/>
+        <style:font-face style:name="Arial" svg:font-family="Arial, serif"/>
+        <style:font-face style:name="FreeSans1" svg:font-family="FreeSans" style:font-family-generic="swiss"/>
+        <style:font-face style:name="Liberation Mono" svg:font-family="'Liberation Mono'"
+                         style:font-family-generic="modern" style:font-pitch="fixed"/>
+        <style:font-face style:name="Nimbus Mono L" svg:font-family="'Nimbus Mono L'"
+                         style:font-family-generic="modern" style:font-pitch="fixed"/>
+        <style:font-face style:name="Liberation Serif" svg:font-family="'Liberation Serif'"
+                         style:font-family-generic="roman" style:font-pitch="variable"/>
+        <style:font-face style:name="Thorndale" svg:font-family="Thorndale" style:font-family-generic="roman"
+                         style:font-pitch="variable"/>
+        <style:font-face style:name="Albany" svg:font-family="Albany" style:font-family-generic="swiss"
+                         style:font-pitch="variable"/>
+        <style:font-face style:name="FreeSans" svg:font-family="FreeSans" style:font-family-generic="system"
+                         style:font-pitch="variable"/>
+        <style:font-face style:name="Noto Sans CJK SC Regular" svg:font-family="'Noto Sans CJK SC Regular'"
+                         style:font-family-generic="system" style:font-pitch="variable"/>
+    </office:font-face-decls>
+    <office:automatic-styles>
+        <style:style style:name="Table1" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table1.A" style:family="table-column">
+            <style:table-column-properties style:column-width="3.78cm"/>
+        </style:style>
+        <style:style style:name="Table1.B" style:family="table-column">
+            <style:table-column-properties style:column-width="0.619cm"/>
+        </style:style>
+        <style:style style:name="Table1.D" style:family="table-column">
+            <style:table-column-properties style:column-width="1.381cm"/>
+        </style:style>
+        <style:style style:name="Table1.F" style:family="table-column">
+            <style:table-column-properties style:column-width="0.884cm"/>
+        </style:style>
+        <style:style style:name="Table1.G" style:family="table-column">
+            <style:table-column-properties style:column-width="2.166cm"/>
+        </style:style>
+        <style:style style:name="Table1.H" style:family="table-column">
+            <style:table-column-properties style:column-width="2.558cm"/>
+        </style:style>
+        <style:style style:name="Table1.I" style:family="table-column">
+            <style:table-column-properties style:column-width="2.798cm"/>
+        </style:style>
+        <style:style style:name="Table1.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table1.2" style:family="table-row">
+            <style:table-row-properties style:min-row-height="0.847cm"/>
+        </style:style>
+        <style:style style:name="Table1.B2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.D2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.F2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.I2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.E3" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.E4" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.5" style:family="table-row">
+            <style:table-row-properties style:min-row-height="0.476cm"/>
+        </style:style>
+        <style:style style:name="Table1.C5" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.A6" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.I6" style:family="table-cell">
+            <style:table-cell-properties fo:padding="0.185cm" fo:border="none"/>
+        </style:style>
+        <style:style style:name="Table1.A7" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.H7" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.I7" style:family="table-cell">
+            <style:table-cell-properties fo:padding="0.185cm" fo:border="none"/>
+        </style:style>
+        <style:style style:name="Table1.C8" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.H8" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.C9" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table1.C10" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table2" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table2.A" style:family="table-column">
+            <style:table-column-properties style:column-width="16.193cm"/>
+        </style:style>
+        <style:style style:name="Table2.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table3" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table3.A" style:family="table-column">
+            <style:table-column-properties style:column-width="16.193cm"/>
+        </style:style>
+        <style:style style:name="Table3.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table4" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table4.A" style:family="table-column">
+            <style:table-column-properties style:column-width="16.193cm"/>
+        </style:style>
+        <style:style style:name="Table4.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table5" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table5.A" style:family="table-column">
+            <style:table-column-properties style:column-width="9.737cm"/>
+        </style:style>
+        <style:style style:name="Table5.B" style:family="table-column">
+            <style:table-column-properties style:column-width="6.456cm"/>
+        </style:style>
+        <style:style style:name="Table5.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table5.B1" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table6" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table6.A" style:family="table-column">
+            <style:table-column-properties style:column-width="16.193cm"/>
+        </style:style>
+        <style:style style:name="Table6.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table7" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table7.A" style:family="table-column">
+            <style:table-column-properties style:column-width="4.881cm"/>
+        </style:style>
+        <style:style style:name="Table7.B" style:family="table-column">
+            <style:table-column-properties style:column-width="1.914cm"/>
+        </style:style>
+        <style:style style:name="Table7.D" style:family="table-column">
+            <style:table-column-properties style:column-width="2.796cm"/>
+        </style:style>
+        <style:style style:name="Table7.E" style:family="table-column">
+            <style:table-column-properties style:column-width="2.748cm"/>
+        </style:style>
+        <style:style style:name="Table7.F" style:family="table-column">
+            <style:table-column-properties style:column-width="1.94cm"/>
+        </style:style>
+        <style:style style:name="Table7.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table7.B2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table7.C2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table7.D2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table7.E2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table7.F2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table8" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table8.A" style:family="table-column">
+            <style:table-column-properties style:column-width="16.193cm"/>
+        </style:style>
+        <style:style style:name="Table8.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table9" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table9.A" style:family="table-column">
+            <style:table-column-properties style:column-width="16.193cm"/>
+        </style:style>
+        <style:style style:name="Table9.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table9.A2" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table9.A4" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table9.A6" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table9.A8" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table9.A10" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table9.A12" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="Table10" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table10.A" style:family="table-column">
+            <style:table-column-properties style:column-width="16.193cm"/>
+        </style:style>
+        <style:style style:name="Table10.A1" style:family="table-cell">
+            <style:table-cell-properties fo:background-color="#e0e0e0" fo:padding-left="0.191cm"
+                                         fo:padding-right="0.191cm" fo:padding-top="0.049cm" fo:padding-bottom="0.049cm"
+                                         fo:border="0.05pt solid #000001">
+                <style:background-image/>
+            </style:table-cell-properties>
+        </style:style>
+        <style:style style:name="Table11" style:family="table">
+            <style:table-properties style:width="16.193cm" table:align="left"/>
+        </style:style>
+        <style:style style:name="Table11.A" style:family="table-column">
+            <style:table-column-properties style:column-width="16.193cm"/>
+        </style:style>
+        <style:style style:name="Table11.A1" style:family="table-cell">
+            <style:table-cell-properties fo:padding-left="0.191cm" fo:padding-right="0.191cm" fo:padding-top="0.049cm"
+                                         fo:padding-bottom="0.049cm" fo:border="0.05pt solid #000001"/>
+        </style:style>
+        <style:style style:name="P1" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:paragraph-properties fo:text-align="center" style:justify-single-word="false"/>
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none" fo:font-style="normal"
+                                   fo:font-weight="normal"/>
+        </style:style>
+        <style:style style:name="P2" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none" style:font-name="Arial"
+                                   fo:font-size="12pt" fo:font-style="normal" fo:font-weight="bold"/>
+        </style:style>
+        <style:style style:name="P3" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:paragraph-properties fo:text-align="justify" style:justify-single-word="false"/>
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none" style:font-name="Arial"
+                                   fo:font-size="12pt" fo:font-style="normal" fo:font-weight="bold"/>
+        </style:style>
+        <style:style style:name="P4" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none" style:font-name="Arial"
+                                   fo:font-size="12pt" fo:font-style="normal" fo:font-weight="normal"/>
+        </style:style>
+        <style:style style:name="P5" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:paragraph-properties fo:text-align="center" style:justify-single-word="false"/>
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none" style:font-name="Arial"
+                                   fo:font-size="12pt" fo:font-style="normal" fo:font-weight="normal"/>
+        </style:style>
+        <style:style style:name="P6" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:paragraph-properties fo:text-align="end" style:justify-single-word="false"/>
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none" style:font-name="Arial"
+                                   fo:font-size="12pt" fo:font-style="italic" fo:font-weight="normal"/>
+        </style:style>
+        <style:style style:name="P7" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none" style:font-name="Arial"
+                                   fo:font-size="11pt" fo:font-style="normal" fo:font-weight="normal"/>
+        </style:style>
+        <style:style style:name="P8" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:text-properties style:font-name="Arial" fo:font-size="9pt" fo:font-style="italic"/>
+        </style:style>
+        <style:style style:name="P9" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:text-properties style:font-name="Arial" fo:font-size="12pt"/>
+        </style:style>
+        <style:style style:name="P10" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:text-properties fo:font-size="2pt" style:font-size-asian="2pt" style:font-size-complex="2pt"/>
+        </style:style>
+        <style:style style:name="P11" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L3"/>
+        <style:style style:name="P12" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L4"/>
+        <style:style style:name="P13" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L5"/>
+        <style:style style:name="P14" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L6"/>
+        <style:style style:name="P15" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L7"/>
+        <style:style style:name="P16" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L8"/>
+        <style:style style:name="P17" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P18" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L3">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P19" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L4">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P20" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L5">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P21" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L6">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P22" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L7">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P23" style:family="paragraph" style:parent-style-name="Table_20_Contents"
+                     style:list-style-name="L8">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P24" style:family="paragraph" style:parent-style-name="Table_20_Contents">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="1cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P25" style:family="paragraph" style:parent-style-name="Preformatted_20_Text"
+                     style:master-page-name="HTML">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0.499cm" loext:contextual-spacing="false"
+                                        style:page-number="auto"/>
+        </style:style>
+        <style:style style:name="P26" style:family="paragraph" style:parent-style-name="Text_20_body"
+                     style:list-style-name="L1"/>
+        <style:style style:name="P27" style:family="paragraph" style:parent-style-name="Text_20_body"
+                     style:list-style-name="L2"/>
+        <style:style style:name="P28" style:family="paragraph" style:parent-style-name="Text_20_body">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0.21cm" loext:contextual-spacing="false"
+                                        style:line-height-at-least="0.46cm" fo:text-align="center"
+                                        style:justify-single-word="false"/>
+            <style:text-properties style:font-name="Arial" fo:font-size="14pt"/>
+        </style:style>
+        <style:style style:name="P29" style:family="paragraph" style:parent-style-name="Text_20_body">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"
+                                        fo:line-height="100%"/>
+            <style:text-properties style:font-name="Arial" fo:font-size="9pt" fo:font-style="italic"
+                                   fo:font-weight="normal"/>
+        </style:style>
+        <style:style style:name="P30" style:family="paragraph" style:parent-style-name="Text_20_body">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"
+                                        fo:line-height="100%"/>
+            <style:text-properties style:font-name="Arial" fo:font-size="9pt"/>
+        </style:style>
+        <style:style style:name="P31" style:family="paragraph" style:parent-style-name="Text_20_body">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"
+                                        fo:line-height="100%"/>
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none" style:font-name="Arial"
+                                   fo:font-size="12pt" fo:font-style="normal" fo:font-weight="bold"/>
+        </style:style>
+        <style:style style:name="P32" style:family="paragraph" style:parent-style-name="Text_20_body">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"
+                                        fo:line-height="100%"/>
+        </style:style>
+        <style:style style:name="P33" style:family="paragraph" style:parent-style-name="Text_20_body"
+                     style:list-style-name="L1">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P34" style:family="paragraph" style:parent-style-name="Text_20_body"
+                     style:list-style-name="L2">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"/>
+        </style:style>
+        <style:style style:name="P35" style:family="paragraph" style:parent-style-name="Text_20_body">
+            <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" loext:contextual-spacing="false"
+                                        fo:line-height="100%" fo:break-before="page"/>
+            <style:text-properties style:font-name="Arial" fo:font-size="9pt" fo:font-style="italic"
+                                   fo:font-weight="normal"/>
+        </style:style>
+        <style:style style:name="T1" style:family="text">
+            <style:text-properties fo:font-weight="bold"/>
+        </style:style>
+        <style:style style:name="T2" style:family="text">
+            <style:text-properties style:font-name="Arial" fo:font-size="12pt"/>
+        </style:style>
+        <style:style style:name="T3" style:family="text">
+            <style:text-properties style:font-name="Arial" fo:font-size="12pt" fo:font-style="italic"
+                                   fo:font-weight="bold"/>
+        </style:style>
+        <style:style style:name="T4" style:family="text">
+            <style:text-properties style:font-name="Arial" fo:font-size="9pt" fo:font-style="italic"/>
+        </style:style>
+        <style:style style:name="T5" style:family="text">
+            <style:text-properties style:font-name="Arial" fo:font-size="9pt" fo:font-style="italic"
+                                   fo:font-weight="normal"/>
+        </style:style>
+        <style:style style:name="T6" style:family="text">
+            <style:text-properties style:font-name="Arial" fo:font-size="9pt" fo:font-style="italic"
+                                   fo:font-weight="bold"/>
+        </style:style>
+        <style:style style:name="T7" style:family="text">
+            <style:text-properties style:font-name="Arial" fo:font-size="11pt"/>
+        </style:style>
+        <style:style style:name="T8" style:family="text">
+            <style:text-properties style:font-name="Arial" fo:font-size="11pt" fo:font-style="italic"/>
+        </style:style>
+        <style:style style:name="T9" style:family="text">
+            <style:text-properties fo:font-style="italic" fo:font-weight="normal"/>
+        </style:style>
+        <style:style style:name="T10" style:family="text">
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none"/>
+        </style:style>
+        <style:style style:name="T11" style:family="text">
+            <style:text-properties fo:font-variant="normal" fo:text-transform="none" style:font-name="Arial"
+                                   fo:font-size="12pt" fo:font-style="normal" fo:font-weight="bold"/>
+        </style:style>
+        <text:list-style style:name="L1">
+            <text:list-level-style-bullet text:level="1" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="0.748cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="2" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="1.995cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="3" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="3.242cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="4" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="4.489cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="5" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="5.736cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="6" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="6.983cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="7" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="8.23cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="8" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="9.478cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="9" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="10.725cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="10" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="11.972cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+        </text:list-style>
+        <text:list-style style:name="L2">
+            <text:list-level-style-bullet text:level="1" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="0.748cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="2" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="1.995cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="3" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="3.242cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="4" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="4.489cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="5" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="5.736cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="6" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="6.983cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="7" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="8.23cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="8" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="9.478cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="9" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="10.725cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="10" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="11.972cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+        </text:list-style>
+        <text:list-style style:name="L3">
+            <text:list-level-style-bullet text:level="1" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="0.748cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="2" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="1.995cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="3" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="3.242cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="4" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="4.489cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="5" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="5.736cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="6" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="6.983cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="7" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="8.23cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="8" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="9.478cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="9" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="10.725cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="10" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="11.972cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+        </text:list-style>
+        <text:list-style style:name="L4">
+            <text:list-level-style-bullet text:level="1" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="0.748cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="2" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="1.995cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="3" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="3.242cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="4" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="4.489cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="5" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="5.736cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="6" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="6.983cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="7" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="8.23cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="8" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="9.478cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="9" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="10.725cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="10" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="11.972cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+        </text:list-style>
+        <text:list-style style:name="L5">
+            <text:list-level-style-bullet text:level="1" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="0.748cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="2" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="1.995cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="3" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="3.242cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="4" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="4.489cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="5" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="5.736cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="6" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="6.983cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="7" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="8.23cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="8" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="9.478cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="9" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="10.725cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="10" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="11.972cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+        </text:list-style>
+        <text:list-style style:name="L6">
+            <text:list-level-style-bullet text:level="1" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="0.748cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="2" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="1.995cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="3" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="3.242cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="4" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="4.489cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="5" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="5.736cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="6" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="6.983cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="7" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="8.23cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="8" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="9.478cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="9" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="10.725cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="10" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="11.972cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+        </text:list-style>
+        <text:list-style style:name="L7">
+            <text:list-level-style-bullet text:level="1" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="0.748cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="2" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="1.995cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="3" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="3.242cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="4" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="4.489cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="5" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="5.736cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="6" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="6.983cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="7" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="8.23cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="8" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="9.478cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="9" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="10.725cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="10" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="11.972cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+        </text:list-style>
+        <text:list-style style:name="L8">
+            <text:list-level-style-bullet text:level="1" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="0.748cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="2" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="1.995cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="3" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="3.242cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="4" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="4.489cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="5" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="5.736cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="6" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="6.983cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="7" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="8.23cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="8" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="9.478cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="9" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="10.725cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+            <text:list-level-style-bullet text:level="10" text:style-name="Bullet_20_Symbols" style:num-suffix="."
+                                          text:bullet-char="•">
+                <style:list-level-properties text:space-before="11.972cm" text:min-label-width="0.499cm"/>
+            </text:list-level-style-bullet>
+        </text:list-style>
+    </office:automatic-styles>
+    <office:body>
+        {% from "macros.html" import publication_info %}
+        <office:text text:use-soft-page-breaks="true">
+            <text:sequence-decls>
+                <text:sequence-decl text:display-outline-level="0" text:name="Illustration"/>
+                <text:sequence-decl text:display-outline-level="0" text:name="Table"/>
+                <text:sequence-decl text:display-outline-level="0" text:name="Text"/>
+                <text:sequence-decl text:display-outline-level="0" text:name="Drawing"/>
+            </text:sequence-decls>
+            <text:p text:style-name="P28">
+                <text:span text:style-name="T1">New Zealand Standard Curriculum Vitae Template</text:span>
+            </text:p>
+            <text:p text:style-name="P29">Rows and columns may be expanded or reduced, but a CV must be no more than two
+                pages for part 1 and no more than three pages for part 2. Use Arial 12 point font. Do not alter page
+                margins. Instructions in italics should be deleted before you submit your CV.
+            </text:p>
+            <text:p text:style-name="P31">PART 1</text:p>
+            <table:table table:name="Table1" table:style-name="Table1">
+                <table:table-column table:style-name="Table1.A"/>
+                <table:table-column table:style-name="Table1.B" table:number-columns-repeated="2"/>
+                <table:table-column table:style-name="Table1.D" table:number-columns-repeated="2"/>
+                <table:table-column table:style-name="Table1.F"/>
+                <table:table-column table:style-name="Table1.G"/>
+                <table:table-column table:style-name="Table1.H"/>
+                <table:table-column table:style-name="Table1.I"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table1.A1" table:number-columns-spanned="9"
+                                      office:value-type="string">
+                        <text:p text:style-name="P2">1a. Personal details</text:p>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                </table:table-row>
+                <table:table-row table:style-name="Table1.2">
+                    <table:table-cell table:style-name="Table1.A1" office:value-type="string">
+                        <text:p text:style-name="P2">Full name</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table1.B2" table:number-columns-spanned="2"
+                                      office:value-type="string">
+                        <text:p text:style-name="P8">Title</text:p>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.D2" table:number-columns-spanned="2"
+                                      office:value-type="string">
+                        {% if person_data.get('first_name') %}
+                            <text:p text:style-name="P9">{{person_data.get('first_name', '')}}</text:p>
+                        {% else %}
+                            <text:p text:style-name="P8">First Name</text:p>
+                        {% endif %}
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.F2" table:number-columns-spanned="3"
+                                      office:value-type="string">
+                        {% if person_data.get('second_names') %}
+                            {% for s in person_data.get('second_names') %}
+                                <text:p text:style-name="P9">{{s}}</text:p>
+                            {% endfor %}
+                        {% else %}
+                            <text:p text:style-name="P8">Second name(s)</text:p>
+                        {% endif %}
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.I2" office:value-type="string">
+                        {% if person_data.get('family_name') %}
+                            <text:p text:style-name="P9">{{person_data.get('family_name', '')}}</text:p>
+                        {% else %}
+                            <text:p text:style-name="P8">Family Name</text:p>
+                        {% endif %}
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table1.A1" table:number-columns-spanned="4"
+                                      office:value-type="string">
+                        <text:p text:style-name="P2">Present position</text:p>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.E3" table:number-columns-spanned="5"
+                                      office:value-type="string">
+                        {% if employments %}
+                            <text:p text:style-name="P9">{{ employments[0] | year_range }}, {{
+                                employments[0].get('role-title') }}, {{ employments[0].get('department-name') }}, {{
+                                employments[0].get('organization', 'name') }}
+                            </text:p>
+                        {% else %}
+                            <text:p text:style-name="Table_20_Contents"/>
+                        {% endif %}
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table1.A1" table:number-columns-spanned="4"
+                                      office:value-type="string">
+                        <text:p text:style-name="P2">Organisation/Employer</text:p>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.E4" table:number-columns-spanned="5"
+                                      office:value-type="string">
+                        <text:p text:style-name="P9">{{ user.organisation.name }}</text:p>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                </table:table-row>
+                <table:table-row table:style-name="Table1.5">
+                    <table:table-cell table:style-name="Table1.A1" table:number-columns-spanned="2"
+                                      office:value-type="string">
+                        <text:p text:style-name="P2">Contact Address</text:p>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.C5" table:number-columns-spanned="7"
+                                      office:value-type="string">
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                </table:table-row>
+                {% for c in person_data.get('address')%}
+                    <table:table-row>
+                        <table:table-cell table:style-name="Table1.C8" table:number-columns-spanned="6"
+                                          office:value-type="string">
+                            <text:p text:style-name="P9">Country: {{c}}.</text:p>
+                        </table:table-cell>
+                        <table:covered-table-cell/>
+                        <table:covered-table-cell/>
+                        <table:covered-table-cell/>
+                        <table:covered-table-cell/>
+                        <table:covered-table-cell/>
+                        <table:table-cell table:style-name="Table1.A1" office:value-type="string">
+                            <text:p text:style-name="P2">Post code</text:p>
+                        </table:table-cell>
+                        <table:table-cell table:style-name="Table1.H8" table:number-columns-spanned="2"
+                                          office:value-type="string">
+                            <text:p text:style-name="Table_20_Contents"/>
+                        </table:table-cell>
+                        <table:covered-table-cell/>
+                    </table:table-row>
+                {% endfor %}
+                <table:table-row>
+                    <table:table-cell table:style-name="Table1.A1" table:number-columns-spanned="2"
+                                      office:value-type="string">
+                        <text:p text:style-name="P3">Work telephone</text:p>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.C8" table:number-columns-spanned="4"
+                                      office:value-type="string">
+                        <text:p text:style-name="Table_20_Contents"/>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.A1" office:value-type="string">
+                        <text:p text:style-name="P2">Mobile</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table1.H8" table:number-columns-spanned="2"
+                                      office:value-type="string">
+                        <text:p text:style-name="Table_20_Contents"/>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table1.A1" table:number-columns-spanned="2"
+                                      office:value-type="string">
+                        <text:p text:style-name="P2">Email</text:p>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.C9" table:number-columns-spanned="7"
+                                      office:value-type="string">
+                        {% for e in person_data.get('emails') %}
+                        <text:p text:style-name="P9">{{e}}</text:p>
+                        {% endfor %}
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table1.A1" table:number-columns-spanned="2"
+                                      office:value-type="string">
+                        <text:p text:style-name="P2">Personal website (if applicable)</text:p>
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table1.C10" table:number-columns-spanned="7"
+                                      office:value-type="string">
+                        {% if person_data.get('researcher_urls')%}
+                        {% for r in person_data.get('researcher_urls') %}
+                        <text:p text:style-name="Table_20_Contents">
+                            <text:a xlink:type="simple" xlink:href="{{r}}" text:style-name="Internet_20_link"
+                                    text:visited-style-name="Visited_20_Internet_20_Link">
+                                <text:span text:style-name="T2">{{r}}</text:span>
+                            </text:a>
+                        </text:p>
+                        {% endfor %}
+                        {% else %}
+                        <text:p text:style-name="Table_20_Contents">
+                            <text:a xlink:type="simple" xlink:href="../" text:style-name="Internet_20_link"
+                                    text:visited-style-name="Visited_20_Internet_20_Link">
+                                <text:span text:style-name="T4">http://</text:span>
+                            </text:a>
+                        </text:p>
+                        {% endif %}
+                    </table:table-cell>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                    <table:covered-table-cell/>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P32"/>
+            <table:table table:name="Table2" table:style-name="Table2">
+                <table:table-column table:style-name="Table2.A"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table2.A1" office:value-type="string">
+                        <text:p text:style-name="P2">1b. Academic qualifications</text:p>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P30">[ <text:span text:style-name="T9">Delete and start typing here. List in
+                reverse date order.Start each qualification on a new line as per the example:</text:span>]
+            </text:p>
+            <text:p text:style-name="P30">[<text:span text:style-name="T9">e.g. Year conferred, qualification,
+                discipline, university/institute.</text:span>]
+            </text:p>
+            <text:p text:style-name="P32"/>
+            <text:list xml:id="list1179305154478262520" text:style-name="L1">
+                <text:list-header>
+                </text:list-header>
+                {% for e in educations %}
+                <text:list-item>
+                    <text:p text:style-name="P26">
+                        <text:span text:style-name="T2">{{ e | year_range }}, {{ e.get('role-title') }}, {{
+                            e.get('department-name') }}, {{ e.get('organization', 'name')
+                            }}
+                        </text:span>
+                    </text:p>
+                </text:list-item>
+                {% endfor %}
+            </text:list>
+            <table:table table:name="Table3" table:style-name="Table3">
+                <table:table-column table:style-name="Table3.A"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table3.A1" office:value-type="string">
+                        <text:p text:style-name="P2">1c. Professional positions held</text:p>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P29">Delete and start typing here. List in reverse date order. Start each position
+                on a new line as per the example:
+            </text:p>
+            <text:p text:style-name="P29">e.g. Year-year, job title, organisation.</text:p>
+            <text:p text:style-name="P32"/>
+            <text:list xml:id="list6633136904849268246" text:style-name="L1">
+                <text:list-header>
+                </text:list-header>
+                {% for e in employments %}
+                <text:list-item>
+                    <text:p text:style-name="P27">
+                        <text:span text:style-name="T2">{{ e | year_range }}, {{ e.get('role-title') }}, {{
+                            e.get('department-name') }}, {{ e.get('organization', 'name')
+                            }}
+                        </text:span>
+                    </text:p>
+                </text:list-item>
+                {% endfor %}
+            </text:list>
+            <table:table table:name="Table4" table:style-name="Table4">
+                <table:table-column table:style-name="Table4.A"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table4.A1" office:value-type="string">
+                        <text:p text:style-name="P2">1d. Present research/professional speciality</text:p>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P30">[<text:span text:style-name="T9">Delete and start typing here.</text:span>]
+            </text:p>
+            {% if record and record.get("person", "biography", "content") %}
+                <text:p text:style-name="P9">{{record.get("person", "biography", "content")}}</text:p>
+            {% else %}
+                <text:p text:style-name="P32"/>
+            {% endif %}
+            <table:table table:name="Table5" table:style-name="Table5">
+                <table:table-column table:style-name="Table5.A"/>
+                <table:table-column table:style-name="Table5.B"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table5.A1" office:value-type="string">
+                        <text:p text:style-name="P2">1e. Total years research experience</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table5.B1" office:value-type="string">
+                        <text:p text:style-name="P6">years</text:p>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P29">List any significant interruptions to your career (e.g. sickness, parental
+                leave). Delete and start typing here.
+            </text:p>
+            <text:p text:style-name="P32"/>
+            <table:table table:name="Table6" table:style-name="Table6">
+                <table:table-column table:style-name="Table6.A"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table6.A1" office:value-type="string">
+                        <text:p text:style-name="P2">1f. Professional distinctions and memberships (including honours,
+                            prizes, scholarships, boards or governance roles, etc)
+                        </text:p>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P29">Delete and start typing here. List in reverse date order. Start each
+                professional distinction on a new line as per the example:
+            </text:p>
+            <text:p text:style-name="P29">e.g. Year / year-year, distinction.</text:p>
+            <text:p text:style-name="P32"/>
+            <table:table table:name="Table7" table:style-name="Table7">
+                <table:table-column table:style-name="Table7.A"/>
+                <table:table-column table:style-name="Table7.B" table:number-columns-repeated="2"/>
+                <table:table-column table:style-name="Table7.D"/>
+                <table:table-column table:style-name="Table7.E"/>
+                <table:table-column table:style-name="Table7.F"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table7.A1" table:number-rows-spanned="2"
+                                      office:value-type="string">
+                        <text:p text:style-name="Table_20_Contents">
+                            <text:span text:style-name="T11">1g. Total number of</text:span>
+                            <text:span text:style-name="T3">peer reviewed</text:span>
+                            <text:span text:style-name="T10"></text:span>
+                            <text:span text:style-name="T11">publications and patents</text:span>
+                        </text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table7.A1" office:value-type="string">
+                        <text:p text:style-name="P5">Journal articles</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table7.A1" office:value-type="string">
+                        <text:p text:style-name="P5">Books</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table7.A1" office:value-type="string">
+                        <text:p text:style-name="P5">Book chapters, books edited</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table7.A1" office:value-type="string">
+                        <text:p text:style-name="P5">Conference proceedings</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table7.A1" office:value-type="string">
+                        <text:p text:style-name="P5">Patents</text:p>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:covered-table-cell/>
+                    <table:table-cell table:style-name="Table7.B2" office:value-type="string">
+                        <text:p text:style-name="P1">{{work_type_journal|length}}</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table7.C2" office:value-type="string">
+                        <text:p text:style-name="P1">{{work_type_books|length}}</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table7.D2" office:value-type="string">
+                        <text:p text:style-name="P1">{{work_type_book_chapter|length}}</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table7.E2" office:value-type="string">
+                        <text:p text:style-name="P1">{{work_type_conference|length}}</text:p>
+                    </table:table-cell>
+                    <table:table-cell table:style-name="Table7.F2" office:value-type="string">
+                        <text:p text:style-name="P1">{{work_type_patent|length}}</text:p>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P32"/>
+            <text:p text:style-name="P32"/>
+            <text:p text:style-name="P35"><text:soft-page-break/>Part 2 should include information pertinent to your
+                research proposal. The following sections should not total more than three pages.
+            </text:p>
+            <text:p text:style-name="P31">PART 2</text:p>
+            <table:table table:name="Table8" table:style-name="Table8">
+                <table:table-column table:style-name="Table8.A"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table8.A1" office:value-type="string">
+                        <text:p text:style-name="Table_20_Contents">
+                            <text:span text:style-name="T11">2a. Research publications and dissemination</text:span>
+                        </text:p>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P32">
+                <text:span text:style-name="T5">Expand/reduce the following table as needed, listing publications
+                    relevant to your proposal. List in reverse date order.
+                </text:span>
+                <text:span text:style-name="T6">Bold</text:span>
+                <text:span text:style-name="T5">your name in lists of authors.</text:span>
+            </text:p>
+            <table:table table:name="Table9" table:style-name="Table9">
+                <table:table-column table:style-name="Table9.A"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A1" office:value-type="string">
+                        <text:p text:style-name="P4">Peer-reviewed journal articles</text:p>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A2" office:value-type="string">
+                        <text:list xml:id="list1048368879322573940" text:style-name="L3">
+                            <text:list-header>
+                            </text:list-header>
+                            {% for j in work_type_journal %}
+                            <text:list-item>
+                                <text:p text:style-name="P11">
+                                    <text:span text:style-name="T2">
+                                        {{ publication_info(j, person_data) }}
+                                    </text:span>
+                                </text:p>
+                            </text:list-item>
+                            {% endfor %}
+                        </text:list>
+                        <text:p text:style-name="P24"/>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A1" office:value-type="string">
+                        <text:p text:style-name="P7">Peer reviewed books</text:p>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A4" office:value-type="string">
+                        <text:list xml:id="list6811430355130311405" text:style-name="L4">
+                            <text:list-header>
+                            </text:list-header>
+                            {% for j in work_type_books %}
+                            <text:list-item>
+                                <text:p text:style-name="P11">
+                                    <text:span text:style-name="T2">
+                                        {{ publication_info(j, person_data) }}
+                                    </text:span>
+                                </text:p>
+                            </text:list-item>
+                            {% endfor %}
+                        </text:list>
+                        <text:p text:style-name="P24"/>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A1" office:value-type="string">
+                        <text:p text:style-name="P7">Peer reviewed book chapters, books edited</text:p>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A6" office:value-type="string">
+                        <text:list xml:id="list3417250935646238099" text:style-name="L5">
+                            <text:list-header>
+                            </text:list-header>
+                            {% for j in work_type_book_chapter %}
+                            <text:list-item>
+                                <text:p text:style-name="P11">
+                                    <text:span text:style-name="T2">
+                                        {{ publication_info(j, person_data) }}
+                                    </text:span>
+                                </text:p>
+                            </text:list-item>
+                            {% endfor %}
+                        </text:list>
+                        <text:p text:style-name="P24"/>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A1" office:value-type="string">
+                        <text:p text:style-name="P7">Refereed conference proceedings</text:p>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A8" office:value-type="string">
+                        <text:list xml:id="list611515434044505258" text:style-name="L6">
+                            <text:list-header>
+                            </text:list-header>
+                            {% for j in work_type_conference %}
+                            <text:list-item>
+                                <text:p text:style-name="P11">
+                                    <text:span text:style-name="T2">
+                                        {{ publication_info(j, person_data) }}
+                                    </text:span>
+                                </text:p>
+                            </text:list-item>
+                            {% endfor %}
+                        </text:list>
+                        <text:p text:style-name="P24"/>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A1" office:value-type="string">
+                        <text:p text:style-name="P7">Patents</text:p>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A10" office:value-type="string">
+                        <text:list xml:id="list949364617185055974" text:style-name="L7">
+                            <text:list-header>
+                            </text:list-header>
+                            {% for j in work_type_patent %}
+                            <text:list-item>
+                                <text:p text:style-name="P11">
+                                    <text:span text:style-name="T2">
+                                        {{ publication_info(j, person_data) }}
+                                    </text:span>
+                                </text:p>
+                            </text:list-item>
+                            {% endfor %}
+                        </text:list>
+                        <text:p text:style-name="P24"/>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A1" office:value-type="string">
+                        <text:p text:style-name="P7">Other forms of dissemination (reports for clients, technical
+                            reports, popular press, etc)
+                        </text:p>
+                    </table:table-cell>
+                </table:table-row>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table9.A12" office:value-type="string">
+                        <text:list xml:id="list5063019132967650872" text:style-name="L8">
+                            <text:list-header>
+                            </text:list-header>
+                            {% for j in work_type_other %}
+                            <text:list-item>
+                                <text:p text:style-name="P11">
+                                    <text:span text:style-name="T2">
+                                        {{ publication_info(j, person_data) }}
+                                    </text:span>
+                                </text:p>
+                            </text:list-item>
+                            {% endfor %}
+                        </text:list>
+                        <text:p text:style-name="P24"/>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P32"/>
+            <table:table table:name="Table10" table:style-name="Table10">
+                <table:table-column table:style-name="Table10.A"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table10.A1" office:value-type="string">
+                        <text:p text:style-name="P2">2b. Previous research work</text:p>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="P29">Repeat and expand box below as necessary.</text:p>
+            <table:table table:name="Table11" table:style-name="Table11">
+                <table:table-column table:style-name="Table11.A"/>
+                <table:table-row>
+                    <table:table-cell table:style-name="Table11.A1" office:value-type="string">
+                        <text:p text:style-name="P17">
+                            <text:span text:style-name="T11">Research title:</text:span>
+                            <text:span text:style-name="T10"></text:span>
+                        </text:p>
+                        <text:p text:style-name="P17">
+                            <text:span text:style-name="T11">Principal outcome:</text:span>
+                            <text:span text:style-name="T10"></text:span>
+                        </text:p>
+                        <text:p text:style-name="Table_20_Contents">
+                            <text:span text:style-name="T11">Principal end-user and contact:</text:span>
+                            <text:span text:style-name="T10"></text:span>
+                        </text:p>
+                    </table:table-cell>
+                </table:table-row>
+            </table:table>
+            <text:p text:style-name="Text_20_body"/>
+        </office:text>
+    </office:body>
+</office:document-content>

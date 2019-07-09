@@ -1,11 +1,13 @@
-version: '2.1'
+version: '3.5'
+
 services:
+
   db:
-    image: postgres:9.6
+    image: postgres:11.4
     environment:
-      - POSTGRES_PASSWORD
       - PGPASSWORD
-    domainname: orcidhub.org.nz
+      - POSTGRES_PASSWORD="${PGPASSWORD:-p455w0rd}"
+    domainname: ${DOMAINNAME:-orcidhub.org.nz}
     hostname: db
     ports:
       - "${PGPORT:-5432}:5432"
@@ -16,105 +18,81 @@ services:
       - ./backup:/backup
       - ./archive:/archive
       - ${HOME}:${HOME}
-    user: "${USER_UID:-500}:${USER_GID:-500}"
+    user: "${UID:-500}:${GID:-500}"
     restart: always
 
   app:
     depends_on:
       - db
-      - sentry
+      - redis
     image: orcidhub/app-dev
     environment:
       - ENV
-      - SHIB_SP_DOMAINNAME
-      - TOKEN_PASSWORD_SALT
+      # - SHIB_SP_DOMAINNAME
       - MAIL_DEFAULT_SENDER
-      - TOKEN_SECRET_KEY
-      - DATABASE_URL
       - SECRET_KEY
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
       - SENTRY_DSN
-    domainname: orcidhub.org.nz
+      - LOAD_TEST
+      - EXTERNAL_SP
+    domainname: ${DOMAINNAME:-orcidhub.org.nz}
     hostname: app
     ports:
-      - "${EXTERNAL_PORT:-80}:80"
-      - "${EXTERNAL_SSL_PORT:-443}:443"
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
       - .:/src
       - .:/var/www/orcidhub/
       - ./run-app:/usr/local/bin/run-app
       - ./app.conf:/etc/httpd/conf.d/ZZ-app.conf
-      - ./conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
       - ./tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem
       - ./tuakiri-metadata-cert.pem:/etc/shibboleth/tuakiri-metadata-cert.pem
       - ./.keys:/.keys
       - ./conf:/conf
     restart: always
+    networks:
+      default:
+        ipv4_address: ${SUBNET:-172.33}.0.99
 
   redis:
-    image: 'redis'
-    restart: always
-
-  sentry:
-    image: 'sentry:latest'
-    depends_on:
-      - 'redis'
-      - 'db'
-    ports:
-      - '9000:9000'
-    environment:
-      - SENTRY_SECRET_KEY
-      - SENTRY_POSTGRES_HOST
-      - SENTRY_POSTGRES_PORT
-      - SENTRY_DB_NAME
-      - SENTRY_DB_USER
-      - SENTRY_DB_PASSWORD
-      - SENTRY_REDIS_HOST
-      - POSTGRES_PASSWORD
-      - PGPASSWORD
-      - SENTRY_SERVER_EMAIL
-      - SENTRY_EMAIL_HOST
-      - SENTRY_EMAIL_PORT
+    image: redis
     volumes:
-      - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+      - ./data/redis:/data
+    restart: always
+    networks:
+      default:
+        ipv4_address: ${SUBNET:-172.33}.0.88
+
+  worker:
+    image: orcidhub/app-dev
+    depends_on:
+      - redis
+      - db
+    command: ["./worker.sh"]
+    environment:
+      - ENV
+      - MAIL_DEFAULT_SENDER
+      - SECRET_KEY
+    volumes:
+      - .:/src
     restart: always
 
-  sentry_worker:
-    image: 'sentry:latest'
+  scheduler:
+    image: orcidhub/app-dev
     depends_on:
-      - 'redis'
-      - 'db'
-      - 'app'
-    command: "sentry run worker"
+      - redis
+      - db
+    command: ["./scheduler.sh"]
     environment:
-      - SENTRY_SECRET_KEY
-      - SENTRY_POSTGRES_HOST
-      - SENTRY_POSTGRES_PORT
-      - SENTRY_DB_NAME
-      - SENTRY_DB_USER
-      - SENTRY_DB_PASSWORD
-      - SENTRY_REDIS_HOST
-      - SENTRY_SERVER_EMAIL
-      - SENTRY_EMAIL_HOST
-      - SENTRY_EMAIL_PORT
+      - ENV
+    volumes:
+      - .:/src
     restart: always
 
-  sentry_cron:
-    image: 'sentry:latest'
-    depends_on:
-      - 'redis'
-      - 'db'
-    command: "sentry run cron"
-    environment:
-      - SENTRY_SECRET_KEY
-      - SENTRY_POSTGRES_HOST
-      - SENTRY_POSTGRES_PORT
-      - SENTRY_DB_NAME
-      - SENTRY_DB_USER
-      - SENTRY_DB_PASSWORD
-      - SENTRY_REDIS_HOST
-      - SENTRY_SERVER_EMAIL
-      - SENTRY_EMAIL_HOST
-      - SENTRY_EMAIL_PORT
-    restart: always
+networks:
+  default:
+    ipam:
+      driver: default
+      config:
+        - subnet: ${SUBNET:-172.33}.0.0/16

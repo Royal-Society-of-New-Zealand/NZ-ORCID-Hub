@@ -1,10 +1,9 @@
-{% extends "base.html" %}
-{% from "macros.html" import render_field %}
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag %}
 
 {% block content %}
   <h1>Onboard Organisation</h1>
-  <form method="POST">
-    {{ form.hidden_tag() }}
+  {% call form_tag(form) %}
     {{ render_field(form.org_name) }}
     {{ render_field(form.org_email, autocomplete="on") }}
     <div class="row">
@@ -15,7 +14,7 @@
         {{ render_field(form.via_orcid, data_toggle="collapse", data_target="#user-details") }}
       </div>
     </div>
-    <div class="{{'row' if form.via_orcid.data else 'row collapse'}}" id="user-details">
+    <div class="{{'row collapse in' if form.via_orcid.data else 'row collapse'}}" id="user-details">
       <div class="col-md-6 col-sm-6 col-xs-12">
         {{ render_field(form.first_name) }}
         {{ render_field(form.last_name) }}
@@ -29,8 +28,8 @@
         {{ render_field(form.disambiguation_source) }}
       </div>
     </div>
-    <button type="submit" class="btn btn-default" value="Onboard Organisation">Onboard Organisation</button>
-  </form>
+    <button type="submit" class="btn btn-default" value="Onboard Organisation" data-toggle="tooltip" data-placement="right" title="Send an ob-boarding invitation or send an invitation to a new technical contact to replace the existing one" >Send Invitation</button>
+  {% endcall %}
 {% endblock %}
 {% block footer %}
   {{ super() }}

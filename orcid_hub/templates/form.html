@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag %}
+{% block content %}
+  {% call form_tag(form) %}
+    {%- if title %}
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <h1>{{ title or form_title }}</h1>
+      </div>
+    </div>
+    {% endif -%}
+    {% for f in form %}
+      {% if f.type != "SubmitField" and f.type != "CSRFTokenField" %}
+      <div class="row">
+        <div class="col-md-10 col-sm-10 col-xs-12">
+          {{ render_field(f) }}
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+    <div class="row">
+      <div class="col-md-10 col-sm-10 col-xs-12">
+        <div class="form-group" style="float: right; width: auto">
+          {% for f in form %}
+            {% if f.type == "SubmitField" %}
+              {{ f }}
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endcall %}
+{% endblock %}

@@ -1,0 +1,4 @@
+<h2 class="display-2">This is your organisation '{{org_name}}' email template test email </h2>
+<p>The email was sent by {{sender.name}} &lt;{{sender.email}}&gt;
+to {{recipient.name}} &lt;{{recipient.email}}&gt;.</p>
+<p>You can modify your email template at <a href="{{ url_for('manage_email_template', _external=True) }}">{{ url_for('manage_email_template', _external=True) }}</a></p>

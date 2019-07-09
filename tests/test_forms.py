@@ -2,13 +2,14 @@
 """Tests for forms and WTForms extensions."""
 
 # noqa: D103
+import itertools
 from unittest.mock import MagicMock
 
 import pytest
 from wtforms import Form, StringField
 
 from orcid_hub.forms import validate_orcid_id_field  # noqa: E128
-from orcid_hub.forms import (BitmapMultipleValueField, CountrySelectField, PartialDate, PartialDateField)
+from orcid_hub.forms import BitmapMultipleValueField, CountrySelectField, PartialDate, PartialDateField
 from orcid_hub.models import PartialDate as PartialDateDbField
 
 
@@ -107,7 +108,45 @@ def test_partial_date_field_errors(test_form):  # noqa
             "pdf1:month": "ERROR",
             "pdf1:day": "ERROR"
         }))
+    tf.validate()
     assert len(tf.pdf1.process_errors) > 0
+
+    tf = test_form(DummyPostData({"pdf1:year": "2001", "pdf1:month": "", "pdf1:day": "31"}))
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
+
+    tf = test_form(DummyPostData({"pdf1:year": "", "pdf1:month": "12", "pdf1:day": "31"}))
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
+
+    tf = test_form(DummyPostData({"pdf1:year": "2001", "pdf1:month": "13", "pdf1:day": ""}))
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
+
+    tf = test_form(DummyPostData({"pdf1:year": "2001", "pdf1:month": "-1", "pdf1:day": ""}))
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
+
+    tf = test_form(DummyPostData({"pdf1:year": "1995", "pdf1:month": "2", "pdf1:day": "29"}))
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
+
+    tf = test_form(DummyPostData({"pdf1:year": "1996", "pdf1:month": "2", "pdf1:day": "29"}))
+    tf.validate()
+    assert not tf.pdf1.errors
+
+    tf = test_form(DummyPostData({"pdf1:year": "1994", "pdf1:month": "2", "pdf1:day": "30"}))
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
+
+    tf = test_form(DummyPostData({"pdf1:year": "1994", "pdf1:month": "4", "pdf1:day": "31"}))
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
+
+    for m in itertools.chain(range(9, 13, 2), range(2, 8, 2)):
+        tf = test_form(DummyPostData({"pdf1:year": "1994", "pdf1:month": f"{m}", "pdf1:day": "31"}))
+        tf.validate()
+        assert len(tf.pdf1.errors) > 0
 
 
 def test_partial_date_field_with_filter(test_form):  # noqa
@@ -138,14 +177,14 @@ def test_partial_date_field_with_obj(test_form):  # noqa
     pdf1 = tf.pdf1()
 
     assert '<option selected value="13">' in pdf1
-    assert '<option value="">Year</option><option selected value="2017">2017</option>' in pdf1
+    assert '<option selected value="2017">2017</option>' in pdf1
     assert '<option value="">Month</option><option selected value="1">01</option><option value="2">' in pdf1
 
     tf = test_form(None, obj=MagicMock(pdf3=PartialDateDbField(2017)))
     pdf3 = tf.pdf3()
 
     assert '<option selected value="">' in pdf3
-    assert '<option value="">Year</option><option selected value="2017">2017</option>' in pdf3
+    assert '<option selected value="2017">2017</option>' in pdf3
     assert '<option selected value="">Month</option><option value="1">01</option><option value="2">' in pdf3
 
 
@@ -173,13 +212,13 @@ def test_orcid_validation(test_form):  # noqa
     orcid_id.data = "INVALID FORMAT"
     with pytest.raises(ValueError) as excinfo:
         validate_orcid_id_field(test_form, orcid_id)
-    assert "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit." in str(
-        excinfo.value)
+    assert f"Invalid ORCID iD {orcid_id.data}. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit." \
+           in str(excinfo.value)
 
     orcid_id.data = "0000-0001-8228-7154"
     with pytest.raises(ValueError) as excinfo:
         validate_orcid_id_field(test_form, orcid_id)
-    assert "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD." in str(
+    assert f"Invalid ORCID iD {orcid_id.data} checksum. Make sure you have entered correct ORCID iD." in str(
         excinfo.value)
 
 

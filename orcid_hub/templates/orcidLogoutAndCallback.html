@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="https://code.jquery.com/jquery-2.1.4.js"></script>
+    <script>
+        $.ajax({
+            url: "{{ config.ORCID_BASE_URL }}" + "userStatus.json?logUserOut=true",
+            dataType: 'jsonp',
+            success: function(result,status,xhr) {
+              window.location='{{callback_url|safe}}'
+            },
+            error: function (xhr, status, error) {
+              alert(status +": " + error);
+            }
+        });
+    </script>
+</head>
+<body>
+</body>
+</html>

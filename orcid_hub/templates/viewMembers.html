@@ -3,16 +3,53 @@
   {{ super() }}
 {% endblock %}
 {% block list_row_actions %}
-  {{ super() }}
-  {% if row.orcid %}
-    <div class="list-buttons-column">
-      <a class="icon" href="{{ url_for('employment_list', user_id=row.id, url=request.url) }}" title="Employment">
-        <spam class="fa fa-briefcase glyphicon glyphicon-briefcase icon"></spam>
-      </a>
-      <a class="icon" href="{{ url_for('edu_list', user_id=row.id, url=request.url) }}" title="Education">
-        <spam class="fa fa-graduation-cap glyphicon glyphicon-education icon"></spam>
-      </a>
+  <div class="profile-navbar">
+    <div class="profile-subnav">
+      {{ super() }}
+      {% if row.orcid %}
+      <div class="profile-subnav-content">
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='EMP', url=return_url) }}"
+           title="Employment">
+          <span class="fa fa-briefcase glyphicon glyphicon-briefcase icon"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='EDU', url=return_url) }}"
+           title="Education">
+          <span class="fa fa-graduation-cap glyphicon glyphicon-education icon"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='FUNDING', url=return_url) }}"
+           title="Funding">
+          <span class="fa fa-money glyphicon glyphicon-money icon"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='PRR', url=return_url) }}"
+           title="Peer Review Record">
+          <span class="fa fa-users"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='WOR', url=return_url) }}"
+           title="Work Record">
+          <span class="fa fa-print"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='RUR', url=return_url) }}"
+           title="Researcher Url Record">
+          <span class="fa fa-at"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='ONR', url=return_url) }}"
+           title="Other Name Record">
+          <span class="fa fa-user-plus"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='KWR', url=return_url) }}"
+           title="Keyword Record">
+          <span class="fa fa-key"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='ADR', url=return_url) }}"
+           title="Address Record">
+          <span class="fa fa-globe"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='EXR', url=return_url) }}"
+           title="Other IDs">
+          <span class="fa fa-external-link"></span>
+        </a>
+      </div>
+      {% endif %}
     </div>
-  {% endif %}
-
+  </div>
 {% endblock %}

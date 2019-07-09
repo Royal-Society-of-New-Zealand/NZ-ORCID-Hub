@@ -1,0 +1,41 @@
+{
+  "filename": "example_other_ids.json",
+  "id": 390,
+  "records": [
+    {
+      "display-index": 0,
+      "email": "rad42@mailinator.com",
+      "first-name": "sdsd",
+      "id": 6,
+      "is-active": false,
+      "last-name": "sds1",
+      "orcid": null,
+      "processed-at": null,
+      "put-code": null,
+      "relationship": "PART_OF",
+      "status": null,
+      "type": "bibcode",
+      "url": "http://url.edu/abs/ghjghghj",
+      "value": "sdsds",
+      "visibility": "PUBLIC"
+    },
+    {
+      "display-index": 0,
+      "email": "rostaindhfjsingradik@mailinator.com",
+      "first-name": "sdsdsds",
+      "id": 5,
+      "is-active": false,
+      "last-name": "sds1sds",
+      "orcid": null,
+      "processed-at": null,
+      "put-code": null,
+      "relationship": "SELF",
+      "status": null,
+      "type": "bibcode",
+      "url": "http://url.edu/abs/ghjghghj",
+      "value": "sdsds",
+      "visibility": "PUBLIC"
+    }
+  ],
+  "task-type": "OTHER_ID"
+}

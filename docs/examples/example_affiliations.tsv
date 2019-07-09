@@ -1,0 +1,4 @@
+Identifier	First name	Last name	email address	affiliation type	ORCID iD	organisation	department	City	Region	Country	Course/Title	Start Date	End date	Put-Code
+0001	Alice	Contributor 1	contributor1@mailinator.com	staff		Home Organisation	Home Department	Ingoa Wāhi		NZ	Professor	2018-06-01		
+0002	Alice	Contributor 1	contributor1@mailinator.com	student		Different Organisation	Different Department		Placename	NZ	Studying	2016	2017-12	
+0003	Bob	Contributor 2	contributor2@mailinator.com	student		Different Organisation	Different Department		Placename	NZ	Studying	2016	2018	

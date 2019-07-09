@@ -1,0 +1,39 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {% if data %}
+    {% set record = data[0].record %}
+    <h1>{{record.filename}}</h1>
+    <table class="table table-hover table-bordered searchable">
+      <tbody>
+        <tr>
+          <td>
+            <b>Title</b>
+          </td>
+          <td>
+            {{record.title}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Type</b>
+          </td>
+          <td>
+            {{record.type}}
+         </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Task Filename</b>
+          </td>
+          <td>
+            <a href="{{ url_for('workrecord.index_view', task_id=record.task_id) }}">{{record.task.filename}}</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <span class="pull-right">
+      <a role="button" class="btn btn-primary" href="{{ request.args.get('url') or url_for('workrecord.index_view', task_id=record.task_id) }}">Back</a>
+    </span>
+  {% endif %}
+  {{ super() }}
+{% endblock %}

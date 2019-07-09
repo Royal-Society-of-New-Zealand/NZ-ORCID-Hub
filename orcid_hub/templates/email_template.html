@@ -1,0 +1,75 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag %}
+
+{% block content %}
+  {% call form_tag(form) %}
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <h1>{{ title|default("Email template", true) }}</h1>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-4 col-sm-4 col-xs-12">
+        {{ render_field(form.email_template_enabled, data_toggle="collapse", data_target="#template-row") }}
+      </div>
+    </div>
+    <div class="{{'row collapse in' if form.email_template_enabled.data else 'row collapse'}}" id="template-row">
+      <div class="row">
+        <div class="col-md-4 col-sm-4 col-xs-12">
+          {{ render_field(form.email_template) }}
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-4 col-sm-4 col-xs-12">
+          <div class="form-group">
+            {{ form.prefill(**{"data-toggle": "tooltip", "title": "Prefill or reset the email template"}) }}
+            {#{ form.cancel }#}
+            {{ form.save }}
+            {{ form.send(**{"data-toggle": "tooltip", "title": "Send a test email to yourself"}) }}
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <p>
+          The look and feel of your orgainisation's Hub-generated email can be customised with any html able to be used.<br />
+          For most users, selecting "Prefill" to display the default email template will give you a good base to start. <br />
+          Press "Send" to mail yourself the result of your modifications, and once satisfied press "Save".<br />
+          The following fields can be used in your template and will be automatically populated in any Hub-generated email; however
+          <ul>
+              <li>every template <b>must</b> contain either "{MESSAGE}" or "{INCLUDED_URL}" for your users to be able to interact with your email</li>
+          </ul>
+        </p>
+        <div class="table-responsive">
+          <table class="table template fields">
+            <thead>
+              <tr class="info">
+                <th style="text-align: center;">Template field</th>
+                <th style="text-align: center;">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{SUBJECT}</td><td>The default subject that the Hub customises depending on the purpose, e.g., affiliation, funding, works, and peer-review</td>
+              </tr>
+              <tr>
+                <td>{MESSAGE}</td><td>The default core message that the Hub customises depending on the purpose, e.g., affiliation, funding, works, and peer-review</td>
+              </tr>
+              <tr>
+                <td>{INCLUDED_URL}</td><td>The url for invitations and status updates; is contained in all {MESSAGE} bodies that require it</td>
+              </tr>
+              <tr>
+                <td>{LOGO}</td><td>Any image <a href="">uploaded</a>, otherwise the Hub's default logo</td>
+              </tr>
+              <tr>
+                <td>{EMAIL}</td><td>The recepient's email address</td>
+              </tr>
+              <tr>
+                <td>{BASE_URL}</td><td>The Hub's base URL, i.e., "{{ BASE_URL }}"</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        </div>
+    </div>
+  {% endcall %}
+{% endblock %}

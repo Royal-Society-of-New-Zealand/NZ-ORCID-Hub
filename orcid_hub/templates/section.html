@@ -1,0 +1,203 @@
+{% extends "layout.html" %}
+{% from "macros.html" import section_button_group %}
+{% set return_url = url_for("section", user_id=user.id, section_type=section_type, url=url) %}
+{% block content %}
+  {{ section_button_group(user.id, section_type, url=url) }}
+	<div class="table-responsive">
+  <table class="table table-hover table-bordered searchable">
+    <tbody>
+    <tr>
+        <td><b>ORCID iD</b></td>
+        <td>{{ user.orcid }}</td>
+    </tr>
+    <tr>
+        <td><b>First Name</b></td>
+        <td>{{ user.first_name }}</td>
+    </tr>
+    <tr>
+        <td><b>Last Name</b></td>
+        <td>{{ user.last_name }}</td>
+    </tr>
+    </tbody>
+  </table>
+  </div>
+	<div class="table-responsive">
+		<table class="table table-striped table-bordered table-hover model-list">
+			<thead>
+				<tr class="info">
+					<th class="col-md-1">&nbsp;</th>
+          {% if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"] %}
+            <th class="column-header">Record Source</th>
+            {% if section_type == "RUR" %}
+              <th class="column-header">Url Name</th>
+              <th class="column-header">Url Value</th>
+            {% elif section_type == "ADR" %}
+              <th class="column-header">Country</th>
+            {% elif section_type == "EXR" %}
+              <th class="column-header">External Id Type</th>
+              <th class="column-header">External Id Value</th>
+              <th class="column-header">External Id Url</th>
+              <th class="column-header">External Id Relationship</th>
+            {% else %}
+              <th class="column-header">Content</th>
+            {% endif %}
+            <th class="column-header">Display Index</th>
+            <th class="column-header">Visibility</th>
+          {% else %}
+            <th class="column-header">
+              {% if section_type == "EDU" %}Institution
+              {% elif section_type == "EMP" %}Institution/Employer
+              {% elif section_type == "FUN" %}Institution/Funding Agency
+              {% elif section_type == "PRR" %}Institution/Peer Review Agency
+              {% elif section_type == "WOR" %}Institution/Work Source
+              {% endif %}
+            </th>
+            {% if section_type in ["FUN", "WOR"] %}
+              <th class="column-header">{%if section_type == "FUN"%}Funding{%else%}Work{%endif%} Title</th>
+              <th class="column-header">Translated Title</th>
+              <th class="column-header">Language</th>
+              <th class="column-header">{% if section_type == "FUN" %}Funding{% else %}Work{%endif%} Type</th>
+
+            {% elif section_type == "PRR" %}
+              <th class="column-header">Review Group Id</th>
+            {% endif %}
+            {% if section_type != "WOR" %}
+              <th class="column-header">City</th>
+              <th class="column-header">State/region</th>
+              <th class="column-header">Country</th>
+            {% endif %}
+            {% if section_type in ["EMP", "EDU"] %}
+              <th class="column-header">Department</th>
+              <th class="column-header">
+              {% if section_type == "EDU" %}Degree
+              {% elif section_type == "EMP" %}Role
+              {% endif %}
+              </th>
+            {% elif section_type == "PRR" %}
+              <th class="column-header">Completion Date</th>
+              <th class="column-header">Disambiguated Id</th>
+              <th class="column-header">Disambiguation Source</th>
+            {% endif %}
+            {% if section_type not in ["PRR", "WOR"] %}
+              <th class="column-header"></th>
+            {% endif %}
+            {% if section_type == "WOR" %}
+              <th class="column-header">Publication Date</th>
+            {% endif %}
+          {% endif %}
+          <th class="column-header">Put-code</th>
+				</tr>
+			</thead>
+
+			<tbody>
+				{% if not records %}
+					<tr>
+						<td colspan="999">
+							<div class="text-center">
+								There are no records.
+							</div>
+						</td>
+					</tr>
+        {% else %}
+          {% for r in records %}
+            <tr>
+              {% if r.get("source", "source-client-id") and org_client_id in r.get("source", "source-client-id", "path") %}
+                <td class="list-buttons-column">
+                  <a class="icon"
+             href="{{url_for('edit_record', user_id=user.id, section_type=section_type, put_code=r.get('put-code'), url=return_url) }}" title="Edit Record">
+                    <span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
+                  </a>
+                  <form class="icon" method="POST"
+                             action="{{url_for('delete_record', user_id=user.id, section_type=section_type, put_code=r.get('put-code'), url=url)}}">
+                    <input id="put-code" name="put_code" type="hidden" value="{{r.get('put-code')}}">
+                    <input id="section-type" name="section_type" type="hidden" value="{{section_type}}">
+                    <button onclick="return safeConfirm('Are you sure you want to delete this record?');"
+                   title="Delete record">
+                      <span class="fa fa-trash glyphicon glyphicon-trash"></span>
+                    </button>
+                  </form>
+                </td>
+              {% else %}
+                <td class="list-buttons-column"></td>
+              {% endif %}
+              {% if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"] %}
+                <td>{{r.get("source", "source-name", "value")|default("", True)}}</td>
+                {% if section_type == "RUR" %}
+                  <td>{{r.get("url-name")|default("", True)}}</td>
+                  <td>{{r.get("url", "value")|default("", True)}}</td>
+                {% elif section_type == "ADR" %}
+                  <td>{{r.get("country", "value")|default("", True)}}</td>
+                {% elif section_type == "EXR" %}
+                  <td>{{r.get("external-id-type")|default("", True)}}</td>
+                  <td>{{r.get("external-id-value")|default("", True)}}</td>
+                  <td>{{r.get("external-id-url", "value")|default("", True)}}</td>
+                  <td>{{r.get("external-id-relationship")|default("", True)}}</td>
+                {% else %}
+                  <td>{{r.get("content")|default("", True)}}</td>
+                {% endif %}
+                <td>{{r.get("display-index")}}</td>
+                <td>{{r.get("visibility", default='')}}</td>
+              {% else %}
+                <td>
+                  {% set org = r.get("convening-organization" if section_type == "PRR" else "source" if section_type == "WRK"  else "organization") %}
+                  {% if org %}{{org.get("name", default='')}}<br/><span class="small">{% endif %}
+                  Source: {{r.get("source", "source-name", "value", default='')}}
+                  {% if org %}</span>{% endif %}
+                </td>
+
+                {% if section_type in ["FUN", "WOR"] %}
+                  <td>{{r.get("title", "title", "value", default='')}}</td>
+                  <td>{{r.get("title", "translated-title", "value", default='')}}</td>
+                  <td>{{r.get("title", "translated-title", "language-code", default='')}}</td>
+                  <td>{{r.get("type", default='')}}</td>
+                {% elif section_type == "PRR" %}
+                  <td>{{r.get("review-group-id", default='')}}</td>
+                {% endif %}
+
+                {% if org %}
+                  <td>{{org.get("address", "city", default='')}}</td>
+                  <td>{{org.get("address", "region", default='')}}</td>
+                  <td>{{org.get("address", "country", default='')}}</td>
+                {% endif %}
+
+                {% if section_type in ["EMP", "EDU"] %}
+                  <td>{{r.get("department-name", default='')}}</td>
+                  <td>{{r.get("role-title", default='')}}</td>
+                {% endif %}
+
+                {% if section_type == "PRR" %}
+                  <td>{{r.get("completion-date", "year", "value", default='')}}</td>
+                  <td>{{org.get("disambiguated-organization", "disambiguated-organization-identifier", default='')}}</td>
+                  <td>{{org.get("disambiguated-organization", "disambiguation-source", default='')}}</td>
+                {% elif section_type == "WOR" %}
+                  <td>{{r.get("publication-date", "year", "value", default='')}}</td>
+                {% else %}
+                  <td>{{r|year_range}}</td>
+                {% endif %}
+              {% endif %}
+              <td>{{r.get("put-code")|default("", True)}}</td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+			</tbody>
+		</table>
+		<div style="text-align:right;">
+			{% if url %}
+				<a role="button" class="btn btn-danger" href="{{url}}">Cancel</a>
+			{% endif %}
+			<a role="button" class="btn btn-primary" href="{{url_for('edit_record', user_id=user.id, section_type=section_type, url=return_url)}}">New...</a>
+      {% if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"] %}
+        <div style="float: left; width: auto">
+                  <form class="icon" method="POST" action="{{url_for('section', user_id=user.id, section_type=section_type)}}">
+                    <button onclick="return safeConfirm('Are you sure you want to send an invite to researcher to get 'PERSON/UPDATE' Permissions?\n\nBy clicking &quot;OK&quot;'+
+                    ' you are confirming that you have send researcher an invite!');"
+                            data-toggle="tooltip"
+                            data-placement="bottom"
+                            title="Send researcher an invite to get 'PERSON/UPDATE' permission..."
+                            class="btn btn-info">Send Invite</button> <br>
+                  </form>
+        </div>
+      {% endif %}
+		</div>
+	</div>
+{% endblock %}

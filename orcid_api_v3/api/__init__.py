@@ -1,0 +1,10 @@
+from __future__ import absolute_import
+
+# flake8: noqa
+
+# import apis into api package
+from orcid_api_v3.api.development_member_api_v3_0_api import DevelopmentMemberAPIV30Api
+from orcid_api_v3.api.development_member_api_v3_0_rc1_api import DevelopmentMemberAPIV30Rc1Api
+from orcid_api_v3.api.development_member_api_v3_0_rc2_api import DevelopmentMemberAPIV30Rc2Api
+from orcid_api_v3.api.member_api_v2_0_api import MemberAPIV20Api
+from orcid_api_v3.api.member_api_v2_1_api import MemberAPIV21Api

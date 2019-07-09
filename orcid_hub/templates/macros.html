@@ -1,30 +1,171 @@
-{% macro render_field(f) %}
+{# Render a form tag taht contains a CSRF token and all hiddedn fields. #}
+{%- macro form_tag(form, endpoint, fid='', css_class='', method="POST", enctype='') -%}
+<form{% if endpoint %}action="{{ url_for(endpoint, **kwargs) }}"{%endif%} method="{{ method }}"{% if fid %} id="{{ fid }}"{%endif%}{%if css_class%} class="{{ css_class }}"{%endif%}{% if enctype or form.enctype %} enctype="{{ enctype or form.enctype }}"{%endif%}>
+  {{ form.hidden_tag() }}
+  {{ caller () }}
+</form>
+{%- endmacro -%}
+
+{# Render a form field's errors. #}
+{%- macro field_errors(f) -%}
+  {% if f.errors %}
+    <ul class="list-unstyled text-danger field-error error">
+      {% for error in f.errors %}
+        <li>{{ error | e}}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{%- endmacro -%}
+
+{# Render a form field. #}
+{%- macro render_field(f, css_class='') -%}
+{% if f.errors %}
+  {% set css_class = css_class + " has-error " + kwargs.pop("class", '') %}
+{% endif %}
 {% if f.type == "BooleanField" %}
-  <div class="checkbox">
+  <div class="checkbox {{ css_class }}">
     <label for="{{ f.id }}">
-    {{ f(id=f.id, placeholder=f.label.text, **kwargs) }}
-    {{ f.label.text }}
+      {{ f(id=f.id, **kwargs) }}
+      {{ f.label.text }}
     </label>
 {% else %}
-    <div class="form-group">
-      {{ f.label }}{% if f.flags.required %}&nbsp;<strong style="color: red">*</strong>{% endif %}
-      {{ f(class="form-control", id=f.id, placeholder=f.label.text, **kwargs) | safe }}
+  <div class="form-group {{ css_class }}">
+  {% if f.type == "PartialDateField" %}
+    <label>{{ f.label.text }}</label>
+  {% else %}
+    {{ f.label }}
+  {% endif -%}
+  {% if f.flags.required -%}<strong style="color: red">*</strong>{%- endif %}
+  {% if f.type in ["StringField", "TextArea", "TextField", ] %} {{ f(class="form-control", id=f.id, placeholder=f.label.text, **kwargs) | safe }} {% else %}
+    {{ f(class="form-control", id=f.id, **kwargs) | safe }}
+  {% endif %}
 {% endif %}
-{% if f.errors %}
-      <ul class=errors>
-        {% for error in f.errors %}
-          <li style="color: red">{{ error }}</li>
-        {% endfor %}
-      </ul>
-{% endif %}
-  </div>
+
+  {{ field_errors(f) }}
+</div>
 {% endmacro %}
 
-{% macro orcid_url(user, full_url=False, target="_blank") -%}
+{# Render a user's ORCID as a link. #}
+{%- macro orcid_url(user, full_url=False, target="_blank") -%}
   {%- if user.orcid -%}
   <a href="{{user|orcid}}" target="{{target}}" class="orcid">
-    <img alt="ORCID iD" src="{{url_for('static', filename='images/orcid_16x16.gif')}}" style="width:16px; height:16px; margin-right:4px">{{user|orcid if full_url else config.ORCID_BASE_URL.split('/', 2)[2] + user.orcid}}</a>
-{%- else %}&nbsp;{% endif -%}
-{%- endmacro %}
+      <img alt="ORCID iD" src="{{url_for('static', filename='images/orcid_16x16.gif')}}" style="width:16px; height:16px; margin-right:4px">{{user|orcid if full_url else config.ORCID_BASE_URL + user.orcid}}</a>
+  {%- else %}&nbsp;{% endif -%}
+{%- endmacro -%}
 
-{% macro image(filename) -%}{{url_for('static', filename='images/' + filename)}}{%- endmacro -%}
+{# Render a satic image link. #}
+{%- macro image(filename) -%}
+  {{url_for('static', filename='images/' + filename)}}
+{%- endmacro -%}
+
+{# Render a publication information on CV. #}
+{%- macro publication_info(j, person_data) -%}
+{% if j.get('contributors', 'contributor') %}
+  {% for c in j.get('contributors', 'contributor') %}
+  {% if c.get('credit-name', 'value') %}
+    {{ c.get('credit-name', 'value') }},
+  {% endif %}
+  {% endfor %}
+{% else %}
+  {{person_data.get('first_name', '')}}
+  {% for s in person_data.get('second_names') %}
+  {{ s}}
+  {% endfor %}
+{% endif %}
+{% if j.get('publication_date', 'day', 'value') and j.get('publication_date', 'month', 'value') and
+j.get('publication_date', 'year', 'value')%}
+  ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date', 'month',
+  'value')}}/{{j.get('publication_date', 'year', 'value')}})
+  {% elif j.get('publication_date', 'year', 'value')%}
+  ({{j.get('publication_date', 'year', 'value')}})
+{% endif %}
+  , {{j.get('title', 'title', 'value') }}
+{% if j.get('title', 'subtitle', 'value') %}
+  , {{ j.get('title', 'subtitle', 'value') }}
+{% endif %}
+{% if j.get('external_ids') and  j.get('external_ids', 'external-id') %}
+  {% for e in j.get('external_ids', 'external-id') %}
+    , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+    {% if e.get('external-id-url', 'value') %}
+      , {{ e.get('external-id-url', 'value') }}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+{%- endmacro -%}
+
+{# Pager #}
+{% macro pager(page, page_count) -%}
+  {% if page_count > 1%}
+    <ul class="pagination">
+      {% if page == 1 %}
+        <li class="disabled">
+          <a href="javascript:void(0)">«</a>
+        </li>
+        <li class="disabled">
+          <a href="javascript:void(0)">&lt;</a>
+        </li>
+      {% else %}
+        <li>
+          <a href="?page=1">«</a>
+        </li>
+        <li>
+          <a href="?page={{page-1}}">&lt;</a>
+        </li>
+      {% endif %}
+      {% for p in range(1, page_count+1) %}
+        {%  if page == p %}
+          <li class="active">
+            <a href="javascript:void(0)">{{page}}</a>
+          </li>
+        {% else %}
+          <li>
+            <a href="?page={{p}}">{{p}}</a>
+          </li>
+        {% endif %}
+      {% endfor %}
+      {% if page == page_count %}
+        <li class="disabled">
+          <a href="javascript:void(0)">&gt;</a>
+        </li>
+        <li class="disabled">
+          <a href="javascript:void(0)">»</a>
+        </li>
+      {% else %}
+        <li>
+          <a href="?page={{page+1}}">&gt;</a>
+        </li>
+        <li>
+          <a href="?page={{page_count}}">»</a>
+        </li>
+      {% endif %}
+    </ul>
+  {% endif %}
+{%- endmacro -%}
+
+{% macro section_button_group(user_id, section_type=None, url=None) -%}
+  <div class="btn-group btn-group-justified" style="padding-bottom: 5px;">
+    <div class="btn-group">
+      <button type="button" class="btn btn-{{'light' if section_type in ['EMP', 'EDU'] else 'primary'}} dropdown-toggle" data-toggle="dropdown">
+        Affiliations <span class="caret"></span></button>
+      <ul class="dropdown-menu" role="menu">
+        {% for (st, sn) in [
+          ("EMP", "Employment"),
+          ("EDU", "Education"),] %}
+          <li class="{{'' if section_type != st else 'active'}}"><a href="{{ url_for('section', user_id=user_id, section_type=st, url=url) if section_type != st else '#' }}">{{ sn }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% for (st, sn) in [
+      ("FUN", "Fundings"),
+      ("PRR", "Peer Reviews"),
+      ("WOR", "Works"),
+      ("RUR", "Urls"),
+      ("ONR", "Other Names"),
+      ("KWR", "Keywords"),
+      ("ADR", "Addresses"),
+      ("EXR", "External IDs"),] %}
+      <a href="{{ url_for('section', user_id=user_id, section_type=st, url=url) if section_type != st else '#' }}"
+         class="btn btn-{{'primary' if section_type != st else 'light'}}">{{ sn }}</a>
+    {% endfor %}
+  </div>
+{%- endmacro -%}

@@ -37,6 +37,7 @@ dependencies:
   - requests_oauthlib
   - sphinx
   - sphinx-autobuild
+  - m2r
   - tablib
   - testpath
   - wtf-peewee

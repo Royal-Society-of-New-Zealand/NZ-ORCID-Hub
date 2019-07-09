@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+      {% call form_tag(form, enctype="multipart/form-data") %}
+        <h1>Organisation Logo</h1>
+        {% if current_user.organisation.logo %}
+          <img src="{{ url_for('logo_image', token=current_user.organisation.logo.token) }}"
+               style="max-height: 100px; max-width: 100px;" alt="Organisation Logo">
+        {% endif %}
+        {{ render_field(form.logo_file) }}
+        <span class="pull-right" style="padding-bottom: 40px;">
+          {{ form.upload }}
+          {{ form.reset }}
+          {#{ form.cancel }#}
+        </span>
+      {% endcall %}
+    </div>
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+        <p>Any png or jpg image can be uploaded, where it will subsequently be used as the logo in all Hub-generated email for your organisation.<br />
+        For best results, the image's height dimension should be close to 100px and no more than 200px.  NB: the Hub's default is 163px by 127px</p>
+      </div>
+    </div>
+  </div>
+{% endblock %}

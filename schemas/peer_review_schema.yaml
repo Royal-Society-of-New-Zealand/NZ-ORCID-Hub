@@ -1,0 +1,180 @@
+name: Peer Review Schema
+desc: This schema is added to validate correct peer review input from research organisation admin
+type: map
+mapping:
+    invitees:
+        type: seq
+        sequence:
+          -
+            type: map
+            mapping:
+                identifier:
+                    type: str
+                email:
+                    type: str
+                first-name:
+                    type: str
+                last-name:
+                    type: str
+                ORCID-iD:
+                    type: str
+                put-code:
+                    type: int
+                visibility:
+                    type: str
+    created-date:
+        type: map
+        mapping:
+            value:
+                type: timestamp
+    last-modified-date:
+        type: map
+        mapping:
+            value:
+                type: timestamp
+    source:
+        type: map
+        mapping:
+            source-orcid:
+                type: map
+                mapping:
+                    uri:
+                        type: str
+                    path:
+                        type: str
+                    host:
+                        type: str
+            source-client-id:
+                type: map
+                mapping:
+                    uri:
+                        type: str
+                    path:
+                        type: str
+                    host:
+                        type: str
+            source-name:
+                type: map
+                mapping:
+                    value:
+                        type: str
+    reviewer-role:
+        type: str
+    review-identifiers:
+        type: map
+        mapping:
+            external-id:
+                type: seq
+                sequence:
+                    -
+                        type: map
+                        mapping:
+                            external-id-type:
+                                type: str
+                            external-id-value:
+                                type: str
+                            external-id-url:
+                                type: map
+                                mapping:
+                                    value:
+                                        type: str
+                            external-id-relationship:
+                                type: str
+    review-url:
+        type: map
+        mapping:
+            value:
+                type: str
+    review-type:
+        type: str
+    review-completion-date:
+        type: map
+        mapping:
+            year:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            month:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            day:
+                type: map
+                mapping:
+                    value:
+                        type: str
+    review-group-id:
+        required: True
+        type: str
+    subject-external-identifier:
+        type: map
+        mapping:
+            external-id-type:
+                type: str
+            external-id-value:
+                 type: str
+            external-id-url:
+                  type: map
+                  mapping:
+                      value:
+                          type: str
+            external-id-relationship:
+                  type: str
+    subject-container-name:
+        type: map
+        mapping:
+            value:
+                type: str
+    subject-type:
+        type: str
+    subject-name:
+        type: map
+        mapping:
+            title:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            subtitle:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            translated-title:
+                type: map
+                mapping:
+                    language-code:
+                        type: str
+                    value:
+                        type: str
+    subject-url:
+        type: map
+        mapping:
+            value:
+                type: str
+    convening-organization:
+        required: True
+        type: map
+        mapping:
+            name:
+                type: str
+            address:
+                type: map
+                mapping:
+                    city:
+                        type: str
+                    region:
+                        type: str
+                    country:
+                        type: str
+            disambiguated-organization:
+                type: map
+                mapping:
+                    disambiguated-organization-identifier:
+                        type: str
+                    disambiguation-source:
+                        type: str
+    path:
+        type: str
