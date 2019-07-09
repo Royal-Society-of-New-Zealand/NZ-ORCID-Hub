@@ -4414,7 +4414,7 @@ def test_delete_affiliations(client, mocker):
 def test_remove_linkage(client, mocker):
     """Test export of existing affiliation records."""
     post = mocker.patch("requests.post", return_value=Mock(status_code=200))
-    user = OrcidToken.select().join(User).where(User.orcid.is_null(False)).first().user
+    user = OrcidToken.select().join(User, on=OrcidToken.user).where(User.orcid.is_null(False)).first().user
 
     client.login(user)
     client.post("/remove/orcid/linkage")
