@@ -1016,7 +1016,7 @@ class CompositeRecordModelView(RecordModelView):
         elif self.model == FundingRecord:
             self._export_columns = [(v, v.replace('_', '-')) for v in
                                     ['invitees', 'title', 'type', 'organization_defined_type', 'short_description',
-                                     'amount', 'start_date', 'end_date', 'organization', 'contributors',
+                                     'amount', 'url', 'start_date', 'end_date', 'organization', 'contributors',
                                      'external_ids']]
         elif self.model == WorkRecord:
             self._export_columns = [(v, v.replace('_', '-')) for v in
@@ -1248,6 +1248,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
         "organization_defined_type",
         "short_description",
         "amount",
+        "url",
         "currency",
         "start_date",
         "end_date",
@@ -2208,6 +2209,8 @@ def edit_record(user_id, section_type, put_code=None):
                         country=_data.get("organization", "address", "country"),
                         department=_data.get("department-name"),
                         role=_data.get("role-title"),
+                        url=_data.get("url", "value"),
+                        visibility=_data.get("visibility", default='').upper(),
                         start_date=PartialDate.create(_data.get("start-date")),
                         end_date=PartialDate.create(_data.get("end-date")))
 
@@ -2234,8 +2237,7 @@ def edit_record(user_id, section_type, put_code=None):
                                          total_funding_amount=_data.get("amount", "value"),
                                          total_funding_amount_currency=_data.get("amount", "currency-code")))
                     else:
-                        data.update(dict(url=_data.get("url", "value"), visibility=_data.get(
-                            "visibility", default='').upper(), display_index=_data.get("display-index")))
+                        data.update(dict(display_index=_data.get("display-index")))
 
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')

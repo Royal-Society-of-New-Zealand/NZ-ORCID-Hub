@@ -1684,6 +1684,7 @@ class FundingRecord(RecordModel):
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
+    url = CharField(max_length=200, null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
     def to_export_dict(self):
@@ -1743,6 +1744,7 @@ class FundingRecord(RecordModel):
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
                 "identifier",
+                r"url"
             ]
         ]
 
@@ -1857,6 +1859,7 @@ class FundingRecord(RecordModel):
                         city=val(row, 11) or org.city,
                         region=val(row, 12) or org.state,
                         country=country or org.country,
+                        url=val(row, 28),
                         disambiguated_id=val(row, 14) or org.disambiguated_id,
                         disambiguation_source=val(row, 15) or org.disambiguation_source),
                     invitee=invitee,
@@ -1936,6 +1939,7 @@ class FundingRecord(RecordModel):
                     organization_defined_type = r.get("organization-defined-type", "value")
                     short_description = r.get("short-description")
                     amount = r.get("amount", "value")
+                    url = r.get("url", "value")
                     currency = r.get("amount", "currency-code")
                     start_date = PartialDate.create(r.get("start-date"))
                     end_date = PartialDate.create(r.get("end-date"))
@@ -1962,6 +1966,7 @@ class FundingRecord(RecordModel):
                         city=city,
                         region=region,
                         country=country,
+                        url=url,
                         disambiguated_id=disambiguated_id,
                         disambiguation_source=disambiguation_source,
                         start_date=start_date,

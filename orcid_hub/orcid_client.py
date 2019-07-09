@@ -580,6 +580,9 @@ class MemberAPIMixin:
         if fr.amount and fr.currency:
             rec.amount = v3.AmountV30(value=fr.amount, currency_code=fr.currency)  # noqa: F405
 
+        if fr.url:
+            rec.url = v3.UrlV30(value=fr.url)
+
         if fr.start_date:
             rec.start_date = fr.start_date.as_orcid_dict()
         if fr.end_date:
@@ -676,8 +679,8 @@ class MemberAPIMixin:
                                             funding_description=None, total_funding_amount=None,
                                             total_funding_amount_currency=None, org_name=None, city=None, state=None,
                                             country=None, start_date=None, end_date=None, disambiguated_id=None,
-                                            disambiguation_source=None, grant_data_list=None, put_code=None, *args,
-                                            **kwargs):
+                                            disambiguation_source=None, grant_data_list=None, put_code=None,
+                                            url=None, visibility=None, *args, **kwargs):
         """Create or update individual funding record via UI."""
         rec = v3.FundingV30()  # noqa: F405
 
@@ -701,6 +704,8 @@ class MemberAPIMixin:
         if total_funding_amount and total_funding_amount_currency:
             rec.amount = v3.AmountV30(value=total_funding_amount,
                                       currency_code=total_funding_amount_currency)  # noqa: F405
+        if url:
+            rec.url = v3.UrlV30(value=url)
 
         organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
@@ -738,6 +743,9 @@ class MemberAPIMixin:
 
         if external_ids:
             rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
+
+        if visibility:
+            rec.visibility = visibility.lower()
 
         try:
             api_call = self.update_fundingv3 if put_code else self.create_fundingv3

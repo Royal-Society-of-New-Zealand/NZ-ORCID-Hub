@@ -222,6 +222,7 @@ class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
     type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.FUNDING_TYPES]
+    visibility_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.VISIBILITIES]
 
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
@@ -242,6 +243,8 @@ class FundingForm(FlaskForm):
         "Disambiguation Source",
         validators=[optional()],
         choices=EMPTY_CHOICES + models.disambiguation_source_choices)
+    url = StringField("Url", filters=[lambda x: x or None])
+    visibility = SelectField(choices=visibility_choices, description="Visibility")
 
 
 class PeerReviewForm(FlaskForm):
