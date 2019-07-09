@@ -679,35 +679,39 @@ class MemberAPIMixin:
                                             disambiguation_source=None, grant_data_list=None, put_code=None, *args,
                                             **kwargs):
         """Create or update individual funding record via UI."""
-        rec = Funding()  # noqa: F405
-        rec.source = self.source
+        rec = v3.FundingV30()  # noqa: F405
 
-        title = Title(value=funding_title)  # noqa: F405
-        translated_title = None
-        if funding_translated_title:
-            translated_title = TranslatedTitle(  # noqa: F405
-                value=funding_translated_title,  # noqa: F405
-                language_code=translated_title_language)  # noqa: F405
-        rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
+        if funding_title:
+            title = v3.TitleV30(value=funding_title)  # noqa: F405
+            translated_title = None
+            if funding_translated_title and translated_title_language:
+                translated_title = v3.TranslatedTitleV30(value=funding_translated_title,
+                    language_code=translated_title_language)  # noqa: F405
+            rec.title = v3.FundingTitleV30(title=title, translated_title=translated_title)  # noqa: F405
 
-        rec.type = funding_type
-        rec.organization_defined_type = funding_subtype
-        rec.short_description = funding_description
+        if funding_type:
+            rec.type = funding_type.replace('_', '-').lower()
 
-        if total_funding_amount:
-            rec.amount = Amount(value=total_funding_amount, currency_code=total_funding_amount_currency)  # noqa: F405
+        if funding_subtype:
+            rec.organization_defined_type = v3.OrganizationDefinedFundingSubTypeV30(value=funding_subtype)  # noqa: F405
 
-        organisation_address = OrganizationAddress(
+        if funding_description:
+            rec.short_description = funding_description
+
+        if total_funding_amount and total_funding_amount_currency:
+            rec.amount = v3.AmountV30(value=total_funding_amount,
+                                      currency_code=total_funding_amount_currency)  # noqa: F405
+
+        organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
-            region=state)
+            region=state or self.org.state)
 
-        disambiguated_organization_details = None
-        disambiguated_organization_details = DisambiguatedOrganization(
+        disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
             disambiguation_source=disambiguation_source or self.org.disambiguation_source)
 
-        rec.organization = Organization(
+        rec.organization = v3.OrganizationV30(
             name=org_name or self.org.name,
             address=organisation_address,
             disambiguated_organization=disambiguated_organization_details)
@@ -720,29 +724,23 @@ class MemberAPIMixin:
         if end_date:
             rec.end_date = end_date.as_orcid_dict()
 
-        external_id_list = []
+        external_ids = []
 
-        for exi in grant_data_list:
-            if exi['grant_number']:
-                # Orcid is expecting external type as 'grant_number'
-                external_id_type = exi['grant_type'] if exi['grant_type'] else "grant_number"
-                external_id_value = exi['grant_number']
-                external_id_url = None
-                if exi['grant_url']:
-                    external_id_url = Url(value=exi['grant_url'])  # noqa: F405
-                # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
-                external_id_relationship = exi['grant_relationship'].upper() if exi['grant_relationship'] else "SELF"
-                external_id_list.append(
-                    ExternalID(  # noqa: F405
-                        external_id_type=external_id_type,
-                        external_id_value=external_id_value,
-                        external_id_url=external_id_url,
-                        external_id_relationship=external_id_relationship))
+        if grant_data_list:
+            external_ids = [
+                v3.ExternalIDV30(  # noqa: F405
+                    external_id_type=gdl.get('grant_type') if gdl.get('grant_type') else "grant_number",
+                    external_id_value=gdl.get('grant_number'),
+                    external_id_url=v3.UrlV30(value=gdl.get('grant_url')) if gdl.get('grant_url') else None,
+                    external_id_relationship=gdl.get('grant_relationship').replace('_', '-').lower()
+                    if gdl.get('grant_relationship') else 'self') for gdl in grant_data_list
+                ]
 
-        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
+        if external_ids:
+            rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
         try:
-            api_call = self.update_funding if put_code else self.create_funding
+            api_call = self.update_fundingv3 if put_code else self.create_fundingv3
 
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
@@ -789,7 +787,6 @@ class MemberAPIMixin:
                                                 **kwargs):
         """Create or update individual peer review record via UI."""
         rec = PeerReview()  # noqa: F405
-        rec.source = self.source
 
         rec.reviewer_role = reviewer_role
 
@@ -918,7 +915,6 @@ class MemberAPIMixin:
                                          grant_data_list=None, put_code=None, *args, **kwargs):
         """Create or update individual work record via UI."""
         rec = Work()  # noqa: F405
-        rec.source = self.source
 
         if work_type:
             rec.type = work_type
@@ -1126,7 +1122,7 @@ class MemberAPIMixin:
                     external_id_value=eid.value,
                     external_id_url=v3.UrlV30(value=eid.url) if eid.url else None,
                     external_id_relationship=eid.relationship.replace('_', '-').lower()
-                    if eid.relationship else None) for eid in AffiliationExternalId.select().where(
+                    if eid.relationship else 'self') for eid in AffiliationExternalId.select().where(
                         AffiliationExternalId.record_id == id).order_by(AffiliationExternalId.id)
             ]
         elif grant_data_list:
@@ -1136,7 +1132,7 @@ class MemberAPIMixin:
                     external_id_value=gdl.get('grant_number'),
                     external_id_url=v3.UrlV30(value=gdl.get('grant_url')) if gdl.get('grant_url') else None,
                     external_id_relationship=gdl.get('grant_relationship').replace('_', '-').lower()
-                    if gdl.get('grant_relationship') else None) for gdl in grant_data_list
+                    if gdl.get('grant_relationship') else 'self') for gdl in grant_data_list
                 ]
         if external_ids:
             rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
@@ -1489,7 +1485,7 @@ class MemberAPIMixin:
             "EDU": "view_educationsv3",
             "EMP": "view_employmentsv3",
             "EXR": "view_external_identifiers",
-            "FUN": "view_fundings",
+            "FUN": "view_fundingsv3",
             "KWR": "view_keywords",
             "ONR": "view_other_names",
             "PRR": "view_peer_reviews",
@@ -1510,7 +1506,7 @@ class MemberAPIMixin:
             "EDU": "delete_educationv3",
             "EMP": "delete_employmentv3",
             "EXR": "delete_external_identifier",
-            "FUN": "delete_funding",
+            "FUN": "delete_fundingv3",
             "KWR": "delete_keyword",
             "ONR": "delete_other_name",
             "PRR": "delete_peer_review",

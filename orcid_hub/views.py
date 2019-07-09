@@ -14,6 +14,7 @@ from io import BytesIO
 import requests
 import tablib
 import yaml
+import orcid_api_v3 as v3
 from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
                    send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
@@ -1994,7 +1995,7 @@ def delete_record(user_id, section_type, put_code):
             return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2047,7 +2048,7 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2090,7 +2091,7 @@ def edit_record(user_id, section_type, put_code=None):
                 elif section_type == "POS":
                     api_response = api.view_invited_positionv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "FUN":
-                    api_response = api.view_funding(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_fundingv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "WOR":
                     api_response = api.view_work(user.orcid, put_code)
                 elif section_type == "PRR":
@@ -2213,12 +2214,11 @@ def edit_record(user_id, section_type, put_code=None):
                     external_ids_list = _data.get("external-ids", "external-id", default=[])
 
                     for extid in external_ids_list:
-                        external_id_value = extid.get('external-id-value') if extid.get('external-id-value') else ''
-                        external_id_url = extid.get('external-id-url', 'value') if extid.get(
-                            'external-id-url', 'value') else ''
-                        external_id_relationship = extid.get('external-id-relationship').upper() if extid.get(
-                            'external-id-relationship') else ''
-                        external_id_type = extid.get('external-id-type') if extid.get('external-id-type') else ''
+                        external_id_value = extid.get('external-id-value', default='')
+                        external_id_url = extid.get('external-id-url', 'value', default='')
+                        external_id_relationship = extid.get(
+                            'external-id-relationship', default='').replace('-', '_').upper()
+                        external_id_type = extid.get('external-id-type', default='')
 
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
                                                     grant_relationship=external_id_relationship,
@@ -2228,7 +2228,7 @@ def edit_record(user_id, section_type, put_code=None):
                                          funding_translated_title=_data.get("title", "translated-title", "value"),
                                          translated_title_language=_data.get("title", "translated-title",
                                                                              "language-code"),
-                                         funding_type=_data.get("type"),
+                                         funding_type=_data.get("type", default='').replace('-', '_').upper(),
                                          funding_subtype=_data.get("organization-defined-type", "value"),
                                          funding_description=_data.get("short-description"),
                                          total_funding_amount=_data.get("amount", "value"),
@@ -2338,7 +2338,7 @@ def edit_record(user_id, section_type, put_code=None):
                 flash("Record details has been updated successfully!", "success")
             return redirect(_url)
 
-        except ApiException as e:
+        except (ApiException, v3.rest.ApiException) as e:
             body = json.loads(e.body)
             message = body.get("user-message")
             dev_message = body.get("developer-message")
@@ -2432,7 +2432,7 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN"]:
         api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
