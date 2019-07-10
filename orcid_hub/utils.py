@@ -270,7 +270,7 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
     """Create or update work record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
 
     profile_record = api.get_record()
 
@@ -298,10 +298,9 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("title") is None and r.get("title").get("title") is None
-                     and r.get("title").get("title").get("value") is None and r.get("type") is None)
-                        or (r.get("title").get("title").get("value") == record.title
-                            and r.get("type") == record.type)):
+                if record.title and record.type and r.get(
+                    "title", "title", "value", default='').lower() == record.title.lower() and r.get(
+                        "type", default='').replace('-', '_').lower() == record.type.lower():
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -351,20 +350,15 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
     """Create or update peer review record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
 
     profile_record = api.get_record()
 
     if profile_record:
-        activities = profile_record.get("activities-summary")
-
-        peer_reviews = []
-
-        for r in activities.get("peer-reviews").get("group"):
-            peer_review_summary = r.get("peer-review-summary")
-            for ps in peer_review_summary:
-                if is_org_rec(org, ps):
-                    peer_reviews.append(ps)
+        peer_reviews = [s for ag in profile_record.get("activities-summary", "peer-reviews", "group", default=[])
+                        for pg in ag.get("peer-review-group", default=[])
+                        for s in pg.get("peer-review-summary", default=[]) if is_org_rec(org, s)
+                        ]
 
         taken_put_codes = {
             r.record.invitee.put_code
@@ -385,9 +379,8 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if (r.get("review-group-id")
-                        and r.get("review-group-id") == record.review_group_id
-                        and external_id_value in taken_external_id_values):  # noqa: E127
+                if record.review_group_id and external_id_value in taken_external_id_values and r.get(
+                    "review-group-id", default='').lower() == record.review_group_id.lower():  # noqa: E127
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -441,10 +434,9 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
     """Create or update funding record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
 
     profile_record = api.get_record()
-
     if profile_record:
         activities = profile_record.get("activities-summary")
 
@@ -469,13 +461,10 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("title") is None and r.get("title").get("title") is None
-                     and r.get("title").get("title").get("value") is None and r.get("type") is None
-                     and r.get("organization") is None
-                     and r.get("organization").get("name") is None)
-                        or (r.get("title").get("title").get("value") == record.title
-                            and r.get("type") == record.type
-                            and r.get("organization").get("name") == record.org_name)):
+                if record.title and record.type and record.org_name and r.get(
+                    "title", "title", "value", default='').lower() == record.title.lower() and r.get(
+                        "type", default='').replace('-', '_').lower() == record.type.lower() and r.get(
+                        "organization", "name", default='').lower() == record.org_name.lower():
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -488,7 +477,6 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
             fr = task_by_user.record
             fi = task_by_user.record.invitee
             match_put_code(fundings, fr, fi)
-
         for task_by_user in records:
             fi = task_by_user.record.invitee
 
@@ -547,7 +535,6 @@ def send_user_invitation(inviter,
                          disambiguation_source=None,
                          cc_email=None,
                          invitation_template=None,
-                         token_expiry_in_sec=1300000,
                          **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
@@ -1179,18 +1166,12 @@ def process_work_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                token_expiry_in_sec = 2600000
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    # For researcher invitation the expiry is 30 days, if it is reset then it is 2 weeks.
-                    if WorkInvitee.select().where(
-                            WorkInvitee.email == email, WorkInvitee.status ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *k,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
 
                     (WorkInvitee.update(status=WorkInvitee.status + "\n" + status).where(
                         WorkInvitee.status.is_null(False), WorkInvitee.email == email).execute())
@@ -1310,18 +1291,12 @@ def process_peer_review_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                token_expiry_in_sec = 2600000
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    if PeerReviewInvitee.select().where(PeerReviewInvitee.email == email,
-                                                        PeerReviewInvitee.status
-                                                        ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *k,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
 
                     (PeerReviewInvitee.update(
                         status=PeerReviewInvitee.status + "\n" + status).where(
@@ -1442,18 +1417,12 @@ def process_funding_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                token_expiry_in_sec = 2600000
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    if FundingInvitee.select().where(
-                            FundingInvitee.email == email,
-                            FundingInvitee.status ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *k,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
 
                     (FundingInvitee.update(status=FundingInvitee.status + "\n" + status).where(
                         FundingInvitee.status.is_null(False),
@@ -1574,18 +1543,11 @@ def process_affiliation_records(max_rows=20, record_id=None):
             }
             for invitation, affiliations in invitation_dict.items():
                 email = invitation[2]
-                token_expiry_in_sec = 2600000
                 try:
-                    # For researcher invitation the expiry is 30 days, if it is reset then it 2 weeks.
-                    if AffiliationRecord.select().where(
-                            AffiliationRecord.task_id == task_id, AffiliationRecord.email == email,
-                            AffiliationRecord.status ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *invitation,
                         affiliation_types=affiliations,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
                 except Exception as ex:
                     (AffiliationRecord.update(
                         processed_at=datetime.utcnow(),

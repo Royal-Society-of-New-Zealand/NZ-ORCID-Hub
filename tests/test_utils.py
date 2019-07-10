@@ -430,8 +430,8 @@ def test_create_or_update_funding(app, mocker):
     """Test create or update funding."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch(
-        "orcid_api.MemberAPIV20Api.create_funding", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+        "orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_fundingv3", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
 
     org = app.data["org"]
     u = User.create(
@@ -450,7 +450,7 @@ def test_create_or_update_funding(app, mocker):
         task=t,
         title="Test titile",
         translated_title="Test title",
-        translated_title_language_code="Test",
+        translated_title_language_code="hi",
         type="GRANT",
         organization_defined_type="Test org",
         short_description="Test desc",
@@ -497,8 +497,8 @@ def test_create_or_update_funding(app, mocker):
 def test_create_or_update_work(app, mocker):
     """Test create or update work."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
-    mocker.patch("orcid_api.MemberAPIV20Api.create_work", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_workv3", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
 
     org = app.data["org"]
     u = User.create(
@@ -518,10 +518,10 @@ def test_create_or_update_work(app, mocker):
         title="Test titile",
         sub_title="Test titile",
         translated_title="Test title",
-        translated_title_language_code="Test",
+        translated_title_language_code="hi",
         journal_title="Test titile",
         short_description="Test desc",
-        citation_type="Test",
+        citation_type="bibtex",
         citation_value="Test",
         type="BOOK_CHAPTER",
         url="Test org",
@@ -543,7 +543,7 @@ def test_create_or_update_work(app, mocker):
         record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     WorkContributor.create(
-        record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
+        record=wr, contributor_sequence="first", orcid="1213", role="author", name="xyz", email="xyz@mailiantor.com")
 
     UserInvitation.create(
         invitee=u,
@@ -565,8 +565,8 @@ def test_create_or_update_work(app, mocker):
 def test_create_or_update_peer_review(app, mocker):
     """Test create or update peer review."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
-    mocker.patch("orcid_api.MemberAPIV20Api.create_peer_review", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_peer_reviewv3", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
     org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
@@ -599,7 +599,7 @@ def test_create_or_update_peer_review(app, mocker):
         convening_org_name="THE ORGANISATION",
         convening_org_city="auckland",
         convening_org_region="auckland",
-        convening_org_country="nz",
+        convening_org_country="NZ",
         convening_org_disambiguated_identifier="123",
         convening_org_disambiguation_source="1212",
         is_active=True)

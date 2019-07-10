@@ -133,13 +133,13 @@
           {% else %}
             {{ render_field(form.department) }}
             {{ render_field(form.role) }}
-            {{ render_field(form.url) }}
-            {{ render_field(form.visibility) }}
             {{ render_field(form.display_index) }}
           {% endif %}
           {{ render_field(form.start_date) }}
           {{ render_field(form.end_date) }}
           {{ render_field(form.disambiguation_source) }}
+          {{ render_field(form.url) }}
+          {{ render_field(form.visibility) }}
         {% endif %}
         <button type="submit" class="btn btn-primary" value="Save">Save</button>
         <a role="button" class="btn btn-danger" href="{{_url}}">Cancel</a>
