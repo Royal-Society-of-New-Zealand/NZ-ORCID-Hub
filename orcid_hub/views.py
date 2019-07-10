@@ -251,9 +251,14 @@ class AppModelView(ModelView):
     def _handle_join(self, query, field, joins):
         if field.model != self.model:
             model_name = field.model.__name__
+            foreign_keys, _ = self.model._meta.get_rel_for_model(field.model)
 
             if model_name not in joins:
-                query = query.join(field.model, "LEFT OUTER")
+                # TODO: find a simple way of getting to the right joining forein key
+                if len(foreign_keys) > 1:
+                    query = query.join(field.model, JOIN.LEFT_OUTER, on=foreign_keys[0])
+                else:
+                    query = query.join(field.model, JOIN.LEFT_OUTER)
                 joins.add(model_name)
 
         return query

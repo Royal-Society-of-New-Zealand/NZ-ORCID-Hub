@@ -176,10 +176,19 @@ def test_superuser_view_access(client):
     resp = client.get("/admin/orcidtoken/")
     assert resp.status_code == 200
 
+    resp = client.get("/admin/orcidtoken/?search=researcher")
+    assert resp.status_code == 200
+
     resp = client.get("/admin/orginfo/")
     assert resp.status_code == 200
 
+    resp = client.get("/admin/orginfo/?search=org")
+    assert resp.status_code == 200
+
     resp = client.get("/admin/userorg/")
+    assert resp.status_code == 200
+
+    resp = client.get("/admin/userorg/?search=researcher")
     assert resp.status_code == 200
 
     for u in users:
