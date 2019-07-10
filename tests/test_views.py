@@ -2228,8 +2228,8 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_funding.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_peer_review",
+        orcid_client.MemberAPIV3,
+        "view_peer_reviewv3",
         MagicMock(return_value=make_fake_response('{"test":123}', dict={"review_identifiers": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
              "external-id-relationship": "SELF"}]}}))
@@ -2238,10 +2238,10 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_peer_review.assert_called_once_with(user.orcid, 1234)
+        view_peer_review.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_work",
+        orcid_client.MemberAPIV3,
+        "view_workv3",
         MagicMock(return_value=make_fake_response('{"test":123}', dict={"external_ids": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
              "external-id-relationship": "SELF"}]}}))
@@ -2250,7 +2250,7 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_work.assert_called_once_with(user.orcid, 1234)
+        view_work.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
         orcid_client.MemberAPIV20Api,
         "view_researcher_url",
@@ -2329,7 +2329,7 @@ def test_edit_record(request_ctx):
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/FUN/list"
     with patch.object(
-            orcid_client.MemberAPIV20Api, "create_peer_review",
+            orcid_client.MemberAPIV3, "create_peer_reviewv3",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/PRR/new",
                 method="POST",
@@ -2355,6 +2355,8 @@ def test_edit_record(request_ctx):
                     "subject_translated_title": "test",
                     "subject_url": "test",
                     "subject_external_identifier_url": "test",
+                    "disambiguation_source": "RINGGOLD",
+                    "disambiguated_id": "test",
                     "grant_number": "TEST123",
                     "grant_relationship": "SELF"
                 }) as ctx:
@@ -2363,7 +2365,7 @@ def test_edit_record(request_ctx):
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/PRR/list"
     with patch.object(
-            orcid_client.MemberAPIV20Api, "create_work",
+            orcid_client.MemberAPIV3, "create_workv3",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/WOR/new",
                 method="POST",
@@ -2384,6 +2386,8 @@ def test_edit_record(request_ctx):
                     "grant_type": "https://test.com",
                     "grant_url": "https://test.com",
                     "url": "test",
+                    "disambiguation_source": "RINGGOLD",
+                    "disambiguated_id": "test",
                     "language_code": "en"
                 }) as ctx:
         login_user(admin)
