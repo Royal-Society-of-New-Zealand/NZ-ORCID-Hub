@@ -2950,6 +2950,10 @@ class WorkRecord(RecordModel):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
+            visibility = val(row, 22)
+            if visibility:
+                visibility = visibility.upper()
+
             invitee = dict(
                 identifier=val(row, 25),
                 email=email,
@@ -2957,7 +2961,7 @@ class WorkRecord(RecordModel):
                 last_name=val(row, 24),
                 orcid=orcid,
                 put_code=val(row, 21),
-                visibility=val(row, 22),
+                visibility=visibility,
             )
 
             title = val(row, 0)
@@ -3155,6 +3159,8 @@ class WorkRecord(RecordModel):
                             orcid = invitee.get_orcid("ORCID-iD")
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
+                            if visibility:
+                                visibility = visibility.upper()
 
                             WorkInvitee.create(
                                 record=record,

@@ -254,9 +254,6 @@ class MemberAPIMixin:
 
         rec = PeerReview()    # noqa: F405
 
-        # Source is an optional, so it does not matter whether we set that field in request or not.
-        rec.source = self.source
-
         if pr.reviewer_role:
             rec.reviewer_role = pr.reviewer_role.upper()
 
@@ -391,127 +388,93 @@ class MemberAPIMixin:
         """Create or update work record of a user."""
         wr = task_by_user.record
         wi = wr.invitee
+        put_code = wi.put_code
+        visibility = wi.visibility
 
-        rec = Work()    # noqa: F405
-        title = None
+        rec = v3.WorkV30()    # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+
         if wr.title:
-            title = Title(value=wr.title)  # noqa: F405
-        subtitle = None
-        if wr.subtitle:
-            subtitle = Subtitle(value=wr.subtitle)     # noqa: F405
-        translated_title = None
-        if wr.translated_title and wr.translated_title_language_code:
-            translated_title = TranslatedTitle(value=wr.translated_title,  # noqa: F405
-                                               language_code=wr.translated_title_language_code)  # noqa: F405
-        rec.title = WorkTitle(title=title, subtitle=subtitle, translated_title=translated_title)  # noqa: F405
+            title = v3.TitleV30(value=wr.title)  # noqa: F405
+            subtitle = None
+            if wr.subtitle:
+                subtitle = v3.SubtitleV30(value=wr.subtitle)  # noqa: F405
+            translated_title = None
+            if wr.translated_title and wr.translated_title_language_code:
+                translated_title = v3.TranslatedTitleV30(value=wr.translated_title,
+                    language_code=wr.translated_title_language_code)  # noqa: F405
+            rec.title = v3.WorkTitleV30(title=title, subtitle=subtitle, translated_title=translated_title)  # noqa: F405
 
         if wr.journal_title:
-            rec.journal_title = Title(value=wr.journal_title)  # noqa: F405
+            rec.journal_title = v3.TitleV30(value=wr.journal_title)  # noqa: F405
 
-        short_description = None
         if wr.short_description:
-            short_description = wr.short_description
-        rec.short_description = short_description
+            rec.short_description = wr.short_description
 
-        rec.source = self.source
+        if wr.citation_type and wr.citation_value:
+            rec.citation = v3.Citation(citation_type=wr.citation_type.replace('_', '-').lower(),
+                                       citation_value=wr.citation_value)  # noqa: F405
 
-        work_type = None
         if wr.type:
-            work_type = wr.type
-        rec.type = work_type
+            rec.type = wr.type.replace('_', '-').lower()
 
         if wr.publication_date:
             publication_date = wr.publication_date.as_orcid_dict()
-            if wr.publication_media_type:
-                publication_date['media-type'] = wr.publication_media_type.upper()
+            # TODO:Fix media-type once ORCID starts supporting it again. If not then delete this commented code.
+            """if wr.publication_media_type:
+                publication_date['media-type'] = wr.publication_media_type.upper()"""
             rec.publication_date = publication_date
 
-        put_code = wi.put_code
-        if put_code:
-            rec.put_code = wi.put_code
+        external_ids = []
+        contributors = []
 
-        visibility = wi.visibility
-        if visibility:
-            rec.visibility = visibility
+        if wr.id:
+            external_ids = [
+                v3.ExternalIDV30(  # noqa: F405
+                    external_id_type=eid.type if eid.type else "grant_number",
+                    external_id_value=eid.value,
+                    external_id_url=v3.UrlV30(value=eid.url) if eid.url else None,
+                    external_id_relationship=eid.relationship.replace('_', '-').lower()
+                    if eid.relationship else "self") for eid in WorkExternalId.select().where(
+                    WorkExternalId.record_id == wr.id).order_by(WorkExternalId.id)
+            ]
+            url = urlparse(ORCID_BASE_URL)
+            contributors = [
+                v3.ContributorV30(  # noqa: F405
+                    contributor_orcid=v3.ContributorOrcidV30(uri="https://" + url.hostname + "/" + wid.orcid,
+                                                             path=wid.orcid, host=url.hostname) if wid.orcid else None,
+                    credit_name=v3.CreditNameV30(value=wid.name) if wid.name else None,
+                    contributor_email=v3.ContributorEmailV30(value=wid.email) if wid.email else None,
+                    contributor_attributes=v3.ContributorAttributesV30(
+                        contributor_sequence=wid.contributor_sequence.replace('_', '-').lower()
+                        if wid.contributor_sequence else None,
+                        contributor_role=wid.role.replace('_', '-').lower() if wid.role else None))
+                for wid in WorkCont.select().where(
+                    WorkCont.record_id == wr.id).order_by(WorkCont.contributor_sequence)
+            ]
+
+        if external_ids:
+            rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
+
+        if wr.url:
+            rec.url = v3.UrlV30(value=wr.url)  # noqa: F405
+
+        if contributors:
+            rec.contributors = v3.WorkContributorsV30(contributor=contributors)  # noqa: F405
 
         if wr.language_code:
             rec.language_code = wr.language_code
 
         if wr.country:
-            rec.country = Country(value=wr.country)  # noqa: F405
+            rec.country = v3.CountryV30(value=wr.country)  # noqa: F405
 
-        if wr.url:
-            rec.url = Url(value=wr.url)  # noqa: F405
-
-        if wr.citation_type and wr.citation_value:
-            rec.citation = Citation(citation_type=wr.citation_type, citation_value=wr.citation_value)  # noqa: F405
-
-        work_contributors = WorkCont.select().where(WorkCont.record_id == wr.id).order_by(
-            WorkCont.contributor_sequence)
-
-        work_contributor_list = []
-        for w in work_contributors:
-            path = None
-            credit_name = None
-            contributor_orcid = None
-            contributor_attributes = None
-            contributor_email = None
-
-            if w.orcid:
-                path = w.orcid
-
-            if path:
-                url = urlparse(ORCID_BASE_URL)
-                uri = "http://" + url.hostname + "/" + path
-                host = url.hostname
-                contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
-
-            if w.name:
-                credit_name = CreditName(value=w.name)  # noqa: F405
-
-            if w.email:
-                contributor_email = ContributorEmail(value=w.email)  # noqa: F405
-
-            if w.role and w.contributor_sequence:
-                contributor_attributes = ContributorAttributes(  # noqa: F405
-                    contributor_role=w.role.upper(), contributor_sequence=w.contributor_sequence.upper())
-            elif w.role:
-                contributor_attributes = ContributorAttributes(contributor_role=w.role.upper())  # noqa: F405
-            elif w.contributor_sequence:
-                contributor_attributes = ContributorAttributes(     # noqa: F405
-                    contributor_sequence=w.contributor_sequence.upper())
-
-            work_contributor_list.append(
-                Contributor(  # noqa: F405
-                    contributor_orcid=contributor_orcid,
-                    credit_name=credit_name,
-                    contributor_email=contributor_email,
-                    contributor_attributes=contributor_attributes))
-
-        rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
-
-        external_id_list = []
-        external_ids = WorkExternalId.select().where(WorkExternalId.record_id == wr.id).order_by(WorkExternalId.id)
-
-        for exi in external_ids:
-            external_id_type = exi.type
-            external_id_value = exi.value
-            external_id_url = None
-            if exi.url:
-                external_id_url = Url(value=exi.url)  # noqa: F405
-            # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
-            external_id_relationship = exi.relationship.upper() if exi.relationship else "SELF"
-            external_id_list.append(
-                ExternalID(  # noqa: F405
-                    external_id_type=external_id_type,
-                    external_id_value=external_id_value,
-                    external_id_url=external_id_url,
-                    external_id_relationship=external_id_relationship))
-
-        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
+        if visibility:
+            rec.visibility = visibility.replace('_', '-').lower()
 
         try:
-            api_call = self.update_work if put_code else self.create_work
+            api_call = self.update_workv3 if put_code else self.create_workv3
 
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
@@ -533,7 +496,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
+                    resp, "data") and json.loads(resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
@@ -634,7 +598,7 @@ class MemberAPIMixin:
             rec.contributors = v3.FundingContributorsV30(contributor=contributors)  # noqa: F405
 
         if visibility:
-            rec.visibility = visibility.lower()
+            rec.visibility = visibility.replace('_', '-').lower()
 
         try:
             api_call = self.update_fundingv3 if put_code else self.create_fundingv3
@@ -659,8 +623,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").upper() if hasattr(resp, "data") and json.loads(
-                    resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
+                    resp, "data") and json.loads(resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
@@ -1106,7 +1070,7 @@ class MemberAPIMixin:
             rec.put_code = put_code
 
         if visibility:
-            rec.visibility = visibility.lower()
+            rec.visibility = visibility.replace('_', '-').lower()
 
         if display_index:
             rec.display_index = display_index
@@ -1180,8 +1144,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").upper() if hasattr(resp, "data") and json.loads(
-                    resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
+                    resp, "data") and json.loads(resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
