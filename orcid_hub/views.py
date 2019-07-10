@@ -53,7 +53,7 @@ from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
                      UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
-                     db, get_val)
+                     db)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -1996,7 +1996,7 @@ def delete_record(user_id, section_type, put_code):
             return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR", "PRR"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2049,7 +2049,7 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR", "PRR"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2149,38 +2149,36 @@ def edit_record(user_id, section_type, put_code=None):
                                     country=_data.get("country", "value"))
                     else:
                         data = dict(
-                            org_name=get_val(_data, "convening_organization", "name"),
-                            disambiguated_id=get_val(
-                                _data, "convening_organization", "disambiguated-organization",
-                                "disambiguated-organization-identifier"),
-                            disambiguation_source=get_val(
-                                _data, "convening_organization", "disambiguated-organization",
-                                "disambiguation-source"),
-                            city=get_val(_data, "convening_organization", "address", "city"),
-                            state=get_val(_data, "convening_organization", "address", "region"),
-                            country=get_val(_data, "convening_organization", "address", "country"),
-                            reviewer_role=_data.get("reviewer_role", ""),
-                            review_url=get_val(_data, "review_url", "value"),
-                            review_type=_data.get("review_type", ""),
-                            review_group_id=_data.get("review_group_id", ""),
-                            subject_external_identifier_type=get_val(_data, "subject_external_identifier",
-                                                                     "external-id-type"),
-                            subject_external_identifier_value=get_val(_data, "subject_external_identifier",
-                                                                      "external-id-value"),
-                            subject_external_identifier_url=get_val(_data, "subject_external_identifier",
-                                                                    "external-id-url",
-                                                                    "value"),
-                            subject_external_identifier_relationship=get_val(_data, "subject_external_identifier",
-                                                                             "external-id-relationship"),
-                            subject_container_name=get_val(_data, "subject_container_name", "value"),
-                            subject_type=_data.get("subject_type", ""),
-                            subject_title=get_val(_data, "subject_name", "title", "value"),
-                            subject_subtitle=get_val(_data, "subject_name", "subtitle"),
-                            subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
-                            subject_translated_title_language_code=get_val(_data, "subject_name", "translated-title",
-                                                                           "language-code"),
-                            subject_url=get_val(_data, "subject_url", "value"),
-                            review_completion_date=PartialDate.create(_data.get("review_completion_date")))
+                            org_name=_data.get("convening-organization", "name"),
+                            disambiguated_id=_data.get("convening-organization", "disambiguated-organization",
+                                                       "disambiguated-organization-identifier"),
+                            disambiguation_source=_data.get("convening-organization", "disambiguated-organization",
+                                                            "disambiguation-source"),
+                            city=_data.get("convening-organization", "address", "city"),
+                            state=_data.get("convening-organization", "address", "region"),
+                            country=_data.get("convening-organization", "address", "country"),
+                            reviewer_role=_data.get("reviewer-role", default='').replace('-', '_').upper(),
+                            review_url=_data.get("review-url", "value"),
+                            review_type=_data.get("review-type", default='').replace('-', '_').upper(),
+                            review_group_id=_data.get("review-group-id", default=''),
+                            subject_external_identifier_type=_data.get("subject-external-identifier",
+                                                                       "external-id-type"),
+                            subject_external_identifier_value=_data.get("subject-external-identifier",
+                                                                        "external-id-value"),
+                            subject_external_identifier_url=_data.get("subject-external-identifier", "external-id-url",
+                                                                      "value"),
+                            subject_external_identifier_relationship=_data.get("subject-external-identifier",
+                                                                               "external-id-relationship",
+                                                                               default='').replace('-', '_').upper(),
+                            subject_container_name=_data.get("subject-container-name", "value"),
+                            subject_type=_data.get("subject-type", default='').replace('-', '_').upper(),
+                            subject_title=_data.get("subject-name", "title", "value"),
+                            subject_subtitle=_data.get("subject-name", "subtitle"),
+                            subject_translated_title=_data.get("subject-name", "translated-title", "value"),
+                            subject_translated_title_language_code=_data.get("subject-name", "translated-title",
+                                                                             "language-code"),
+                            subject_url=_data.get("subject-url", "value"),
+                            review_completion_date=PartialDate.create(_data.get("review-completion-date")))
                 elif section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
                     data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
                     if section_type == "RUR":
@@ -2430,7 +2428,7 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR", "PRR"]:
         api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
@@ -2458,10 +2456,13 @@ def section(user_id, section_type="EMP"):
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
 
-    if section_type in ["FUN", "PRR", "WOR"]:
+    if section_type in ["FUN", "WOR"]:
         records = (fs for g in data.get("group") for fs in g.get({
             "FUN": "funding-summary",
             "WOR": "work-summary",
+        }[section_type])) if data.get("group") else None
+    elif section_type == "PRR":
+        records = (fs for g in data.get("group") for pg in g.get("peer-review-group") for fs in pg.get({
             "PRR": "peer-review-summary",
         }[section_type])) if data.get("group") else None
     elif section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:

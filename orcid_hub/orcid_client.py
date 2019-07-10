@@ -10,8 +10,7 @@ from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, AffiliationExternalId, OrcidToken, FundingContributor as FundingCont,
                      Log, ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
                      WorkExternalId, PeerReviewExternalId)
-from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
-                       OrganizationAddress, DisambiguatedOrganization, Organization)
+from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source)
 import orcid_api_v3 as v3
 from orcid_api.rest import ApiException
 from time import time
@@ -750,66 +749,66 @@ class MemberAPIMixin:
                                                 review_completion_date=None, grant_data_list=None, put_code=None, *args,
                                                 **kwargs):
         """Create or update individual peer review record via UI."""
-        rec = PeerReview()  # noqa: F405
+        rec = v3.PeerReviewV30()  # noqa: F405
 
-        rec.reviewer_role = reviewer_role
+        if reviewer_role:
+            rec.reviewer_role = reviewer_role.replace('_', '-').lower()
 
         if review_url:
-            rec.review_url = Url(value=review_url)  # noqa: F405
+            rec.review_url = v3.UrlV30(value=review_url)  # noqa: F405
 
-        rec.review_type = review_type
+        if review_type:
+            rec.review_type = review_type.replace('_', '-').lower()
 
         if review_completion_date.as_orcid_dict():
             rec.review_completion_date = review_completion_date.as_orcid_dict()
 
-        rec.review_group_id = review_group_id
+        if review_group_id:
+            rec.review_group_id = review_group_id
 
         if subject_external_identifier_type and subject_external_identifier_value:
-            external_id_url = None
+            subject_external_id_relationship = "self"
+            if subject_external_identifier_relationship:
+                subject_external_id_relationship = subject_external_identifier_relationship.replace('_', '-').lower()
+            subject_external_id_url = None
             if subject_external_identifier_url:
-                external_id_url = Url(value=subject_external_identifier_url)  # noqa: F405
-            # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
-            external_id_relationship = subject_external_identifier_relationship.upper() if \
-                subject_external_identifier_relationship else "SELF"
-
-            rec.subject_external_identifier = ExternalID(         # noqa: F405
-                external_id_type=subject_external_identifier_type, external_id_value=subject_external_identifier_value,
-                external_id_url=external_id_url, external_id_relationship=external_id_relationship)
+                subject_external_id_url = v3.UrlV30(value=subject_external_identifier_url)     # noqa: F405
+            rec.subject_external_identifier = v3.ExternalIDV30(external_id_type=subject_external_identifier_type,
+                                                         external_id_value=subject_external_identifier_value,
+                                                         external_id_relationship=subject_external_id_relationship,
+                                                         external_id_url=subject_external_id_url)       # noqa: F405
 
         if subject_container_name:
-            rec.subject_container_name = Title(value=subject_container_name)  # noqa: F405
+            rec.subject_container_name = v3.TitleV30(value=subject_container_name)     # noqa: F405
 
         if subject_type:
-            rec.subject_type = subject_type
+            rec.subject_type = subject_type.replace('_', '-').lower()
 
         if subject_title:
+            title = v3.TitleV30(value=subject_title)  # noqa: F405
             subtitle = None
-            translated_title = None
-            title = Title(value=subject_title)  # noqa: F405
             if subject_subtitle:
-                subtitle = Subtitle(value=subject_subtitle)     # noqa: F405
-
-            if subject_translated_title and subject_translated_title_language_code:
-                translated_title = TranslatedTitle(value=subject_translated_title,  # noqa: F405
-                                                   language_code=subject_translated_title_language_code)  # noqa: F405
-
-            rec.subject_name = WorkTitle(title=title, subtitle=subtitle,          # noqa: F405
+                subtitle = v3.SubtitleV30(value=subject_subtitle)  # noqa: F405
+            translated_title = None
+            if subject_translated_title_language_code and subject_translated_title:
+                translated_title = v3.TranslatedTitleV30(value=subject_translated_title,  # noqa: F405
+                                                   language_code=subject_translated_title_language_code)
+            rec.subject_name = v3.SubjectNameV30(title=title, subtitle=subtitle,    # noqa: F405
                                          translated_title=translated_title)
 
         if subject_url:
-            rec.subject_url = Url(value=subject_url)        # noqa: F405
+            rec.subject_url = v3.UrlV30(value=subject_url)     # noqa: F405
 
-        organisation_address = OrganizationAddress(
+        organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
-            region=state)
+            region=state or self.org.state)
 
-        disambiguated_organization_details = None
-        disambiguated_organization_details = DisambiguatedOrganization(
+        disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
             disambiguation_source=disambiguation_source or self.org.disambiguation_source)
 
-        rec.convening_organization = Organization(
+        rec.convening_organization = v3.OrganizationV30(
             name=org_name or self.org.name,
             address=organisation_address,
             disambiguated_organization=disambiguated_organization_details)
@@ -817,29 +816,23 @@ class MemberAPIMixin:
         if put_code:
             rec.put_code = put_code
 
-        external_id_list = []
+        external_ids = []
 
-        for exi in grant_data_list:
-            if exi['grant_number']:
-                # Orcid is expecting external type as 'source-work-id'
-                external_id_type = exi['grant_type'] if exi['grant_type'] else "source-work-id"
-                external_id_value = exi['grant_number']
-                external_id_url = None
-                if exi['grant_url']:
-                    external_id_url = Url(value=exi['grant_url'])  # noqa: F405
-                # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
-                external_id_relationship = exi['grant_relationship'].upper() if exi['grant_relationship'] else "SELF"
-                external_id_list.append(
-                    ExternalID(  # noqa: F405
-                        external_id_type=external_id_type,
-                        external_id_value=external_id_value,
-                        external_id_url=external_id_url,
-                        external_id_relationship=external_id_relationship))
+        if grant_data_list:
+            external_ids = [
+                v3.ExternalIDV30(  # noqa: F405
+                    external_id_type=gdl.get('grant_type') if gdl.get('grant_type') else None,
+                    external_id_value=gdl.get('grant_number'),
+                    external_id_url=v3.UrlV30(value=gdl.get('grant_url')) if gdl.get('grant_url') else None,
+                    external_id_relationship=gdl.get('grant_relationship').replace('_', '-').lower()
+                    if gdl.get('grant_relationship') else 'self') for gdl in grant_data_list
+                ]
 
-        rec.review_identifiers = ExternalIDs(external_id=external_id_list)  # noqa: F405
+        if external_ids:
+            rec.review_identifiers = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
         try:
-            api_call = self.update_peer_review if put_code else self.create_peer_review
+            api_call = self.update_peer_reviewv3 if put_code else self.create_peer_reviewv3
 
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
@@ -1450,7 +1443,7 @@ class MemberAPIMixin:
             "FUN": "view_fundingsv3",
             "KWR": "view_keywords",
             "ONR": "view_other_names",
-            "PRR": "view_peer_reviews",
+            "PRR": "view_peer_reviewsv3",
             "RUR": "view_researcher_urls",
             "WOR": "view_worksv3"
         }[section_type]
@@ -1471,7 +1464,7 @@ class MemberAPIMixin:
             "FUN": "delete_fundingv3",
             "KWR": "delete_keyword",
             "ONR": "delete_other_name",
-            "PRR": "delete_peer_review",
+            "PRR": "delete_peer_reviewv3",
             "RUR": "delete_researcher_url",
             "WOR": "delete_workv3"
         }[section_type]
