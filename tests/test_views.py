@@ -426,8 +426,8 @@ def test_show_record_section(client, mocker):
         view_educations.assert_called_once_with(user.orcid, _preload_content=False)
 
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_peer_reviews",
+            orcid_client.MemberAPIV3,
+            "view_peer_reviewsv3",
             return_value=Mock(data='{"test": "TEST1234567890"}')
     ) as view_peer_reviews:
         resp = client.get(f"/section/{user.id}/PRR/list")
@@ -436,8 +436,8 @@ def test_show_record_section(client, mocker):
         view_peer_reviews.assert_called_once_with(user.orcid, _preload_content=False)
 
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_works",
+        orcid_client.MemberAPIV3,
+        "view_worksv3",
         return_value=Mock(data='{"test": "TEST1234567890"}')
     ) as view_works:
         resp = client.get(f"/section/{user.id}/WOR/list")
@@ -2502,14 +2502,14 @@ def test_delete_profile_entries(client, mocker):
     delete_funding.assert_called_once_with(user.orcid, 54321)
 
     delete_peer_review = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_peer_review",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_peer_reviewv3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/PRR/54321/delete")
     assert resp.status_code == 302
     delete_peer_review.assert_called_once_with(user.orcid, 54321)
 
     delete_work = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_work",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_workv3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/WOR/54321/delete")
     assert resp.status_code == 302
