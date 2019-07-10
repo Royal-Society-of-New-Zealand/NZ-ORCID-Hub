@@ -350,20 +350,15 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
     """Create or update peer review record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
 
     profile_record = api.get_record()
 
     if profile_record:
-        activities = profile_record.get("activities-summary")
-
-        peer_reviews = []
-
-        for r in activities.get("peer-reviews").get("group"):
-            peer_review_summary = r.get("peer-review-summary")
-            for ps in peer_review_summary:
-                if is_org_rec(org, ps):
-                    peer_reviews.append(ps)
+        peer_reviews = [s for ag in profile_record.get("activities-summary", "peer-reviews", "group", default=[])
+                        for pg in ag.get("peer-review-group", default=[])
+                        for s in pg.get("peer-review-summary", default=[]) if is_org_rec(org, s)
+                        ]
 
         taken_put_codes = {
             r.record.invitee.put_code
@@ -384,9 +379,8 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if (r.get("review-group-id")
-                        and r.get("review-group-id") == record.review_group_id
-                        and external_id_value in taken_external_id_values):  # noqa: E127
+                if record.review_group_id and external_id_value in taken_external_id_values and r.get(
+                    "review-group-id", default='').lower() == record.review_group_id.lower():  # noqa: E127
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)

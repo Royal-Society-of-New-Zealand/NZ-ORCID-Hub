@@ -2245,6 +2245,10 @@ class PeerReviewRecord(RecordModel):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
+            visibility = val(row, 28)
+            if visibility:
+                visibility = visibility.upper()
+
             invitee = dict(
                 email=email,
                 orcid=orcid,
@@ -2252,7 +2256,7 @@ class PeerReviewRecord(RecordModel):
                 first_name=val(row, 25),
                 last_name=val(row, 26),
                 put_code=val(row, 27),
-                visibility=val(row, 28),
+                visibility=visibility,
             )
 
             review_group_id = val(row, 0)
@@ -2476,6 +2480,8 @@ class PeerReviewRecord(RecordModel):
                             orcid_id = invitee.get("ORCID-iD")
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
+                            if visibility:
+                                visibility = visibility.upper()
 
                             PeerReviewInvitee.create(
                                 record=record,
