@@ -886,67 +886,65 @@ class MemberAPIMixin:
                                          publication_date=None, url=None, language_code=None, country=None,
                                          grant_data_list=None, put_code=None, *args, **kwargs):
         """Create or update individual work record via UI."""
-        rec = Work()  # noqa: F405
+        rec = v3.WorkV30()  # noqa: F405
 
-        if work_type:
-            rec.type = work_type
+        if put_code:
+            rec.put_code = put_code
 
         if title:
-            title = Title(value=title)  # noqa: F405
-            work_translated_title = None
+            title = v3.TitleV30(value=title)  # noqa: F405
             if subtitle:
-                subtitle = Subtitle(value=subtitle)  # noqa: F405
+                subtitle = v3.SubtitleV30(value=subtitle)  # noqa: F405
             if translated_title and translated_title_language_code:
-                work_translated_title = TranslatedTitle(value=translated_title,  # noqa: F405
-                                                        language_code=translated_title_language_code)  # noqa: F405
-            rec.title = WorkTitle(title=title, subtitle=subtitle, translated_title=work_translated_title)  # noqa: F405
+                translated_title = v3.TranslatedTitleV30(value=translated_title,
+                    language_code=translated_title_language_code)  # noqa: F405
+            rec.title = v3.WorkTitleV30(title=title, subtitle=subtitle, translated_title=translated_title)  # noqa: F405
 
         if journal_title:
-            rec.journal_title = Title(value=journal_title)  # noqa: F405
+            rec.journal_title = v3.TitleV30(value=journal_title)  # noqa: F405
 
         if short_description:
             rec.short_description = short_description
 
         if citation_type and citation:
-            rec.citation = Citation(citation_type=citation_type, citation_value=citation)  # noqa: F405
+            rec.citation = v3.Citation(citation_type=citation_type.replace('_', '-').lower(),
+                                       citation_value=citation)  # noqa: F405
+
+        if work_type:
+            rec.type = work_type.replace('_', '-').lower()
 
         if publication_date.as_orcid_dict():
             rec.publication_date = publication_date.as_orcid_dict()
 
+        external_ids = []
+
+        if grant_data_list:
+            external_ids = [
+                v3.ExternalIDV30(  # noqa: F405
+                    external_id_type=gdl.get('grant_type') if gdl.get('grant_type') else "grant_number",
+                    external_id_value=gdl.get('grant_number'),
+                    external_id_url=v3.UrlV30(value=gdl.get('grant_url')) if gdl.get('grant_url') else None,
+                    external_id_relationship=gdl.get('grant_relationship').replace('_', '-').lower()
+                    if gdl.get('grant_relationship') else 'self') for gdl in grant_data_list
+                ]
+
+        if external_ids:
+            rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
+
         if url:
-            rec.url = Url(value=url)  # noqa: F405
+            rec.url = v3.UrlV30(value=url)  # noqa: F405
 
         if language_code:
             rec.language_code = language_code
 
         if country:
-            rec.country = Country(value=country)  # noqa: F405
+            rec.country = v3.CountryV30(value=country)  # noqa: F405
 
         if put_code:
             rec.put_code = put_code
 
-        external_id_list = []
-        for exi in grant_data_list:
-            if exi['grant_number']:
-                # Orcid is expecting external type as 'grant_number'
-                external_id_type = exi['grant_type'] if exi['grant_type'] else "grant_number"
-                external_id_value = exi['grant_number']
-                external_id_url = None
-                if exi['grant_url']:
-                    external_id_url = Url(value=exi['grant_url'])  # noqa: F405
-                # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
-                external_id_relationship = exi['grant_relationship'].upper() if exi['grant_relationship'] else "SELF"
-                external_id_list.append(
-                    ExternalID(  # noqa: F405
-                        external_id_type=external_id_type,
-                        external_id_value=external_id_value,
-                        external_id_url=external_id_url,
-                        external_id_relationship=external_id_relationship))
-
-        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
-
         try:
-            api_call = self.update_work if put_code else self.create_work
+            api_call = self.update_workv3 if put_code else self.create_workv3
 
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
@@ -1462,7 +1460,7 @@ class MemberAPIMixin:
             "ONR": "view_other_names",
             "PRR": "view_peer_reviews",
             "RUR": "view_researcher_urls",
-            "WOR": "view_works"
+            "WOR": "view_worksv3"
         }[section_type]
         return getattr(self, method_name)(self.user.orcid, _preload_content=False)
 
@@ -1483,7 +1481,7 @@ class MemberAPIMixin:
             "ONR": "delete_other_name",
             "PRR": "delete_peer_review",
             "RUR": "delete_researcher_url",
-            "WOR": "delete_work"
+            "WOR": "delete_workv3"
         }[section_type]
         return getattr(self, method_name)(self.user.orcid, put_code)
 

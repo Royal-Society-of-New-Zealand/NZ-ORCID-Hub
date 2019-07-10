@@ -1996,7 +1996,7 @@ def delete_record(user_id, section_type, put_code):
             return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2049,7 +2049,7 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR"]:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
@@ -2094,9 +2094,9 @@ def edit_record(user_id, section_type, put_code=None):
                 elif section_type == "FUN":
                     api_response = api.view_fundingv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "WOR":
-                    api_response = api.view_work(user.orcid, put_code)
+                    api_response = api.view_workv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "PRR":
-                    api_response = api.view_peer_review(user.orcid, put_code)
+                    api_response = api.view_peer_reviewv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "RUR":
                     api_response = api.view_researcher_url(user.orcid, put_code, _preload_content=False)
                 elif section_type == "ONR":
@@ -2108,49 +2108,45 @@ def edit_record(user_id, section_type, put_code=None):
                 elif section_type == "KWR":
                     api_response = api.view_keyword(user.orcid, put_code, _preload_content=False)
 
-                if section_type in ["WOR", "PRR"]:
-                    _data = api_response.to_dict()
-                else:
-                    _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
+                _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
 
                 if section_type == "PRR" or section_type == "WOR":
 
                     if section_type == "PRR":
-                        external_ids_list = get_val(_data, "review_identifiers", "external-id")
+                        external_ids_list = _data.get("review-identifiers", "external-id", default=[])
                     else:
-                        external_ids_list = get_val(_data, "external_ids", "external-id")
+                        external_ids_list = _data.get("external-ids", "external-id", default=[])
 
                     for extid in external_ids_list:
-                        external_id_value = extid['external-id-value'] if extid['external-id-value'] else ''
-                        external_id_url = get_val(extid['external-id-url'], "value") if get_val(
-                            extid['external-id-url'], "value") else ''
-                        external_id_relationship = extid['external-id-relationship'] if extid[
-                            'external-id-relationship'] else ''
-                        external_id_type = extid['external-id-type'] if extid[
-                            'external-id-type'] else ''
+                        external_id_value = extid.get('external-id-value', default='')
+                        external_id_url = extid.get('external-id-url', 'value', default='')
+                        external_id_relationship = extid.get(
+                            'external-id-relationship', default='').replace('-', '_').upper()
+                        external_id_type = extid.get('external-id-type', default='')
 
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
                                                     grant_relationship=external_id_relationship,
                                                     grant_type=external_id_type))
 
                     if section_type == "WOR":
-                        data = dict(work_type=get_val(_data, "type"),
-                                    title=get_val(_data, "title", "title", "value"),
-                                    subtitle=get_val(_data, "title", "subtitle", "value"),
-                                    translated_title=get_val(_data, "title", "translated-title", "value"),
-                                    translated_title_language_code=get_val(_data, "title", "translated-title",
-                                                                           "language-code"),
-                                    journal_title=get_val(_data, "journal_title", "value"),
-                                    short_description=get_val(_data, "short_description"),
-                                    citation_type=get_val(_data, "citation", "citation_type"),
-                                    citation=get_val(_data, "citation", "citation_value"),
-                                    url=get_val(_data, "url", "value"),
-                                    language_code=get_val(_data, "language_code"),
+                        data = dict(work_type=_data.get("type", default='').replace('-', '_').upper(),
+                                    title=_data.get("title", "title", "value"),
+                                    subtitle=_data.get("title", "subtitle", "value"),
+                                    translated_title=_data.get("title", "translated-title", "value"),
+                                    translated_title_language_code=_data.get("title", "translated-title",
+                                                                             "language-code"),
+                                    journal_title=_data.get("journal-title", "value"),
+                                    short_description=_data.get("short-description"),
+                                    citation_type=_data.get("citation", "citation-type",
+                                                            default='').replace('-', '_').upper(),
+                                    citation=_data.get("citation", "citation-value"),
+                                    url=_data.get("url", "value"),
+                                    language_code=_data.get("language-code"),
                                     # Removing key 'media-type' from the publication_date dict.
                                     publication_date=PartialDate.create(
-                                        {date_key: _data.get("publication_date")[date_key] for date_key in
-                                         ('day', 'month', 'year')}) if _data.get("publication_date") else None,
-                                    country=get_val(_data, "country", "value"))
+                                        {date_key: _data.get("publication-date")[date_key] for date_key in
+                                         ('day', 'month', 'year')}) if _data.get("publication-date") else None,
+                                    country=_data.get("country", "value"))
                     else:
                         data = dict(
                             org_name=get_val(_data, "convening_organization", "name"),
@@ -2434,7 +2430,7 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN"]:
+    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR"]:
         api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
     else:
         api = orcid_client.MemberAPI(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
