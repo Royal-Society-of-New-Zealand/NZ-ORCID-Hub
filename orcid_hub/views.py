@@ -524,6 +524,7 @@ class OrcidTokenAdmin(AppModelView):
 class OrcidApiCallAmin(AppModelView):
     """ORCID API calls."""
 
+    column_default_sort = ("id", True)
     can_export = True
     can_edit = False
     can_delete = False
