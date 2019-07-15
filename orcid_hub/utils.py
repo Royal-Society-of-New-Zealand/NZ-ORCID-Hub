@@ -1963,9 +1963,9 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
 
 def notify_about_update(user, event_type="UPDATED"):
     """Notify all organisation about changes of the user."""
-    for org in user.organisations.where(Organisation.webhook_enabled):
-
-        if org.webhook_url:
+    for org in user.organisations.where(Organisation.webhook_enabled
+                                        | Organisation.email_notifications_enabled):
+        if org.webhook_enabled:
             invoke_webhook_handler.queue(org.webhook_url,
                                          user.orcid,
                                          user.created_at or user.updated_at,
@@ -1979,6 +1979,7 @@ def notify_about_update(user, event_type="UPDATED"):
                 {(user.updated_at or user.created_at).isoformat(timespec="minutes", sep=' ')}.</p>""",
                        recipient=org.notification_email
                        or (org.tech_contact.name, org.tech_contact.email),
+                       cc_email=org.tech_contact.email,
                        subject=f"ORCID Profile Update ({user.orcid})",
                        org=org)
 

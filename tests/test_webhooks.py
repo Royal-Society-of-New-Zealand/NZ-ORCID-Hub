@@ -7,7 +7,7 @@ from types import SimpleNamespace as SimpleObject
 from urllib.parse import urlparse
 
 from flask_login import login_user
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from orcid_hub import utils
 from orcid_hub.models import Client, OrcidToken, Organisation, User, Token
@@ -229,6 +229,19 @@ def test_org_webhook(client, mocker):
     assert Organisation.get(org.id).email_notifications_enabled
     assert resp.status_code == 200
 
+    resp = client.post(f"/services/{user.id}/updated")
+    send_email.assert_called()
+    assert resp.status_code == 204
+
+    post = mocker.patch.object(utils.requests, "post", return_value=Mock(status_code=204))
+    for u in User.select().where(User.organisation == user.organisation, User.orcid.is_null(False)):
+        post.reset_mock()
+        send_email.reset_mock()
+        resp = client.post(f"/services/{u.id}/updated")
+        send_email.assert_called()
+        post.assert_called()
+        assert resp.status_code == 204
+
     # Enable only email notification:
     resp = client.post("/settings/webhook", data=dict(
                 webhook_enabled='',
@@ -242,13 +255,11 @@ def test_org_webhook(client, mocker):
     assert Organisation.get(org.id).email_notifications_enabled
     assert resp.status_code == 200
 
+    post.reset_mock()
+    send_email.reset_mock()
     resp = client.post(f"/services/{user.id}/updated")
     send_email.assert_called()
-    assert resp.status_code == 204
-
-    mocker.patch.object(utils.requests, "post", lambda *args, **kwargs: SimpleObject(status_code=404))
-    resp = client.post(f"/services/{user.id}/updated")
-    send_email.assert_called()
+    post.assert_not_called()
     assert resp.status_code == 204
 
     # Test update summary:
