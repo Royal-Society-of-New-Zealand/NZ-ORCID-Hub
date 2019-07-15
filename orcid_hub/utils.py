@@ -1965,7 +1965,7 @@ def notify_about_update(user, event_type="UPDATED"):
     """Notify all organisation about changes of the user."""
     for org in user.organisations.where(Organisation.webhook_enabled
                                         | Organisation.email_notifications_enabled):
-        if org.webhook_enabled:
+        if org.webhook_enabled and org.webhook_url:
             invoke_webhook_handler.queue(org.webhook_url,
                                          user.orcid,
                                          user.created_at or user.updated_at,

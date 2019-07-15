@@ -3337,6 +3337,9 @@ def update_webhook(user_id):
     try:
         updated_at = datetime.utcnow()
         user = User.get(user_id)
+        if not user.orcid:
+            return '', 404
+
         user.orcid_updated_at = updated_at
         user.save()
         utils.notify_about_update(user)
