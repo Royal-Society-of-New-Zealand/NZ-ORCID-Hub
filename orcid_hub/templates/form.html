@@ -10,7 +10,7 @@
     </div>
     {% endif -%}
     {% for f in form %}
-      {% if f.type != "SubmitField" and f.type != "CSRFTokenField" %}
+      {% if f.type not in ["SubmitField", "CSRFTokenField"] %}
       <div class="row">
         <div class="col-md-10 col-sm-10 col-xs-12">
           {{ render_field(f) }}
@@ -29,5 +29,8 @@
         </div>
       </div>
     </div>
+    {% if url %}
+      <input id="url" name="url" type="hidden" value="{{ url }}">
+    {% endif %}
   {% endcall %}
 {% endblock %}

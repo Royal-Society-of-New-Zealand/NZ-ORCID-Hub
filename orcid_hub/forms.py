@@ -643,6 +643,12 @@ class WebhookForm(
             "title": "Save Organisation webhook"
         })
 
+    cancel = SubmitField(
+        "Calcel",
+        render_kw={
+            "class": "btn btn-danger",
+        })
+
 
 class ProfileSyncForm(FlaskForm):
     """Profile sync form."""
