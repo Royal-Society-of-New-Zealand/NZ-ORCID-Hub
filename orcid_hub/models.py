@@ -1346,7 +1346,7 @@ class Task(AuditedModel):
                 Task.status
             ])
         # TODO: refactor for funding task to get records here not in API or export
-        if include_records and TaskType(self.task_type) != TaskType.FUNDING:
+        if include_records and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
             task_dict["records"] = [
                 r.to_dict(
                     to_dashes=to_dashes,

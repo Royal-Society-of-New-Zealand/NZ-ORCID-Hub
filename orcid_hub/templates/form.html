@@ -26,6 +26,9 @@
               {{ f }}
             {% endif %}
           {% endfor %}
+          {% if not form.cancel and not form.close and url %}
+            <a href="{{ url }}" class="btn btn-danger" role="button">Cancel</a>
+          {% endif %}
         </div>
       </div>
     </div>

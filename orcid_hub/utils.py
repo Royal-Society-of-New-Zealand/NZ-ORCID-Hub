@@ -1932,6 +1932,7 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     set_server_name()
     local_handler = (callback_url is None)
 
+    # Don't delete the webhook if there is anyther organisation with enabled webhook:
     if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
         return
 
