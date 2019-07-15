@@ -229,6 +229,19 @@ def test_org_webhook(client, mocker):
     assert Organisation.get(org.id).email_notifications_enabled
     assert resp.status_code == 200
 
+    # Enable only email notification:
+    resp = client.post("/settings/webhook", data=dict(
+                webhook_enabled='',
+                email_notifications_enabled=''))
+    assert resp.status_code == 200
+    assert not Organisation.get(org.id).email_notifications_enabled
+    resp = client.post("/settings/webhook", data=dict(
+                webhook_url="",
+                webhook_enabled='',
+                email_notifications_enabled='y'))
+    assert Organisation.get(org.id).email_notifications_enabled
+    assert resp.status_code == 200
+
     resp = client.post(f"/services/{user.id}/updated")
     send_email.assert_called()
     assert resp.status_code == 204

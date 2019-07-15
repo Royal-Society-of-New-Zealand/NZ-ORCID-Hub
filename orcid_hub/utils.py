@@ -1936,9 +1936,9 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
         return
 
-    try:
-        token = OrcidToken.get(org=user.organisation, scopes="/webhook")
-    except OrcidToken.DoesNotExist:
+    # Any 'webhook' access token can be used:
+    token = OrcidToken.select().where(OrcidToken.scopes == "/webhook").order_by(OrcidToken.id.desc()).first()
+    if not token:
         token = get_client_credentials_token(org=user.organisation, scopes="/webhook")
     if local_handler:
         with app.app_context():

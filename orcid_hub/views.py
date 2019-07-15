@@ -3360,9 +3360,6 @@ def org_webhook():
     form = WebhookForm(obj=org)
 
     if form.validate_on_submit():
-        if form.cancel.data:
-            return redirect(_url)
-
         old_webhook_url = org.webhook_url
         if old_webhook_url and old_webhook_url != form.webhook_url.data:
             for u in org.users.where(User.webhook_enabled):
