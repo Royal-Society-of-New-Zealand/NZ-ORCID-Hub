@@ -290,3 +290,35 @@ def test_org_webhook(client, mocker):
     assert resp.status_code == 200
     assert not Organisation.get(org.id).webhook_enabled
     assert not Organisation.get(org.id).email_notifications_enabled
+
+
+def test_email_notification(client, mocker):
+    """Test Organisation webhook email notifcations."""
+    org = client.data["org"]
+    user = client.data["user"]
+
+    org.email_notifications_enabled = True
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+
+    org.notification_email = "notification@org.edu"
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+
+    org.notification_email = None
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    _, kwargs = send_email.call_args
+    assert kwargs["cc_email"] is None
+
+    org.notification_email = "notification@org.edu"
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    _, kwargs = send_email.call_args
+    assert kwargs["cc_email"] == (org.tech_contact.name, org.tech_contact.email, )

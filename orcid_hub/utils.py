@@ -1979,7 +1979,7 @@ def notify_about_update(user, event_type="UPDATED"):
                 {(user.updated_at or user.created_at).isoformat(timespec="minutes", sep=' ')}.</p>""",
                        recipient=org.notification_email
                        or (org.tech_contact.name, org.tech_contact.email),
-                       cc_email=org.tech_contact.email,
+                       cc_email=(org.tech_contact.name, org.tech_contact.email) if org.notification_email else None,
                        subject=f"ORCID Profile Update ({user.orcid})",
                        org=org)
 

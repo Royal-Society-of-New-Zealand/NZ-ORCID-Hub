@@ -156,7 +156,8 @@ class HubClient(FlaskClient):
 @pytest.fixture(autouse=True)
 def no_mailing(mocker):
     """Mock HTML message for all tests."""
-    yield mocker.patch("emails.html")
+    # yield mocker.patch("emails.html")
+    yield mocker.patch("emails.backend.smtp.backend.SMTPBackend.get_client")
 
 
 @pytest.fixture(autouse=True)
