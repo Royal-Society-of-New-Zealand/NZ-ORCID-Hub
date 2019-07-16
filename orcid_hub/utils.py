@@ -1952,12 +1952,9 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Content-Length": "0"
     }
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
-    if local_handler and resp.status_code in [201, 204]:
-        if delete:
-            user.webhook_enabled = False
-        else:
-            user.webhook_enabled = True
-        user.save()
+    if local_handler:
+        user.webhook_enabled = (resp.status_code in [201, 204]) and not delete
+    user.save()
     return resp
 
 
@@ -2001,20 +1998,23 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             message["updated-at"] = updated_at.isoformat(timespec="seconds")
 
         if orcid:
-            user = User.select().where(User.orcid == orcid).limit(1).first()
+            user = User.select().where(User.orcid == orcid).order_by(User.id.desc()).limit(1).first()
             if user:
                 message["email"] = user.email
                 if user.eppn:
                     message["eppn"] = user.eppn
 
     resp = requests.post(webhook_url + '/' + orcid, json=message)
-    if resp.status_code // 200 != 1:
+    if resp.status_code not in [201, 204]:
         if attempts > 0:
             invoke_webhook_handler.schedule(timedelta(minutes=5 *
                                                       (6 - attempts) if attempts < 6 else 5),
                                             orcid=orcid,
+                                            webhook_url=webhook_url,
                                             message=message,
                                             attempts=attempts - 1)
+        else:
+            raise Exception(f"Failed to propaged the event. Status code: {resp.status_code}")
     return resp
 
 
