@@ -667,7 +667,7 @@ def orcid_callback():
         app.logger.error(f"For {current_user} encountered exception: Scope missing")
         return redirect(url_for("index"))
 
-    orcid_token, orcid_token_found = OrcidToken.get_or_create(
+    orcid_token, orcid_token_created = OrcidToken.get_or_create(
         user_id=user.id, org=user.organisation, scopes=scope_list)
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
@@ -684,7 +684,7 @@ def orcid_callback():
     app.logger.info(f"User {user} authorized {user.organisation} to have {scope_list} access to the profile "
                     "and now trying to update employment or education record")
 
-    if scopes.ACTIVITIES_UPDATE in scope_list and orcid_token_found:
+    if scopes.ACTIVITIES_UPDATE in scope_list and orcid_token_created:
         api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
 
         for a in Affiliation:
@@ -707,7 +707,7 @@ def orcid_callback():
                 f"Please contact your Organisation Administrator(s) if you believe this is an error.",
                 "warning")
 
-    notify_about_update(user, event_type="UPDATED" if orcid_token_found else "CREATED")
+    notify_about_update(user, event_type="CREATED" if orcid_token_created else "UPDATED")
     session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
 
