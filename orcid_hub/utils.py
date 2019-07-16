@@ -1983,10 +1983,10 @@ def notify_about_update(user, event_type="UPDATED"):
 
 @rq.job(timeout=300)
 def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, updated_at=None, message=None,
-                           event_type="UPDATED", attempts=5):
+                           event_type="UPDATED", url=None, attempts=5):
     """Propagate 'updated' event to the organisation event handler URL."""
-    url = app.config["ORCID_BASE_URL"] + orcid
     if not message:
+        url = app.config["ORCID_BASE_URL"] + orcid
         message = {
             "orcid": orcid,
             "url": url,
@@ -2004,14 +2004,18 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
                 if user.eppn:
                     message["eppn"] = user.eppn
 
-    resp = requests.post(webhook_url + '/' + orcid, json=message)
+        url = webhook_url
+        if not url.endswith('/'):
+            url += '/'
+        url += orcid
+
+    resp = requests.post(url, json=message)
     if resp.status_code not in [201, 204]:
         if attempts > 0:
             invoke_webhook_handler.schedule(timedelta(minutes=5 *
                                                       (6 - attempts) if attempts < 6 else 5),
-                                            orcid=orcid,
-                                            webhook_url=webhook_url,
                                             message=message,
+                                            url=url,
                                             attempts=attempts - 1)
         else:
             raise Exception(f"Failed to propaged the event. Status code: {resp.status_code}")
