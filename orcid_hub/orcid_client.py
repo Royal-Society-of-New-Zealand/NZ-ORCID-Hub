@@ -746,8 +746,8 @@ class MemberAPIMixin:
                                                 subject_container_name=None, subject_type=None, subject_title=None,
                                                 subject_subtitle=None, subject_translated_title=None,
                                                 subject_translated_title_language_code=None, subject_url=None,
-                                                review_completion_date=None, grant_data_list=None, put_code=None, *args,
-                                                **kwargs):
+                                                review_completion_date=None, grant_data_list=None, put_code=None,
+                                                visibility=None, *args, **kwargs):
         """Create or update individual peer review record via UI."""
         rec = v3.PeerReviewV30()  # noqa: F405
 
@@ -831,6 +831,9 @@ class MemberAPIMixin:
         if external_ids:
             rec.review_identifiers = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
+        if visibility:
+            rec.visibility = visibility.lower()
+
         try:
             api_call = self.update_peer_reviewv3 if put_code else self.create_peer_reviewv3
 
@@ -869,7 +872,7 @@ class MemberAPIMixin:
                                          translated_title_language_code=None, journal_title=None,
                                          short_description=None, citation_type=None, citation=None,
                                          publication_date=None, url=None, language_code=None, country=None,
-                                         grant_data_list=None, put_code=None, *args, **kwargs):
+                                         grant_data_list=None, put_code=None, visibility=None, *args, **kwargs):
         """Create or update individual work record via UI."""
         rec = v3.WorkV30()  # noqa: F405
 
@@ -878,11 +881,10 @@ class MemberAPIMixin:
 
         if title:
             title = v3.TitleV30(value=title)  # noqa: F405
-            if subtitle:
-                subtitle = v3.SubtitleV30(value=subtitle)  # noqa: F405
-            if translated_title and translated_title_language_code:
-                translated_title = v3.TranslatedTitleV30(value=translated_title,
-                    language_code=translated_title_language_code)  # noqa: F405
+            subtitle = v3.SubtitleV30(value=subtitle) if subtitle else None     # noqa: F405
+            translated_title = v3.TranslatedTitleV30(value=translated_title,
+                                                     language_code=translated_title_language_code
+                                                     ) if translated_title and translated_title_language_code else None
             rec.title = v3.WorkTitleV30(title=title, subtitle=subtitle, translated_title=translated_title)  # noqa: F405
 
         if journal_title:
@@ -927,6 +929,9 @@ class MemberAPIMixin:
 
         if put_code:
             rec.put_code = put_code
+
+        if visibility:
+            rec.visibility = visibility.lower()
 
         try:
             api_call = self.update_workv3 if put_code else self.create_workv3

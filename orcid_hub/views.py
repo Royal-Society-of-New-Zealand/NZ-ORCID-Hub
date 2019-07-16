@@ -2118,18 +2118,18 @@ def edit_record(user_id, section_type, put_code=None):
                         external_ids_list = _data.get("external-ids", "external-id", default=[])
 
                     for extid in external_ids_list:
-                        external_id_value = extid.get('external-id-value', default='')
-                        external_id_url = extid.get('external-id-url', 'value', default='')
-                        external_id_relationship = extid.get(
-                            'external-id-relationship', default='').replace('-', '_').upper()
-                        external_id_type = extid.get('external-id-type', default='')
+                        external_id_value = (extid.get('external-id-value', default='') or '')
+                        external_id_url = (extid.get('external-id-url', 'value', default='') or '')
+                        external_id_relationship = (extid.get(
+                            'external-id-relationship', default='') or '').replace('-', '_').upper()
+                        external_id_type = (extid.get('external-id-type', default='') or '')
 
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
                                                     grant_relationship=external_id_relationship,
                                                     grant_type=external_id_type))
 
                     if section_type == "WOR":
-                        data = dict(work_type=_data.get("type", default='').replace('-', '_').upper(),
+                        data = dict(work_type=(_data.get("type", default='') or '').replace('-', '_').upper(),
                                     title=_data.get("title", "title", "value"),
                                     subtitle=_data.get("title", "subtitle", "value"),
                                     translated_title=_data.get("title", "translated-title", "value"),
@@ -2137,8 +2137,8 @@ def edit_record(user_id, section_type, put_code=None):
                                                                              "language-code"),
                                     journal_title=_data.get("journal-title", "value"),
                                     short_description=_data.get("short-description"),
-                                    citation_type=_data.get("citation", "citation-type",
-                                                            default='').replace('-', '_').upper(),
+                                    citation_type=(_data.get("citation", "citation-type", default='') or '').replace(
+                                        '-', '_').upper(),
                                     citation=_data.get("citation", "citation-value"),
                                     url=_data.get("url", "value"),
                                     language_code=_data.get("language-code"),
@@ -2146,7 +2146,8 @@ def edit_record(user_id, section_type, put_code=None):
                                     publication_date=PartialDate.create(
                                         {date_key: _data.get("publication-date")[date_key] for date_key in
                                          ('day', 'month', 'year')}) if _data.get("publication-date") else None,
-                                    country=_data.get("country", "value"))
+                                    country=_data.get("country", "value"),
+                                    visibility=(_data.get("visibility", default='') or '').upper())
                     else:
                         data = dict(
                             org_name=_data.get("convening-organization", "name"),
@@ -2157,9 +2158,9 @@ def edit_record(user_id, section_type, put_code=None):
                             city=_data.get("convening-organization", "address", "city"),
                             state=_data.get("convening-organization", "address", "region"),
                             country=_data.get("convening-organization", "address", "country"),
-                            reviewer_role=_data.get("reviewer-role", default='').replace('-', '_').upper(),
+                            reviewer_role=(_data.get("reviewer-role", default='') or '').replace('-', '_').upper(),
                             review_url=_data.get("review-url", "value"),
-                            review_type=_data.get("review-type", default='').replace('-', '_').upper(),
+                            review_type=(_data.get("review-type", default='') or '').replace('-', '_').upper(),
                             review_group_id=_data.get("review-group-id", default=''),
                             subject_external_identifier_type=_data.get("subject-external-identifier",
                                                                        "external-id-type"),
@@ -2167,17 +2168,18 @@ def edit_record(user_id, section_type, put_code=None):
                                                                         "external-id-value"),
                             subject_external_identifier_url=_data.get("subject-external-identifier", "external-id-url",
                                                                       "value"),
-                            subject_external_identifier_relationship=_data.get("subject-external-identifier",
-                                                                               "external-id-relationship",
-                                                                               default='').replace('-', '_').upper(),
+                            subject_external_identifier_relationship=(_data.get(
+                                "subject-external-identifier", "external-id-relationship", default='') or '').replace(
+                                '-', '_').upper(),
                             subject_container_name=_data.get("subject-container-name", "value"),
-                            subject_type=_data.get("subject-type", default='').replace('-', '_').upper(),
+                            subject_type=(_data.get("subject-type", default='') or '').replace('-', '_').upper(),
                             subject_title=_data.get("subject-name", "title", "value"),
                             subject_subtitle=_data.get("subject-name", "subtitle"),
                             subject_translated_title=_data.get("subject-name", "translated-title", "value"),
                             subject_translated_title_language_code=_data.get("subject-name", "translated-title",
                                                                              "language-code"),
                             subject_url=_data.get("subject-url", "value"),
+                            visibility=(_data.get("visibility", default='') or '').upper(),
                             review_completion_date=PartialDate.create(_data.get("review-completion-date")))
                 elif section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
                     data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
@@ -2204,7 +2206,7 @@ def edit_record(user_id, section_type, put_code=None):
                         department=_data.get("department-name"),
                         role=_data.get("role-title"),
                         url=_data.get("url", "value"),
-                        visibility=_data.get("visibility", default='').upper(),
+                        visibility=(_data.get("visibility", default='') or '').upper(),
                         start_date=PartialDate.create(_data.get("start-date")),
                         end_date=PartialDate.create(_data.get("end-date")))
 
@@ -2213,8 +2215,8 @@ def edit_record(user_id, section_type, put_code=None):
                     for extid in external_ids_list:
                         external_id_value = extid.get('external-id-value', default='')
                         external_id_url = extid.get('external-id-url', 'value', default='')
-                        external_id_relationship = extid.get(
-                            'external-id-relationship', default='').replace('-', '_').upper()
+                        external_id_relationship = (extid.get(
+                            'external-id-relationship', default='') or '').replace('-', '_').upper()
                         external_id_type = extid.get('external-id-type', default='')
 
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
@@ -2225,7 +2227,7 @@ def edit_record(user_id, section_type, put_code=None):
                                          funding_translated_title=_data.get("title", "translated-title", "value"),
                                          translated_title_language=_data.get("title", "translated-title",
                                                                              "language-code"),
-                                         funding_type=_data.get("type", default='').replace('-', '_').upper(),
+                                         funding_type=(_data.get("type", default='') or '').replace('-', '_').upper(),
                                          funding_subtype=_data.get("organization-defined-type", "value"),
                                          funding_description=_data.get("short-description"),
                                          total_funding_amount=_data.get("amount", "value"),

@@ -222,7 +222,6 @@ class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
     type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.FUNDING_TYPES]
-    visibility_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.VISIBILITIES]
 
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
@@ -244,7 +243,7 @@ class FundingForm(FlaskForm):
         validators=[optional()],
         choices=EMPTY_CHOICES + models.disambiguation_source_choices)
     url = StringField("Url", filters=[lambda x: x or None])
-    visibility = SelectField(choices=visibility_choices, description="Visibility")
+    visibility = SelectField(choices=EMPTY_CHOICES + models.visibility_choices, description="Visibility")
 
 
 class PeerReviewForm(FlaskForm):
@@ -288,6 +287,7 @@ class PeerReviewForm(FlaskForm):
     subject_url = StringField("Subject Url")
     review_completion_date = PartialDateField(
         "Review Completion date", validators=[validators.required()])
+    visibility = SelectField(choices=EMPTY_CHOICES + models.visibility_choices, description="Visibility")
 
 
 class WorkForm(FlaskForm):
@@ -310,6 +310,7 @@ class WorkForm(FlaskForm):
     url = StringField("Url")
     language_code = LanguageSelectField("Language used in this form")
     country = CountrySelectField("Country of publication")
+    visibility = SelectField(choices=EMPTY_CHOICES + models.visibility_choices, description="Visibility")
 
 
 class CommonFieldsForm(FlaskForm):

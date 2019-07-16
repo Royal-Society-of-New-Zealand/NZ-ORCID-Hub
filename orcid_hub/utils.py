@@ -298,9 +298,9 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if record.title and record.type and r.get(
-                    "title", "title", "value", default='').lower() == record.title.lower() and r.get(
-                        "type", default='').replace('-', '_').lower() == record.type.lower():
+                if record.title and record.type and (r.get(
+                    "title", "title", "value", default='') or '').lower() == record.title.lower() and (r.get(
+                        "type", default='') or '').replace('-', '_').lower() == record.type.lower():
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -379,8 +379,8 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if record.review_group_id and external_id_value in taken_external_id_values and r.get(
-                    "review-group-id", default='').lower() == record.review_group_id.lower():  # noqa: E127
+                if record.review_group_id and external_id_value in taken_external_id_values and (r.get(
+                    "review-group-id", default='') or '').lower() == record.review_group_id.lower():  # noqa: E127
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -461,10 +461,10 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if record.title and record.type and record.org_name and r.get(
-                    "title", "title", "value", default='').lower() == record.title.lower() and r.get(
-                        "type", default='').replace('-', '_').lower() == record.type.lower() and r.get(
-                        "organization", "name", default='').lower() == record.org_name.lower():
+                if record.title and record.type and record.org_name and (r.get(
+                    "title", "title", "value", default='') or '').lower() == record.title.lower() and (r.get(
+                        "type", default='') or '').replace('-', '_').lower() == record.type.lower() and (r.get(
+                        "organization", "name", default='') or '').lower() == record.org_name.lower():
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
