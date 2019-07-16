@@ -2358,7 +2358,8 @@ def test_edit_record(request_ctx):
                     "disambiguation_source": "RINGGOLD",
                     "disambiguated_id": "test",
                     "grant_number": "TEST123",
-                    "grant_relationship": "SELF"
+                    "grant_relationship": "SELF",
+                    "visibility": "PUBLIC"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2388,7 +2389,8 @@ def test_edit_record(request_ctx):
                     "url": "test",
                     "disambiguation_source": "RINGGOLD",
                     "disambiguated_id": "test",
-                    "language_code": "en"
+                    "language_code": "en",
+                    "visibility": "PUBLIC"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
