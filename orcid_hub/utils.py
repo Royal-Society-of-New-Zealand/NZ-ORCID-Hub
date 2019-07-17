@@ -1929,7 +1929,6 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
 
     If URL is given, it will be used for as call-back URL.
     """
-    set_server_name()
     local_handler = (callback_url is None)
 
     # Don't delete the webhook if there is anyther organisation with enabled webhook:
@@ -1967,7 +1966,8 @@ def notify_about_update(user, event_type="UPDATED"):
                                          user.orcid,
                                          user.created_at or user.updated_at,
                                          user.updated_at or user.created_at,
-                                         event_type=event_type)
+                                         event_type=event_type,
+                                         append_orcid=org.webhook_append_orcid)
 
         if org.email_notifications_enabled:
             url = app.config["ORCID_BASE_URL"] + user.orcid
@@ -1983,7 +1983,7 @@ def notify_about_update(user, event_type="UPDATED"):
 
 @rq.job(timeout=300)
 def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, updated_at=None, message=None,
-                           event_type="UPDATED", url=None, attempts=5):
+                           event_type="UPDATED", url=None, attempts=5, append_orcid=False):
     """Propagate 'updated' event to the organisation event handler URL."""
     if not message:
         url = app.config["ORCID_BASE_URL"] + orcid
@@ -2005,9 +2005,10 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
                     message["eppn"] = user.eppn
 
         url = webhook_url
-        if not url.endswith('/'):
-            url += '/'
-        url += orcid
+        if append_orcid:
+            if not url.endswith('/'):
+                url += '/'
+            url += orcid
 
     resp = requests.post(url, json=message)
     if resp.status_code not in [201, 204]:

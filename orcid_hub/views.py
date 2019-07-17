@@ -215,7 +215,7 @@ class AppModelView(ModelView):
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=orcid_link_formatter)
-    column_default_sort = "id"
+    column_default_sort = ("id", True)
     column_labels = dict(org="Organisation", orcid="ORCID iD")
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({datetime: lambda view, value: isodate(value)})

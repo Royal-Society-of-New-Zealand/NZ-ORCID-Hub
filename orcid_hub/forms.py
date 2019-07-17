@@ -620,6 +620,7 @@ class WebhookForm(
             only=[
                 "webhook_enabled",
                 "webhook_url",
+                "webhook_append_orcid",
                 "email_notifications_enabled",
                 "notification_email",
             ],

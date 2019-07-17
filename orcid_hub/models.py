@@ -624,6 +624,10 @@ class Organisation(AuditedModel):
     email_template_enabled = BooleanField(null=True, default=False)
     webhook_enabled = BooleanField(default=False, null=True)
     webhook_url = CharField(max_length=100, null=True)
+    webhook_append_orcid = BooleanField(
+        null=True,
+        verbose_name="Append ORCID iD",
+        help_text="Append the ORCID iD of the user the Webhook URL")
     email_notifications_enabled = BooleanField(default=False, null=True)
     notification_email = CharField(max_length=100, null=True, verbose_name="Notification Email Address")
 
@@ -723,8 +727,8 @@ class User(AuditedModel, UserMixin):
         return (Organisation.select(
             Organisation, (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
             ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
-                UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
-                .objects())
+                UserOrg, on=(UserOrg.org_id == Organisation.id)).where(
+                    UserOrg.user_id == self.id))
 
     @lazy_property
     def org_links(self):
@@ -842,6 +846,9 @@ class User(AuditedModel, UserMixin):
     def uuid(self):
         """Generate UUID for the user based on the primary email."""
         return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "u"
 
 
 class OrgInfo(BaseModel):

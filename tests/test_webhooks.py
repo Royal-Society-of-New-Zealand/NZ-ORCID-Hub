@@ -321,4 +321,37 @@ def test_email_notification(client, mocker):
     resp = client.post(f"/services/{user.id}/updated")
     assert resp.status_code == 204
     _, kwargs = send_email.call_args
-    assert kwargs["cc_email"] == (org.tech_contact.name, org.tech_contact.email, )
+
+
+def test_webhook_invokation(client, mocker):
+    """Test Organisation webhook invokation."""
+    org = client.data["org"]
+    user = client.data["user"]
+    post = mocker.patch.object(utils.requests, "post", return_value=Mock(status_code=204))
+    message = {
+        "orcid": user.orcid,
+        "url": f"https://sandbox.orcid.org/{user.orcid}",
+        "type": "UPDATED",
+        "updated-at": User.get(user.id).updated_at.isoformat(timespec="seconds"),
+        "email": user.email,
+        "eppn": user.eppn
+    }
+
+    org.webhook_enabled = True
+    org.webhook_url = "http://test.edu/"
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    post.assert_called_with("http://test.edu/", json=message)
+
+    org.webhook_append_orcid = True
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    post.assert_called_with(f"http://test.edu/{user.orcid}", json=message)
+
+    org.webhook_url = "http://test.edu"
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    post.assert_called_with(f"http://test.edu/{user.orcid}", json=message)
