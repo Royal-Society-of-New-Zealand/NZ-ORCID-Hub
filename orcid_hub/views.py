@@ -3360,13 +3360,10 @@ def org_webhook():
     """Manage organisation invitation email template."""
     _url = request.values.get("url") or request.referrer
     org = current_user.organisation
+
     form = WebhookForm(obj=org)
 
     if form.validate_on_submit():
-        old_webhook_url = org.webhook_url
-        if old_webhook_url and old_webhook_url != form.webhook_url.data:
-            for u in org.users.where(User.webhook_enabled):
-                utils.register_orcid_webhook.queue(u, delete=True)
         form.populate_obj(org)
         org.save()
         if form.webhook_enabled.data or form.email_notifications_enabled.data:

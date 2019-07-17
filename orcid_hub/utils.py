@@ -2027,9 +2027,8 @@ def enable_org_webhook(org):
     """Enable Organisation Webhook."""
     org.webhook_enabled = True
     org.save()
-    for u in org.users:
-        if not u.webhook_enabled:
-            register_orcid_webhook.queue(u)
+    for u in org.users.where(User.webhook_enabled.NOT()):
+        register_orcid_webhook.queue(u)
 
 
 @rq.job(timeout=300)
