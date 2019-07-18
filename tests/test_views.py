@@ -2321,6 +2321,9 @@ def test_edit_record(request_ctx):
                     "grant_number": "TEST123",
                     "disambiguation_source": "RINGGOLD",
                     "disambiguated_id": "test",
+                    "funding_subtype": "xyz",
+                    "funding_description": "desc",
+                    "url": "url",
                     "grant_relationship": "SELF",
                     "visibility": "PUBLIC"
                 }) as ctx:

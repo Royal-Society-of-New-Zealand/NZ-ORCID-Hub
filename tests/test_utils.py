@@ -18,7 +18,7 @@ from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
                               FundingInvitee, FundingRecord, Log, OrcidToken, Organisation,
                               OrgInfo, OtherIdRecord, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-                              PropertyRecord, Role, Task, TaskType, User, UserInvitation, UserOrg,
+                              PropertyRecord, PartialDate, Role, Task, TaskType, User, UserInvitation, UserOrg,
                               WorkContributor, WorkExternalId, WorkInvitee, WorkRecord)
 
 from tests.utils import get_profile
@@ -431,9 +431,9 @@ def test_create_or_update_funding(app, mocker):
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch(
         "orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_fundingv3", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
-
     org = app.data["org"]
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org))
+
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -459,6 +459,9 @@ def test_create_or_update_funding(app, mocker):
         org_name="Test_orgname",
         city="Test city",
         region="Test",
+        url="url",
+        start_date=PartialDate.create("2003-07-14"),
+        end_date=PartialDate.create("2004-07-14"),
         country="NZ",
         disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
@@ -498,9 +501,9 @@ def test_create_or_update_work(app, mocker):
     """Test create or update work."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_workv3", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
-
     org = app.data["org"]
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org))
+
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -516,7 +519,7 @@ def test_create_or_update_work(app, mocker):
     wr = WorkRecord.create(
         task=t,
         title="Test titile",
-        sub_title="Test titile",
+        subtitle="Test titile",
         translated_title="Test title",
         translated_title_language_code="hi",
         journal_title="Test titile",
@@ -524,6 +527,7 @@ def test_create_or_update_work(app, mocker):
         citation_type="bibtex",
         citation_value="Test",
         type="BOOK_CHAPTER",
+        publication_date=PartialDate.create("2003-07-14"),
         url="Test org",
         language_code="en",
         country="NZ",
@@ -566,8 +570,8 @@ def test_create_or_update_peer_review(app, mocker):
     """Test create or update peer review."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_peer_reviewv3", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
     org = app.data["org"]
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org))
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -593,6 +597,7 @@ def test_create_or_update_peer_review(app, mocker):
         subject_type="JOURNAL_ARTICLE",
         subject_name_title="name",
         subject_name_subtitle="subtitle",
+        review_completion_date=PartialDate.create("2003-07-14"),
         subject_name_translated_title_lang_code="en",
         subject_name_translated_title="sdsd",
         subject_url="url",
