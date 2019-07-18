@@ -2010,9 +2010,14 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
                 url += '/'
             url += orcid
 
-    resp = requests.post(url, json=message)
-    if resp.status_code not in [201, 204]:
-        if attempts > 0:
+    try:
+        resp = requests.post(url, json=message)
+    except:
+        if attempts == 1:
+            raise
+
+    if not resp or resp.status_code // 200 != 1:
+        if attempts > 1:
             invoke_webhook_handler.schedule(timedelta(minutes=5 *
                                                       (6 - attempts) if attempts < 6 else 5),
                                             message=message,

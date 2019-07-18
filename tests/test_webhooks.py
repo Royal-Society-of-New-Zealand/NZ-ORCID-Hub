@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """Tests for webhooks functions."""
 
+import datetime
 import logging
 import json
 from types import SimpleNamespace as SimpleObject
 from urllib.parse import urlparse
 
 from flask_login import login_user
+import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 from orcid_hub import utils
@@ -355,3 +357,26 @@ def test_webhook_invokation(client, mocker):
     resp = client.post(f"/services/{user.id}/updated")
     assert resp.status_code == 204
     post.assert_called_with(f"http://test.edu/{user.orcid}", json=message)
+
+    post = mocker.patch.object(utils.requests, "post", return_value=Mock(status_code=400))
+    with pytest.raises(Exception):
+        utils.invoke_webhook_handler(attempts=1, message=message, url=f"http://test.edu/{user.orcid}")
+
+    schedule = mocker.patch("orcid_hub.utils.invoke_webhook_handler.schedule")
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    schedule.assert_called_with(datetime.timedelta(seconds=300),
+                                attempts=4,
+                                message=message,
+                                url=f"http://test.edu/{user.orcid}")
+
+    post = mocker.patch.object(utils.requests, "post", side_effect=Exception("OH! NOHHH!"))
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    schedule.assert_called_with(datetime.timedelta(seconds=300),
+                                attempts=4,
+                                message=message,
+                                url=f"http://test.edu/{user.orcid}")
+
+    with pytest.raises(Exception):
+        utils.invoke_webhook_handler(attempts=1, message=message, url=f"http://test.edu/{user.orcid}")
