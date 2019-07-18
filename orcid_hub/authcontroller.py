@@ -1331,11 +1331,12 @@ def orcid_login_callback(request):
 def select_user_org(user_org_id):
     """Change the current organisation of the current user."""
     user_org_id = int(user_org_id)
-    _next = get_next_url() or request.referrer or url_for("index")
+    _next = get_next_url("index")
     try:
-        uo = UserOrg.get(id=user_org_id)
-        if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email
-                or uo.user.eppn == current_user.eppn):
+        uo = UserOrg.get(user_org_id)
+        if ((uo.user.orcid and uo.user.orcid == current_user.orcid)
+                or uo.user.email == current_user.email
+                or (uo.user.eppn and uo.user.eppn == current_user.eppn)):
             if uo.user_id != current_user.id:
                 login_user(uo.user)
             if current_user.organisation_id != uo.org_id:

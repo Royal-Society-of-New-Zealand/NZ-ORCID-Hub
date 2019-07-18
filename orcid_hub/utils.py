@@ -49,9 +49,11 @@ ENV = app.config.get("ENV")
 EXTERNAL_SP = app.config.get("EXTERNAL_SP")
 
 
-def get_next_url():
+def get_next_url(endpoint=None):
     """Retrieve and sanitize next/return URL."""
-    _next = request.args.get("next") or request.args.get("_next") or request.args.get("url")
+    _next = request.args.get("next") or request.args.get("_next") or request.referrer
+    if not _next and endpoint:
+        _next = url_for(endpoint)
 
     if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
                   or "localhost" in _next or "c9users.io" in _next):
