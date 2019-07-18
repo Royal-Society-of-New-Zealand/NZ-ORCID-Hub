@@ -2230,7 +2230,9 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_peer_reviewv3",
-        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "review-identifiers": {"external-id": [
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "review-url":{"value":"url"},
+        "review-type":"review", "completion-date":{"year":{"value":"2019"}},"review-group-id":"issn:3849221112323779",
+        "review-identifiers": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
              "external-id-relationship": "SELF"}]}}"""))
     ) as view_peer_review, request_ctx(f"/section/{user.id}/PRR/1234/edit") as ctx:
@@ -2242,7 +2244,8 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_workv3",
-        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "external-ids": {"external-id": [
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "type":"conference-abstract", "publication-date":{
+        "year":{"value":"2019"}}, "journal-title":{"value":"book title"},"external-ids": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
              "external-id-relationship": "SELF"}]}}"""))
     ) as view_work, request_ctx(f"/section/{user.id}/WOR/1234/edit") as ctx:
