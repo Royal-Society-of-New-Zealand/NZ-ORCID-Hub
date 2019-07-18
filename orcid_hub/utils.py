@@ -51,7 +51,8 @@ EXTERNAL_SP = app.config.get("EXTERNAL_SP")
 
 def get_next_url(endpoint=None):
     """Retrieve and sanitize next/return URL."""
-    _next = request.args.get("next") or request.args.get("_next") or request.referrer
+    _next = request.args.get("next") or request.args.get("_next") or request.args.get(
+        "url") or request.referrer
     if not _next and endpoint:
         _next = url_for(endpoint)
 
