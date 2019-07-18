@@ -2230,9 +2230,9 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_peer_reviewv3",
-        MagicMock(return_value=make_fake_response('{"test":123}', dict={"review_identifiers": {"external-id": [
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "review-identifiers": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
-             "external-id-relationship": "SELF"}]}}))
+             "external-id-relationship": "SELF"}]}}"""))
     ) as view_peer_review, request_ctx(f"/section/{user.id}/PRR/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2242,9 +2242,9 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_workv3",
-        MagicMock(return_value=make_fake_response('{"test":123}', dict={"external_ids": {"external-id": [
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "external-ids": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
-             "external-id-relationship": "SELF"}]}}))
+             "external-id-relationship": "SELF"}]}}"""))
     ) as view_work, request_ctx(f"/section/{user.id}/WOR/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
