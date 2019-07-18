@@ -342,40 +342,41 @@ def get_profile(org=None, user=None):
                             "external-id-relationship": None
                         }]
                     },
-                    "peer-review-summary": [{
-                        "source": {
-                            "source-client-id": {
-                                "uri": "http://sandbox.orcid.org/client/{client_id}",
-                                "path": client_id,
-                                "host": "sandbox.orcid.org"
-                            },
-                            "source-name": {
-                                "value": "The University of Auckland - MyORCiD"
-                            }
-                        },
-                        "external-ids": {
-                            "external-id": [{
-                                "external-id-type": "source-work-id",
-                                "external-id-value": "122334",
-                                "external-id-url": {
-                                    "value": "https://localsystem.org/1234"
+                    "peer-review-group": [{
+                        "peer-review-summary": [{
+                            "source": {
+                                "source-client-id": {
+                                    "uri": "http://sandbox.orcid.org/client/{client_id}",
+                                    "path": client_id,
+                                    "host": "sandbox.orcid.org"
                                 },
-                                "external-id-relationship": "SELF"
-                            }]
-                        },
-                        "review-group-id": "issn:12131",
-                        "convening-organization": {
-                            "name": "The University of Auckland",
-                            "address": {
-                                "city": "Auckland",
-                                "region": "Auckland",
-                                "country": "NZ"
+                                "source-name": {
+                                    "value": "The University of Auckland - MyORCiD"
+                                }
                             },
-                            "disambiguated-organization": None
-                        },
-                        "visibility": "PUBLIC",
-                        "put-code": 2622,
-                    }]
+                            "external-ids": {
+                                "external-id": [{
+                                    "external-id-type": "source-work-id",
+                                    "external-id-value": "122334",
+                                    "external-id-url": {
+                                        "value": "https://localsystem.org/1234"
+                                    },
+                                    "external-id-relationship": "SELF"
+                                }]
+                            },
+                            "review-group-id": "issn:12131",
+                            "convening-organization": {
+                                "name": "The University of Auckland",
+                                "address": {
+                                    "city": "Auckland",
+                                    "region": "Auckland",
+                                    "country": "NZ"
+                                },
+                                "disambiguated-organization": None
+                            },
+                            "visibility": "PUBLIC",
+                            "put-code": 2622,
+                        }]}]
                 }],
                 "path":
                     f"/{orcid}/peer-reviews"
