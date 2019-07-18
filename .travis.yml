@@ -14,7 +14,7 @@ before_install:
 
 install:
     - gen-keys/genkey.sh $DOMAIN
-    - ls -l
+    - openssl genrsa -out .keys/dkim.key 1024
     - for t in sp server; do cp build-server.key .keys/${ENV}-$t.key; cp build-server.crt .keys/${ENV}-$t.crt; done
     - mkdir -p pgdata data/redis archive backup
     - export UID
