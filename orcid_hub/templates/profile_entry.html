@@ -91,6 +91,7 @@
           {{ render_field(form.publication_date) }}
           {{ render_field(form.url) }}
           {{ render_field(form.language_code) }}
+          {{ render_field(form.visibility) }}
         {% elif section_type == "PRR" %}
           {{ render_field(form.reviewer_role) }}
           {{ render_field(form.review_url) }}
@@ -109,6 +110,7 @@
           {{ render_field(form.subject_url) }}
           {{ render_field(form.review_completion_date) }}
           {{ render_field(form.disambiguation_source) }}
+          {{ render_field(form.visibility) }}
         {% elif section_type == "RUR" %}
           {{ render_field(form.name) }}
           {{ render_field(form.value) }}
@@ -133,13 +135,13 @@
           {% else %}
             {{ render_field(form.department) }}
             {{ render_field(form.role) }}
-            {{ render_field(form.url) }}
-            {{ render_field(form.visibility) }}
             {{ render_field(form.display_index) }}
           {% endif %}
           {{ render_field(form.start_date) }}
           {{ render_field(form.end_date) }}
           {{ render_field(form.disambiguation_source) }}
+          {{ render_field(form.url) }}
+          {{ render_field(form.visibility) }}
         {% endif %}
         <button type="submit" class="btn btn-primary" value="Save">Save</button>
         <a role="button" class="btn btn-danger" href="{{_url}}">Cancel</a>
