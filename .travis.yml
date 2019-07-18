@@ -34,7 +34,6 @@ script:
     - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
     - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
     - docker-compose exec app w3c_validator https://localhost https://localhost/about https://localhost/faq
-    - touch .keys/dkim.key
     - docker-compose exec app ./pytest.sh
     - docker-compose logs app
 
