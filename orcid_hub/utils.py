@@ -1972,7 +1972,7 @@ def notify_about_update(user, event_type="UPDATED"):
         if org.email_notifications_enabled:
             url = app.config["ORCID_BASE_URL"] + user.orcid
             send_email(f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
-                profile was updated or user had linked her/his account at
+                {"profile was updated" if event_type == "UPDATED" else "has linked her/his account"} at
                 {(user.updated_at or user.created_at).isoformat(timespec="minutes", sep=' ')}.</p>""",
                        recipient=org.notification_email
                        or (org.tech_contact.name, org.tech_contact.email),
