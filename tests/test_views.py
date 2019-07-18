@@ -1345,6 +1345,7 @@ def test_researcher_invitation(client, mocker):
     org = admin.organisation
     org.webhook_enabled = True
     org.webhook_url = "http://test.webhook"
+    org.webhook_append_orcid = True
     org.confirmed = True
     org.save()
     client.logout()
