@@ -1905,6 +1905,7 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     if not token:
         token = get_client_credentials_token(org=user.organisation, scopes="/webhook")
     if local_handler:
+        set_server_name()
         with app.app_context():
             callback_url = quote(url_for("update_webhook", user_id=user.id), safe='')
     elif '/' in callback_url or ':' in callback_url:
