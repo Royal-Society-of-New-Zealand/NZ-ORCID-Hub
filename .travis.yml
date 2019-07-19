@@ -14,7 +14,7 @@ before_install:
 
 install:
     - gen-keys/genkey.sh $DOMAIN
-    - ls -l
+    - openssl genrsa -out .keys/dkim.key 1024
     - for t in sp server; do cp build-server.key .keys/${ENV}-$t.key; cp build-server.crt .keys/${ENV}-$t.crt; done
     - mkdir -p pgdata data/redis archive backup
     - export UID
@@ -34,7 +34,6 @@ script:
     - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
     - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
     - docker-compose exec app w3c_validator https://localhost https://localhost/about https://localhost/faq
-    - touch .keys/dkim.key
     - docker-compose exec app ./pytest.sh
     - docker-compose logs app
 

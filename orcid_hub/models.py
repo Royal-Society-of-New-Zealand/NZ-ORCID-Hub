@@ -624,6 +624,10 @@ class Organisation(AuditedModel):
     email_template_enabled = BooleanField(null=True, default=False)
     webhook_enabled = BooleanField(default=False, null=True)
     webhook_url = CharField(max_length=100, null=True)
+    webhook_append_orcid = BooleanField(
+        null=True,
+        verbose_name="Append ORCID iD",
+        help_text="Append the ORCID iD of the user the Webhook URL")
     email_notifications_enabled = BooleanField(default=False, null=True)
     notification_email = CharField(max_length=100, null=True, verbose_name="Notification Email Address")
 
@@ -723,8 +727,8 @@ class User(AuditedModel, UserMixin):
         return (Organisation.select(
             Organisation, (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
             ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
-                UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
-                .objects())
+                UserOrg, on=(UserOrg.org_id == Organisation.id)).where(
+                    UserOrg.user_id == self.id))
 
     @lazy_property
     def org_links(self):
@@ -842,6 +846,9 @@ class User(AuditedModel, UserMixin):
     def uuid(self):
         """Generate UUID for the user based on the primary email."""
         return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "u"
 
 
 class OrgInfo(BaseModel):
@@ -1346,7 +1353,7 @@ class Task(AuditedModel):
                 Task.status
             ])
         # TODO: refactor for funding task to get records here not in API or export
-        if include_records and TaskType(self.task_type) != TaskType.FUNDING:
+        if include_records and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
             task_dict["records"] = [
                 r.to_dict(
                     to_dashes=to_dashes,
@@ -1684,6 +1691,7 @@ class FundingRecord(RecordModel):
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
+    url = CharField(max_length=200, null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
     def to_export_dict(self):
@@ -1743,6 +1751,7 @@ class FundingRecord(RecordModel):
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
                 "identifier",
+                r"url"
             ]
         ]
 
@@ -1857,6 +1866,7 @@ class FundingRecord(RecordModel):
                         city=val(row, 11) or org.city,
                         region=val(row, 12) or org.state,
                         country=country or org.country,
+                        url=val(row, 28),
                         disambiguated_id=val(row, 14) or org.disambiguated_id,
                         disambiguation_source=val(row, 15) or org.disambiguation_source),
                     invitee=invitee,
@@ -1936,6 +1946,7 @@ class FundingRecord(RecordModel):
                     organization_defined_type = r.get("organization-defined-type", "value")
                     short_description = r.get("short-description")
                     amount = r.get("amount", "value")
+                    url = r.get("url", "value")
                     currency = r.get("amount", "currency-code")
                     start_date = PartialDate.create(r.get("start-date"))
                     end_date = PartialDate.create(r.get("end-date"))
@@ -1962,6 +1973,7 @@ class FundingRecord(RecordModel):
                         city=city,
                         region=region,
                         country=country,
+                        url=url,
                         disambiguated_id=disambiguated_id,
                         disambiguation_source=disambiguation_source,
                         start_date=start_date,
@@ -2240,6 +2252,10 @@ class PeerReviewRecord(RecordModel):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
+            visibility = val(row, 28)
+            if visibility:
+                visibility = visibility.upper()
+
             invitee = dict(
                 email=email,
                 orcid=orcid,
@@ -2247,7 +2263,7 @@ class PeerReviewRecord(RecordModel):
                 first_name=val(row, 25),
                 last_name=val(row, 26),
                 put_code=val(row, 27),
-                visibility=val(row, 28),
+                visibility=visibility,
             )
 
             review_group_id = val(row, 0)
@@ -2471,6 +2487,8 @@ class PeerReviewRecord(RecordModel):
                             orcid_id = invitee.get("ORCID-iD")
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
+                            if visibility:
+                                visibility = visibility.upper()
 
                             PeerReviewInvitee.create(
                                 record=record,
@@ -2945,6 +2963,10 @@ class WorkRecord(RecordModel):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
+            visibility = val(row, 22)
+            if visibility:
+                visibility = visibility.upper()
+
             invitee = dict(
                 identifier=val(row, 25),
                 email=email,
@@ -2952,7 +2974,7 @@ class WorkRecord(RecordModel):
                 last_name=val(row, 24),
                 orcid=orcid,
                 put_code=val(row, 21),
-                visibility=val(row, 22),
+                visibility=visibility,
             )
 
             title = val(row, 0)
@@ -3150,6 +3172,8 @@ class WorkRecord(RecordModel):
                             orcid = invitee.get_orcid("ORCID-iD")
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
+                            if visibility:
+                                visibility = visibility.upper()
 
                             WorkInvitee.create(
                                 record=record,
