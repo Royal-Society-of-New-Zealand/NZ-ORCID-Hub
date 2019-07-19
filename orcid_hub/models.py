@@ -3380,24 +3380,6 @@ class ExternalId(ExternalIdModel):
         table_alias = "ei"
 
 
-class Resource(BaseModel):
-    """Research resource."""
-
-    title = CharField(max_length=1000)
-    display_index = IntegerField(null=True)
-    visibility = CharField(max_length=10, choices=visibility_choices)
-
-
-class ResoureceExternalId(BaseModel):
-    """Linkage between resoucrece and ExternalId."""
-
-    external_id = ForeignKeyField(ExternalId, index=True, on_delete="CASCADE")
-    resource = ForeignKeyField(Resource, index=True, on_delete="CASCADE")
-
-    class Meta:  # noqa: D106
-        table_alias = "rei"
-
-
 class AffiliationExternalId(ExternalIdModel):
     """Affiliation ExternalId loaded for batch processing."""
 
@@ -3603,6 +3585,69 @@ class OtherIdRecord(ExternalIdModel):
 
     class Meta:  # noqa: D101,D106
         table_alias = "oir"
+
+
+class ResourceRecord(RecordModel):
+    """Research resource record."""
+
+    # Invitee:
+    email = CharField(max_length=80, null=True)
+    orcid = OrcidIdField(null=True)
+    first_name = CharField(null=True, max_length=120)
+    last_name = CharField(null=True, max_length=120)
+    put_code = IntegerField(null=True)
+    visibility = CharField(max_length=10, choices=visibility_choices)
+
+    # Resource
+    title = CharField(max_length=1000)
+    start_date = PartialDateField(null=True)
+    end_date = PartialDateField(null=True)
+
+    url = CharField(max_length=200, null=True)
+    display_index = IntegerField(null=True)
+
+    proposal_external_id = ForeignKeyField(ExternalId, null=True)
+
+    is_active = BooleanField(
+        default=False, help_text="The record is marked 'active' for batch processing", null=True)
+    task = ForeignKeyField(Task, backref="affiliation_records", on_delete="CASCADE")
+    local_id = CharField(
+        max_length=100,
+        null=True,
+        verbose_name="Local ID",
+        help_text="Record identifier used in the data source system.")
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    organisation = CharField(null=True, index=True, max_length=200)
+    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
+    role = CharField(null=True, verbose_name="Role/Course", max_length=100)
+    department = CharField(null=True, max_length=200)
+    city = CharField(null=True, max_length=200)
+    state = CharField(null=True, verbose_name="State/Region", max_length=100)
+    country = CharField(null=True, verbose_name="Country", max_length=2, choices=country_choices)
+
+    disambiguated_id = CharField(
+        null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
+    disambiguation_source = CharField(
+        null=True,
+        max_length=100,
+        verbose_name="Disambiguation Source",
+        choices=disambiguation_source_choices)
+    delete_record = BooleanField(null=True)
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "rr"
+
+
+# class ResoureceExternalId(BaseModel):
+#     """Linkage between resoucrece and ExternalId."""
+
+#     external_id = ForeignKeyField(ExternalId, index=True, on_delete="CASCADE")
+#     resource = ForeignKeyField(Resource, index=True, on_delete="CASCADE")
+
+#     class Meta:  # noqa: D106
+#         table_alias = "rei"
 
 
 class Delegate(BaseModel):
