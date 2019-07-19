@@ -32,7 +32,7 @@
   <div class="form-group {{ css_class }}">
   {% if f.type == "PartialDateField" %}
     <label>{{ f.label.text }}</label>
-  {% else %}
+  {% elif f.type != "HiddenField" %}
     {{ f.label }}
   {% endif -%}
   {% if f.flags.required -%}<strong style="color: red">*</strong>{%- endif %}

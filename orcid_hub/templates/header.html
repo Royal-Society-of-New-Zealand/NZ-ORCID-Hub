@@ -167,6 +167,8 @@
                   {% endif -%}
                   <li id="userinvitation.index_view"><a data-toggle="tooltip" title="The User Invitations recently sent." href="{{ url_for('userinvitation.index_view')}}">User Invitations</a></li>
                   <li id="orginvitation.index_view"><a data-toggle="tooltip" title="The Organisation On-boarding Invitations recently sent." href="{{ url_for('orginvitation.index_view')}}">Organisation Invitations</a></li>
+                  <li class="divider"></li>
+                  <li id="orcidapicall.index_view"><a data-toggle="tooltip" title="The ORCID API Calls." href="{{ url_for('orcidapicall.index_view')}}">ORCID API Calls</a></li>
                   {% if has_audit_logs() %}
                   <li class="divider"></li>
                   <li class="dropdown-submenu">

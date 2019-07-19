@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """Tests for webhooks functions."""
 
+import datetime
 import logging
 import json
 from types import SimpleNamespace as SimpleObject
 from urllib.parse import urlparse
 
 from flask_login import login_user
-from unittest.mock import MagicMock, patch
+import pytest
+from unittest.mock import MagicMock, Mock, patch
 
 from orcid_hub import utils
 from orcid_hub.models import Client, OrcidToken, Organisation, User, Token
@@ -233,9 +235,33 @@ def test_org_webhook(client, mocker):
     send_email.assert_called()
     assert resp.status_code == 204
 
-    mocker.patch.object(utils.requests, "post", lambda *args, **kwargs: SimpleObject(status_code=404))
+    post = mocker.patch.object(utils.requests, "post", return_value=Mock(status_code=204))
+    for u in User.select().where(User.organisation == user.organisation, User.orcid.is_null(False)):
+        post.reset_mock()
+        send_email.reset_mock()
+        resp = client.post(f"/services/{u.id}/updated")
+        send_email.assert_called()
+        post.assert_called()
+        assert resp.status_code == 204
+
+    # Enable only email notification:
+    resp = client.post("/settings/webhook", data=dict(
+                webhook_enabled='',
+                email_notifications_enabled=''))
+    assert resp.status_code == 200
+    assert not Organisation.get(org.id).email_notifications_enabled
+    resp = client.post("/settings/webhook", data=dict(
+                webhook_url="",
+                webhook_enabled='',
+                email_notifications_enabled='y'))
+    assert Organisation.get(org.id).email_notifications_enabled
+    assert resp.status_code == 200
+
+    post.reset_mock()
+    send_email.reset_mock()
     resp = client.post(f"/services/{user.id}/updated")
     send_email.assert_called()
+    post.assert_not_called()
     assert resp.status_code == 204
 
     # Test update summary:
@@ -266,3 +292,91 @@ def test_org_webhook(client, mocker):
     assert resp.status_code == 200
     assert not Organisation.get(org.id).webhook_enabled
     assert not Organisation.get(org.id).email_notifications_enabled
+
+
+def test_email_notification(client, mocker):
+    """Test Organisation webhook email notifcations."""
+    org = client.data["org"]
+    user = client.data["user"]
+
+    org.email_notifications_enabled = True
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+
+    org.notification_email = "notification@org.edu"
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+
+    org.notification_email = None
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    _, kwargs = send_email.call_args
+    assert kwargs["cc_email"] is None
+
+    org.notification_email = "notification@org.edu"
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    _, kwargs = send_email.call_args
+
+
+def test_webhook_invokation(client, mocker):
+    """Test Organisation webhook invokation."""
+    org = client.data["org"]
+    user = client.data["user"]
+    post = mocker.patch.object(utils.requests, "post", return_value=Mock(status_code=204))
+    message = {
+        "orcid": user.orcid,
+        "url": f"https://sandbox.orcid.org/{user.orcid}",
+        "type": "UPDATED",
+        "updated-at": User.get(user.id).updated_at.isoformat(timespec="seconds"),
+        "email": user.email,
+        "eppn": user.eppn
+    }
+
+    org.webhook_enabled = True
+    org.webhook_url = "http://test.edu/"
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    post.assert_called_with("http://test.edu/", json=message)
+
+    org.webhook_append_orcid = True
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    post.assert_called_with(f"http://test.edu/{user.orcid}", json=message)
+
+    org.webhook_url = "http://test.edu"
+    org.save()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    post.assert_called_with(f"http://test.edu/{user.orcid}", json=message)
+
+    post = mocker.patch.object(utils.requests, "post", return_value=Mock(status_code=400))
+    with pytest.raises(Exception):
+        utils.invoke_webhook_handler(attempts=1, message=message, url=f"http://test.edu/{user.orcid}")
+
+    schedule = mocker.patch("orcid_hub.utils.invoke_webhook_handler.schedule")
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    schedule.assert_called_with(datetime.timedelta(seconds=300),
+                                attempts=4,
+                                message=message,
+                                url=f"http://test.edu/{user.orcid}")
+
+    post = mocker.patch.object(utils.requests, "post", side_effect=Exception("OH! NOHHH!"))
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    schedule.assert_called_with(datetime.timedelta(seconds=300),
+                                attempts=4,
+                                message=message,
+                                url=f"http://test.edu/{user.orcid}")
+
+    with pytest.raises(Exception):
+        utils.invoke_webhook_handler(attempts=1, message=message, url=f"http://test.edu/{user.orcid}")
