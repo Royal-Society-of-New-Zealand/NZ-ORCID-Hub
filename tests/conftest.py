@@ -169,6 +169,9 @@ def no_sentry(mocker):
 @pytest.fixture
 def testdb():
     with _db:
+        if isinstance(_db, SqliteDatabase):
+            _db.attach(":memory:", "audit")
+
         models.create_tables()
 
         # Add some data:
