@@ -216,7 +216,7 @@ class AppModelView(ModelView):
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=orcid_link_formatter)
-    column_default_sort = "id"
+    column_default_sort = ("id", True)
     column_labels = dict(org="Organisation", orcid="ORCID iD")
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({datetime: lambda view, value: isodate(value)})
@@ -525,6 +525,7 @@ class OrcidTokenAdmin(AppModelView):
 class OrcidApiCallAmin(AppModelView):
     """ORCID API calls."""
 
+    column_default_sort = ("id", True)
     can_export = True
     can_edit = False
     can_delete = False
@@ -3337,6 +3338,9 @@ def update_webhook(user_id):
     try:
         updated_at = datetime.utcnow()
         user = User.get(user_id)
+        if not user.orcid:
+            return '', 404
+
         user.orcid_updated_at = updated_at
         user.save()
         utils.notify_about_update(user)
@@ -3355,24 +3359,22 @@ def update_webhook(user_id):
 @roles_required(Role.TECHNICAL, Role.SUPERUSER)
 def org_webhook():
     """Manage organisation invitation email template."""
+    _url = request.values.get("url") or request.referrer
     org = current_user.organisation
+
     form = WebhookForm(obj=org)
 
     if form.validate_on_submit():
-        old_webhook_url = org.webhook_url
-        if old_webhook_url and old_webhook_url != form.webhook_url.data:
-            for u in org.users.where(User.webhook_enabled):
-                utils.register_orcid_webhook.queue(u, delete=True)
         form.populate_obj(org)
         org.save()
-        if form.webhook_enabled.data:
+        if form.webhook_enabled.data or form.email_notifications_enabled.data:
             job = utils.enable_org_webhook.queue(org)
             flash(f"Webhook activation was initiated (task id: {job.id})", "info")
         else:
             utils.disable_org_webhook.queue(org)
             flash(f"Webhook was disabled.", "info")
 
-    return render_template("form.html", form=form, title="Organisation Webhook")
+    return render_template("form.html", form=form, title="Organisation Webhook", url=_url)
 
 
 @app.route("/sync_profiles/<int:task_id>", methods=["GET", "POST"])

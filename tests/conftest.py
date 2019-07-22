@@ -156,7 +156,8 @@ class HubClient(FlaskClient):
 @pytest.fixture(autouse=True)
 def no_mailing(mocker):
     """Mock HTML message for all tests."""
-    yield mocker.patch("emails.html")
+    # yield mocker.patch("emails.html")
+    yield mocker.patch("emails.backend.smtp.backend.SMTPBackend.get_client")
 
 
 @pytest.fixture(autouse=True)
@@ -235,12 +236,6 @@ def testdb():
                     user=user,
                     client_id=org.name + "-ID",
                     client_secret=org.name + "-SECRET")
-
-        UserOrg.insert_from(
-            query=User.select(User.id, User.organisation_id, User.created_at, SQL('0')).where(
-                User.email.contains("researcher")),
-            fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at,
-                    UserOrg.affiliations]).execute()
 
         org = Organisation.create(
             name="THE ORGANISATION",
@@ -325,6 +320,14 @@ def testdb():
             organisation=org2)
         super_user = User.create(
             email="super_user@test0.edu", organisation=org, roles=Role.SUPERUSER, confirmed=True)
+
+        # Add missing links to the organisations:
+        UserOrg.insert_from(
+            query=User.select(User.id, User.organisation_id, User.created_at, SQL('0')).join(
+                UserOrg, JOIN.LEFT_OUTER, on=UserOrg.user).where(UserOrg.id.is_null()).objects(),
+            fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at,
+                    UserOrg.affiliations]).execute()
+
         _db.data = locals()
         yield _db
 

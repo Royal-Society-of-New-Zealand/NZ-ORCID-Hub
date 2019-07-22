@@ -14,6 +14,13 @@ Send a HEAD request::
 Send a POST request::
     curl -d "foo=bar&bin=baz" http://localhost
 
+To make it accessible from the outside world, use any of:
+
+    * ssh -R 80:localhost:8080 serveo.net
+    * ngrok http 8080
+
+
+
 """
 from http.server import BaseHTTPRequestHandler, HTTPServer
 

@@ -49,9 +49,12 @@ ENV = app.config.get("ENV")
 EXTERNAL_SP = app.config.get("EXTERNAL_SP")
 
 
-def get_next_url():
+def get_next_url(endpoint=None):
     """Retrieve and sanitize next/return URL."""
-    _next = request.args.get("next") or request.args.get("_next") or request.args.get("url")
+    _next = request.args.get("next") or request.args.get("_next") or request.args.get(
+        "url") or request.referrer
+    if not _next and endpoint:
+        _next = url_for(endpoint)
 
     if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
                   or "localhost" in _next or "c9users.io" in _next):
@@ -1891,17 +1894,18 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
 
     If URL is given, it will be used for as call-back URL.
     """
-    set_server_name()
     local_handler = (callback_url is None)
 
+    # Don't delete the webhook if there is anyther organisation with enabled webhook:
     if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
         return
 
-    try:
-        token = OrcidToken.get(org=user.organisation, scopes="/webhook")
-    except OrcidToken.DoesNotExist:
+    # Any 'webhook' access token can be used:
+    token = OrcidToken.select().where(OrcidToken.scopes == "/webhook").order_by(OrcidToken.id.desc()).first()
+    if not token:
         token = get_client_credentials_token(org=user.organisation, scopes="/webhook")
     if local_handler:
+        set_server_name()
         with app.app_context():
             callback_url = quote(url_for("update_webhook", user_id=user.id), safe='')
     elif '/' in callback_url or ':' in callback_url:
@@ -1913,43 +1917,42 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Content-Length": "0"
     }
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
-    if local_handler and resp.status_code in [201, 204]:
-        if delete:
-            user.webhook_enabled = False
-        else:
-            user.webhook_enabled = True
-        user.save()
+    if local_handler:
+        user.webhook_enabled = (resp.status_code in [201, 204]) and not delete
+    user.save()
     return resp
 
 
 def notify_about_update(user, event_type="UPDATED"):
     """Notify all organisation about changes of the user."""
-    for org in user.organisations.where(Organisation.webhook_enabled):
-
-        if org.webhook_url:
+    for org in user.organisations.where(Organisation.webhook_enabled
+                                        | Organisation.email_notifications_enabled):
+        if org.webhook_enabled and org.webhook_url:
             invoke_webhook_handler.queue(org.webhook_url,
                                          user.orcid,
                                          user.created_at or user.updated_at,
                                          user.updated_at or user.created_at,
-                                         event_type=event_type)
+                                         event_type=event_type,
+                                         append_orcid=org.webhook_append_orcid)
 
         if org.email_notifications_enabled:
             url = app.config["ORCID_BASE_URL"] + user.orcid
             send_email(f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
-                profile was updated or user had linked her/his account at
+                {"profile was updated" if event_type == "UPDATED" else "has linked her/his account"} at
                 {(user.updated_at or user.created_at).isoformat(timespec="minutes", sep=' ')}.</p>""",
                        recipient=org.notification_email
                        or (org.tech_contact.name, org.tech_contact.email),
+                       cc_email=(org.tech_contact.name, org.tech_contact.email) if org.notification_email else None,
                        subject=f"ORCID Profile Update ({user.orcid})",
                        org=org)
 
 
 @rq.job(timeout=300)
 def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, updated_at=None, message=None,
-                           event_type="UPDATED", attempts=5):
+                           event_type="UPDATED", url=None, attempts=5, append_orcid=False):
     """Propagate 'updated' event to the organisation event handler URL."""
-    url = app.config["ORCID_BASE_URL"] + orcid
     if not message:
+        url = app.config["ORCID_BASE_URL"] + orcid
         message = {
             "orcid": orcid,
             "url": url,
@@ -1961,20 +1964,33 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             message["updated-at"] = updated_at.isoformat(timespec="seconds")
 
         if orcid:
-            user = User.select().where(User.orcid == orcid).limit(1).first()
+            user = User.select().where(User.orcid == orcid).order_by(User.id.desc()).limit(1).first()
             if user:
                 message["email"] = user.email
                 if user.eppn:
                     message["eppn"] = user.eppn
 
-    resp = requests.post(webhook_url + '/' + orcid, json=message)
-    if resp.status_code // 200 != 1:
-        if attempts > 0:
+        url = webhook_url
+        if append_orcid:
+            if not url.endswith('/'):
+                url += '/'
+            url += orcid
+
+    try:
+        resp = requests.post(url, json=message)
+    except:
+        if attempts == 1:
+            raise
+
+    if not resp or resp.status_code // 200 != 1:
+        if attempts > 1:
             invoke_webhook_handler.schedule(timedelta(minutes=5 *
                                                       (6 - attempts) if attempts < 6 else 5),
-                                            orcid=orcid,
                                             message=message,
+                                            url=url,
                                             attempts=attempts - 1)
+        else:
+            raise Exception(f"Failed to propaged the event. Status code: {resp.status_code}")
     return resp
 
 
@@ -1983,9 +1999,8 @@ def enable_org_webhook(org):
     """Enable Organisation Webhook."""
     org.webhook_enabled = True
     org.save()
-    for u in org.users:
-        if not u.webhook_enabled:
-            register_orcid_webhook.queue(u)
+    for u in org.users.where(User.webhook_enabled.NOT()):
+        register_orcid_webhook.queue(u)
 
 
 @rq.job(timeout=300)
