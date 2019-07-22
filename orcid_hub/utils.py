@@ -2216,3 +2216,34 @@ def reset_all_records(task):
             task.status = "RESET"
             task.save()
     return count
+
+
+def plural(word):
+    """Convert a reguralr noun to its regular plural form."""
+    if word.endswith("fe"):
+        # wolf -> wolves
+        return word[:-2] + "ves"
+    elif word.endswith('f'):
+        # knife -> knives
+        return word[:-1] + "ves"
+    elif word.endswith('o'):
+        # potato -> potatoes
+        return word + "es"
+    elif word.endswith("us"):
+        # cactus -> cacti
+        return word[:-2] + 'i'
+    elif word.endswith("ion"):
+        # criterion -> criteria
+        return word + 's'
+    elif word.endswith("on"):
+        # criterion -> criteria
+        return word[:-2] + 'a'
+    elif word.endswith('y'):
+        # community -> communities
+        return word[:-1] + "ies"
+    elif word[-1] in "sx" or word[-2:] in ["sh", "ch"]:
+        return word + "es"
+    elif word.endswith("an"):
+        return word[:-2] + "en"
+    else:
+        return word + 's'

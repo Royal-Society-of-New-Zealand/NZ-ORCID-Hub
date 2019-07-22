@@ -174,9 +174,12 @@
                   <li class="dropdown-submenu">
                     <a class="dropdown-toggle" tabindex="-1" href="#">Audit Logs<!-- span class="caret"></span --></a>
                     <ul class="dropdown-menu">
-                      <li id="organisation_log.index_view"><a data-toggle="tooltip" title="Organisation Audit Log" href="{{ url_for('organisation_log.index_view')}}">Organisations</a></li>
-                      <li id="user_log.index_view"><a data-toggle="tooltip" title="User Audit Log" href="{{ url_for('user_log.index_view')}}">Users</a></li>
-                      <li id="task_log.index_view"><a data-toggle="tooltip" title="Task Audit Log" href="{{ url_for('task_log.index_view')}}">Tasks</a></li>
+
+                      {% for m in audit_models() %}
+                        {% set end_point = m + "_log.index_view" %}
+                        <li id="{{ end_point }}"><a data-toggle="tooltip" title="{{ m|title }} Audit Log" href="{{ url_for(end_point)}}">{{ m.replace('_', ' ')|plural|title }}</a></li>
+                      {% endfor %}
+
                     </ul>
                   </li>
                   {% endif %}

@@ -357,6 +357,7 @@ class AuditLogModelView(AppModelView):
     can_delete = False
     can_create = False
     can_view_details = False
+    column_default_sort = [("ts", True), ("id", True)]
 
     def __init__(self, model, *args, **kwargs):
         """Set up the search list."""
@@ -1886,6 +1887,12 @@ admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
 for name, model in models.audit_models.items():
     admin.add_view(AuditLogModelView(model, endpoint=name + "_log"))
+
+
+@app.template_filter("plural")
+def plural(single):
+    """Pluralize a noun."""
+    return utils.plural(single)
 
 
 @app.template_filter("year_range")
