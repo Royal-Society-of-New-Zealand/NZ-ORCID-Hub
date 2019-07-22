@@ -3871,8 +3871,6 @@ def create_tables(safe=True, drop=False):
             model.drop_table()
         if not model.table_exists():
             model.create_table(safe=safe)
-        if isinstance(db, PostgresqlDatabase):
-            create_audit_tables()
 
 
 def create_audit_tables():
@@ -3964,6 +3962,4 @@ def get_val(d, *keys, default=None):
     return d
 
 
-audit_models = generate_models(db, schema="audit")
-# for m in audit_models.values():
-#     m._meta.schema = "audit"
+audit_models = generate_models(db, schema="audit") if isinstance(db, PostgresqlDatabase) else {}
