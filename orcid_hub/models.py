@@ -3871,6 +3871,8 @@ def create_tables(safe=True, drop=False):
             model.drop_table()
         if not model.table_exists():
             model.create_table(safe=safe)
+        if isinstance(db, PostgresqlDatabase):
+            create_audit_tables()
 
 
 def create_audit_tables():
