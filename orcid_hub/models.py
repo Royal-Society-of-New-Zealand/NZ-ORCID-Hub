@@ -2862,7 +2862,7 @@ class WorkRecord(RecordModel):
     journal_title = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
     citation_type = CharField(null=True, max_length=255, choices=citation_type_choices)
-    citation_value = CharField(null=True, max_length=1000)
+    citation_value = CharField(null=True, max_length=32767)
     type = CharField(null=True, max_length=255, choices=work_type_choices)
     publication_date = PartialDateField(null=True)
     publication_media_type = CharField(null=True, max_length=255)
