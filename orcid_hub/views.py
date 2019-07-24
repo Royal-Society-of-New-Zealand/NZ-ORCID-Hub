@@ -606,7 +606,7 @@ class TaskAdmin(AppModelView):
         filters.FilterEqual(column=Task.task_type, options=models.TaskType.options(), name="Task Type"),
     )
     column_formatters = dict(
-        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title(),
+        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title() if m.task_type else "N/A",
         completed_count=lambda v, c, m, p: (
             '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )

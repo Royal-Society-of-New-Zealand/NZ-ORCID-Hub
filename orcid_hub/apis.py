@@ -531,7 +531,7 @@ class TaskAPI(TaskList):
             else:
                 data = request.json
 
-            if task_id:
+            if task_id is not None:
                 try:
                     task = Task.get(id=task_id)
                 except Task.DoesNotExist:
@@ -539,7 +539,10 @@ class TaskAPI(TaskList):
                 if task.created_by_id != current_user.id:
                     return jsonify({"error": "Access denied."}), 403
             else:
-                task_type = TaskType(data["task-type"]) if "task-type" in data else None
+                task_type = data.get("task-type")
+                if not task_type:
+                    return jsonify({"error": "Missing task type."}), 400
+                task_type = TaskType(task_type)
                 task = Task(task_type=task_type, org=current_user.organisation)
             if "filename" in data:
                 task.filename = data["filename"]

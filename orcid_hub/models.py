@@ -1136,7 +1136,7 @@ class Task(AuditedModel):
     @lazy_property
     def records(self):
         """Get all task record query."""
-        if self.task_type in [TaskType.SYNC, TaskType.NONE]:
+        if not self.task_type or self.task_type in [TaskType.SYNC, TaskType.NONE]:
             return None
         return getattr(self, self.task_type.name.lower() + "_records")
 

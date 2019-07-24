@@ -1021,6 +1021,13 @@ something fishy is going here...
     exception.assert_called()
     capture_event.assert_called()
 
+    # attempt to use ID:0
+    resp = client.put(
+        f"/api/v1/tasks/0",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "ACTIVE"}""")
+
 
 def test_funding_api(client):
     """Test funding API in various formats."""
