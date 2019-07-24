@@ -540,7 +540,7 @@ class TaskAPI(TaskList):
                     return jsonify({"error": "Access denied."}), 403
             else:
                 task_type = TaskType(data["task-type"]) if "task-type" in data else None
-                task = Task(task_type=task_type, org=current_user.organisaion)
+                task = Task(task_type=task_type, org=current_user.organisation)
             if "filename" in data:
                 task.filename = data["filename"]
             status = data.get("status")
