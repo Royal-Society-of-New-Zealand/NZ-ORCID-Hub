@@ -15,6 +15,7 @@ from collections import namedtuple
 from datetime import datetime
 from enum import IntFlag, IntEnum
 from hashlib import md5
+from functools import lru_cache
 from io import StringIO
 from itertools import groupby, zip_longest
 from urllib.parse import urlencode
@@ -3962,4 +3963,6 @@ def get_val(d, *keys, default=None):
     return d
 
 
-audit_models = generate_models(db, schema="audit") if isinstance(db, PostgresqlDatabase) else {}
+@lru_cache()
+def audit_models():
+    return generate_models(db, schema="audit") if isinstance(db, PostgresqlDatabase) else {}

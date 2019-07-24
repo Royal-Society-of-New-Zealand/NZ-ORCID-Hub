@@ -1885,7 +1885,7 @@ admin.add_view(AppModelView(Token))
 admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
-for name, model in models.audit_models.items():
+for name, model in models.audit_models().items():
     admin.add_view(AuditLogModelView(model, endpoint=name + "_log"))
 
 
