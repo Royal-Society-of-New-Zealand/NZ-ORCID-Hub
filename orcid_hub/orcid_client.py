@@ -1445,16 +1445,16 @@ class MemberAPIMixin:
             "SER": "view_servicesv3",
             "QUA": "view_qualificationsv3",
             "POS": "view_invited_positionsv3",
-            "ADR": "view_addresses",
+            "ADR": "view_addressesv3",
             "DST": "view_distinctionsv3",
             "EDU": "view_educationsv3",
             "EMP": "view_employmentsv3",
-            "EXR": "view_external_identifiers",
+            "EXR": "view_external_identifiersv3",
             "FUN": "view_fundingsv3",
-            "KWR": "view_keywords",
-            "ONR": "view_other_names",
+            "KWR": "view_keywordsv3",
+            "ONR": "view_other_namesv3",
             "PRR": "view_peer_reviewsv3",
-            "RUR": "view_researcher_urls",
+            "RUR": "view_researcher_urlsv3",
             "WOR": "view_worksv3"
         }[section_type]
         return getattr(self, method_name)(self.user.orcid, _preload_content=False)
@@ -1467,15 +1467,15 @@ class MemberAPIMixin:
             "QUA": "delete_qualificationv3",
             "POS": "delete_invited_positionv3",
             "DST": "delete_distinctionv3",
-            "ADR": "delete_address",
+            "ADR": "delete_addressv3",
             "EDU": "delete_educationv3",
             "EMP": "delete_employmentv3",
-            "EXR": "delete_external_identifier",
+            "EXR": "delete_external_identifierv3",
             "FUN": "delete_fundingv3",
-            "KWR": "delete_keyword",
-            "ONR": "delete_other_name",
+            "KWR": "delete_keywordv3",
+            "ONR": "delete_other_namev3",
             "PRR": "delete_peer_reviewv3",
-            "RUR": "delete_researcher_url",
+            "RUR": "delete_researcher_urlv3",
             "WOR": "delete_workv3"
         }[section_type]
         return getattr(self, method_name)(self.user.orcid, put_code)
