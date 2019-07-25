@@ -19,7 +19,7 @@ from flask import make_response, session
 from flask_login import login_user
 from peewee import SqliteDatabase, JOIN
 
-from orcid_api.rest import ApiException
+from orcid_api_v3.rest import ApiException
 from orcid_hub import orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
@@ -394,8 +394,8 @@ def test_show_record_section(client, mocker):
     client.login(admin)
 
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_external_identifiers",
+            orcid_client.MemberAPIV3,
+            "view_external_identifiersv3",
             return_value=Mock(data='{"test": "TEST1234567890"}')) as view_external_identifiers:
 
         resp = client.get(f"/section/{user.id}/EXR/list", follow_redirects=True)
@@ -465,8 +465,8 @@ def test_show_record_section(client, mocker):
         view_fundings.assert_called_once_with(user.orcid, _preload_content=False)
 
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_researcher_url",
+            orcid_client.MemberAPIV3,
+            "view_researcher_urlv3",
             return_value=Mock(
                 data=json.dumps({
                     "created-date": {
@@ -529,8 +529,8 @@ def test_show_record_section(client, mocker):
             follow_redirects=True)
 
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_other_names",
+        orcid_client.MemberAPIV3,
+        "view_other_namesv3",
         return_value=Mock(data='{"test": "TEST1234567890"}')
     ) as view_other_names:
         resp = client.get(f"/section/{user.id}/ONR/list")
@@ -539,8 +539,8 @@ def test_show_record_section(client, mocker):
         view_other_names.assert_called_once_with(user.orcid, _preload_content=False)
 
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_keywords",
+        orcid_client.MemberAPIV3,
+        "view_keywordsv3",
         return_value=Mock(data='{"test": "TEST1234567890"}')
     ) as view_keywords:
         resp = client.get(f"/section/{user.id}/KWR/list")
@@ -2265,8 +2265,8 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_work.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_researcher_url",
+        orcid_client.MemberAPIV3,
+        "view_researcher_urlv3",
         MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
     ) as view_researcher_url, request_ctx(f"/section/{user.id}/RUR/1234/edit") as ctx:
         login_user(admin)
@@ -2275,8 +2275,8 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_researcher_url.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_other_name",
+        orcid_client.MemberAPIV3,
+        "view_other_namev3",
         MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "content": "xyz"}"""))
     ) as view_other_name, request_ctx(f"/section/{user.id}/ONR/1234/edit") as ctx:
         login_user(admin)
@@ -2285,8 +2285,8 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_other_name.assert_called_once_with(user.orcid, 1234, _preload_content=False)
     with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_keyword",
+        orcid_client.MemberAPIV3,
+        "view_keywordv3",
         MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
     ) as view_keyword, request_ctx(f"/section/{user.id}/KWR/1234/edit") as ctx:
         login_user(admin)
@@ -2413,7 +2413,7 @@ def test_edit_record(request_ctx):
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/WOR/list"
     with patch.object(
-            orcid_client.MemberAPIV20Api, "create_researcher_url",
+            orcid_client.MemberAPIV3, "create_researcher_urlv3",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/RUR/new",
                 method="POST",
@@ -2428,7 +2428,7 @@ def test_edit_record(request_ctx):
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/RUR/list"
     with patch.object(
-            orcid_client.MemberAPIV20Api, "create_other_name",
+            orcid_client.MemberAPIV3, "create_other_namev3",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/ONR/new",
                 method="POST",
@@ -2442,7 +2442,7 @@ def test_edit_record(request_ctx):
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/ONR/list"
     with patch.object(
-            orcid_client.MemberAPIV20Api, "create_keyword",
+            orcid_client.MemberAPIV3, "create_keywordv3",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/KWR/new",
                 method="POST",
@@ -2540,21 +2540,21 @@ def test_delete_profile_entries(client, mocker):
     token.scopes = "/read-limited,/person/update"
     token.save()
     delete_researcher_url = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_researcher_url",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_researcher_urlv3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/RUR/54321/delete")
     assert resp.status_code == 302
     delete_researcher_url.assert_called_once_with(user.orcid, 54321)
 
     delete_other_name = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_other_name",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_other_namev3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/ONR/54321/delete")
     assert resp.status_code == 302
     delete_other_name.assert_called_once_with(user.orcid, 54321)
 
     delete_keyword = mocker.patch(
-            "orcid_hub.orcid_client.MemberAPIV20Api.delete_keyword",
+            "orcid_hub.orcid_client.MemberAPIV3.delete_keywordv3",
             MagicMock(return_value='{"test": "TEST1234567890"}'))
     resp = client.post(f"/section/{user.id}/KWR/54321/delete")
     assert resp.status_code == 302
