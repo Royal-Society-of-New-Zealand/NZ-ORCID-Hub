@@ -2350,6 +2350,15 @@ class TokenAPI(MethodView):
                 type: "string"
               expires_in:
                 type: "integer"
+              email:
+                type: "string"
+                description: "User email address"
+              eppn:
+                type: "string"
+                description: "User ePPN"
+              orcid:
+                type: "string"
+                description: "User ORCID iD"
         tags:
           - "token"
         summary: "Retrieves user ORCID API access and refresh tokens."
@@ -2383,16 +2392,18 @@ class TokenAPI(MethodView):
             return jsonify(error=error_message), status_code
 
         org = request.oauth.client.org
-        tokens = OrcidToken.select().where(OrcidToken.user == user,
-                                           OrcidToken.org == org)
+        tokens = OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org)
 
-        return jsonify([
-            t.to_dict(recurse=False,
-                      only=[
-                          OrcidToken.access_token, OrcidToken.refresh_token, OrcidToken.scopes,
-                          OrcidToken.issue_time, OrcidToken.expires_in
-                      ]) for t in tokens
-        ]), 200
+        return jsonify([{
+            "access_token": t.access_token,
+            "expires_in": t.expires_in,
+            "issue_time": t.issue_time,
+            "refresh_token": t.refresh_token,
+            "scopes": t.scopes,
+            "email": user.email,
+            "eppn": user.eppn,
+            "orcid": user.orcid,
+        } for t in tokens]), 200
 
     def post(self, identifier=None):
         """
