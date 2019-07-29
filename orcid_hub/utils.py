@@ -829,26 +829,23 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
-                if (r.get("external-id-type") == record.type
-                    and get_val(r, "external-id-value") == record.value
-                    and get_val(r, "external-id-url", "value") == record.url
-                    and get_val(r, "external-id-relationship") == record.relationship):        # noqa: E129
-                    record.put_code = put_code
-                    record.orcid = orcid
-                    return True
-
                 if record.put_code:
                     return
 
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("external-id-type") is None and r.get("external-id-value") is None and get_val(
-                    r, "external-id-url", "value") is None and get_val(r, "external-id-relationship") is None)
-                    or (r.get("external-id-type") == record.type
-                        and get_val(r, "external-id-value") == record.value)):
+                # ORCID is not consistent with use of hiphens and underscores in external-id-value.
+                if (record.type and record.value and (r.get("external-id-type", default='') or '').replace(
+                    '-', '').replace('_', '').lower() == record.type.replace('-', '').replace('_', '').lower() and (
+                        r.get("external-id-value", default='') or '').lower() == record.value.lower()):
                     record.put_code = put_code
                     record.orcid = orcid
+                    if not record.visibility:
+                        record.visibility = r.get("visibility")
+                    if not record.display_index:
+                        record.display_index = r.get("display-index")
+
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the other id record "
@@ -858,20 +855,17 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
         for task_by_user in records:
             try:
                 rr = task_by_user.record
-                no_orcid_call = match_put_code(other_id_records, rr)
+                match_put_code(other_id_records, rr)
 
-                if no_orcid_call:
-                    rr.add_status_line("Other ID record unchanged.")
+                put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr.__data__)
+                if created:
+                    rr.add_status_line("Other ID record was created.")
                 else:
-                    put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr.__data__)
-                    if created:
-                        rr.add_status_line("Other ID record was created.")
-                    else:
-                        rr.add_status_line("Other ID record was updated.")
-                    rr.orcid = orcid
-                    rr.put_code = put_code
-                    if rr.visibility != visibility:
-                        rr.visibility = visibility
+                    rr.add_status_line("Other ID record was updated.")
+                rr.orcid = orcid
+                rr.put_code = put_code
+                if rr.visibility != visibility:
+                    rr.visibility = visibility
             except ApiException as ex:
                 if ex.status == 404:
                     rr.put_code = None

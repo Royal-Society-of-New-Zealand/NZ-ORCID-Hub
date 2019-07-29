@@ -3538,7 +3538,7 @@ class OtherIdRecord(ExternalIdModel):
                     if rec_type not in EXTERNAL_ID_TYPES:
                         raise ModelException(
                             f"Invalid External Id Type: '{rec_type}', Use 'doi', 'issn' "
-                            f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+                            f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
 
                     if not value:
                         raise ModelException(
