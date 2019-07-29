@@ -169,6 +169,15 @@ def no_sentry(mocker):
 @pytest.fixture
 def testdb():
     with _db:
+        if isinstance(_db, SqliteDatabase):
+            # this is a workaround for Travis
+            if _db.in_transaction():
+                try:
+                    _db.rollback()
+                except:
+                    pass
+            _db.attach(":memory:", "audit")
+
         models.create_tables()
 
         # Add some data:

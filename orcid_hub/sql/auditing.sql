@@ -1,4 +1,4 @@
-﻿/* Create audit log  trigger and all tables: */
+/* Create audit log  trigger and all tables: */
 CREATE SCHEMA IF NOT EXISTS audit;
 
 CREATE OR REPLACE FUNCTION log_changes() RETURNS TRIGGER AS $$
@@ -35,14 +35,15 @@ BEGIN
 		FROM pg_tables
 		WHERE schemaname= 'public'
 		AND tablename IN (
-			'user',
-			'user_org',
+			'affiliation_record',
+			'client',
 			'orcidtoken',
 			'organisation',
-			'affiliation_record',
-			'user_organisation_affiliation',
 			'task',
-			'client')) LOOP
+			'user',
+			'user_invitation',
+			'user_org',
+			'user_organisation_affiliation')) LOOP
 	v_sql := format('CREATE TABLE IF NOT EXISTS audit.%2$I AS
 		SELECT NULL::timestamp without time zone AS ts, NULL::char(1) AS op,
 		source.* FROM %1$I.%2$I AS source WHERE 1=0;
@@ -50,6 +51,8 @@ BEGIN
 		r.schemaname, r.tablename, r.tableowner);
 		RAISE NOTICE 'EXECUTING %', v_sql;
 		EXECUTE v_sql;
+		EXECUTE format(
+            'CREATE INDEX IF NOT EXISTS %1$s_ts_id_idx ON audit.%1$I(ts DESC, id DESC);', r.tablename);
 		EXECUTE format('DROP TRIGGER IF EXISTS %3$I ON %1$I.%2$I;',
 			r.schemaname, r.tablename, r.tablename||'_audit_update_tr');
 		v_sql := format('CREATE TRIGGER %3$I
