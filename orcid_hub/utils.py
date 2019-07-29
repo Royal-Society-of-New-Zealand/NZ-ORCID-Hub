@@ -1839,7 +1839,8 @@ def process_tasks(max_rows=20):
         tasks = tasks.limit(max_rows)
     for task in tasks:
 
-        if task.records is None:
+        if not task.task_type or task.records is None:
+            app.logger.error(f"Unknown task \"{task}\" (ID: {task.id}) task type.")
             continue
 
         export_model = task.record_model._meta.name + ".export"
