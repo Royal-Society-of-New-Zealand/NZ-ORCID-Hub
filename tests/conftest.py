@@ -170,6 +170,12 @@ def no_sentry(mocker):
 def testdb():
     with _db:
         if isinstance(_db, SqliteDatabase):
+            # this is a workaround for Travis
+            if _db.in_transaction():
+                try:
+                    _db.rollback()
+                except:
+                    pass
             _db.attach(":memory:", "audit")
 
         models.create_tables()

@@ -482,6 +482,16 @@ class TaskList(TaskResource, AppResourceList):
               - PEER_REVIEW
               - PROPERTY
               - WORK
+          - name: "status"
+            in: "query"
+            required: false
+            description: >
+                The task status: ACTIVE, RESET or INACTIVE, that indicats
+                if all records were activated or not
+            type: "string"
+            enum:
+              - ACTIVE
+              - INACTIVE
           - in: query
             name: page
             description: The number of the page of retrieved data starting counting from 1
@@ -511,8 +521,16 @@ class TaskList(TaskResource, AppResourceList):
         login_user(request.oauth.user)
         query = Task.select().where(Task.org_id == current_user.organisation_id)
         task_type = request.args.get("type")
+        status = request.args.get("status")
         if task_type:
             query = query.where(Task.task_type == TaskType[task_type.upper()].value)
+        if status:
+            status = status.upper()
+            if status in ["ACTIVE", "RESET"]:
+                query = query.where(Task.status == status)
+            elif status == "INACTIVE":
+                query = query.where(Task.status.is_null() | (Task.status != "ACTIVE"))
+
         return self.api_response(
             query,
             exclude=[Task.created_by, Task.updated_by, Task.org],
