@@ -53,7 +53,10 @@ def utility_processor():  # noqa: D202
     """Define funcions callable form Jinja2 using application context."""
 
     def has_audit_logs():
-        return bool(audit_models)
+        return bool(audit_models())
+
+    def all_audit_models():
+        return audit_models()
 
     def onboarded_organisations():
         rv = cache.get("onboarded_organisations")
@@ -122,6 +125,7 @@ def utility_processor():  # noqa: D202
         current_task=current_task,
         current_record=current_record,
         has_audit_logs=has_audit_logs,
+        audit_models=all_audit_models,
     )
 
 

@@ -357,6 +357,7 @@ class AuditLogModelView(AppModelView):
     can_delete = False
     can_create = False
     can_view_details = False
+    column_default_sort = [("ts", True), ("id", True)]
 
     def __init__(self, model, *args, **kwargs):
         """Set up the search list."""
@@ -605,7 +606,7 @@ class TaskAdmin(AppModelView):
         filters.FilterEqual(column=Task.task_type, options=models.TaskType.options(), name="Task Type"),
     )
     column_formatters = dict(
-        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title(),
+        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title() if m.task_type else "N/A",
         completed_count=lambda v, c, m, p: (
             '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )
@@ -1884,8 +1885,14 @@ admin.add_view(AppModelView(Token))
 admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
-for name, model in models.audit_models.items():
+for name, model in models.audit_models().items():
     admin.add_view(AuditLogModelView(model, endpoint=name + "_log"))
+
+
+@app.template_filter("plural")
+def plural(single):
+    """Pluralize a noun."""
+    return utils.plural(single)
 
 
 @app.template_filter("year_range")

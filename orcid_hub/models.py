@@ -15,6 +15,7 @@ from collections import namedtuple
 from datetime import datetime
 from enum import IntFlag, IntEnum
 from hashlib import md5
+from functools import lru_cache
 from io import StringIO
 from itertools import groupby, zip_longest
 from urllib.parse import urlencode
@@ -28,7 +29,7 @@ from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCh
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
-# from playhouse.reflection import Introspector
+from playhouse.reflection import generate_models
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries, currencies, languages
 from pykwalify.core import Core
@@ -1135,7 +1136,7 @@ class Task(AuditedModel):
     @lazy_property
     def records(self):
         """Get all task record query."""
-        if self.task_type in [TaskType.SYNC, TaskType.NONE]:
+        if not self.task_type or self.task_type in [TaskType.SYNC, TaskType.NONE]:
             return None
         return getattr(self, self.task_type.name.lower() + "_records")
 
@@ -3873,7 +3874,7 @@ def create_tables(safe=True, drop=False):
             model.create_table(safe=safe)
 
 
-def create_audit_tables(db):
+def create_audit_tables():
     """Create all DB audit tables for PostgreSQL DB."""
     try:
         db.connect()
@@ -3884,7 +3885,7 @@ def create_audit_tables(db):
         with open(os.path.join(os.path.dirname(__file__), "sql", "auditing.sql"), 'br') as input_file:
             sql = readup_file(input_file)
             db.commit()
-            with db.get_cursor() as cr:
+            with db.cursor() as cr:
                 cr.execute(sql)
             db.commit()
     # elif isinstance(db, SqliteDatabase):
@@ -3962,12 +3963,7 @@ def get_val(d, *keys, default=None):
     return d
 
 
-audit_models = {}
-""" Need to find a way to display audit tables without breaking RQ
-audit_models = {
-    n: m
-    for n, m in Introspector.from_database(db, schema="audit").generate_models().items()
-    if isinstance(m, BaseModel_)
-}"""
-for m in audit_models.values():
-    m._meta.schema = "audit"
+@lru_cache()
+def audit_models():
+    """Inrospects the audit trail table models."""
+    return generate_models(db, schema="audit") if isinstance(db, PostgresqlDatabase) else {}

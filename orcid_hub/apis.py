@@ -482,6 +482,16 @@ class TaskList(TaskResource, AppResourceList):
               - PEER_REVIEW
               - PROPERTY
               - WORK
+          - name: "status"
+            in: "query"
+            required: false
+            description: >
+                The task status: ACTIVE, RESET or INACTIVE, that indicats
+                if all records were activated or not
+            type: "string"
+            enum:
+              - ACTIVE
+              - INACTIVE
           - in: query
             name: page
             description: The number of the page of retrieved data starting counting from 1
@@ -511,8 +521,16 @@ class TaskList(TaskResource, AppResourceList):
         login_user(request.oauth.user)
         query = Task.select().where(Task.org_id == current_user.organisation_id)
         task_type = request.args.get("type")
+        status = request.args.get("status")
         if task_type:
             query = query.where(Task.task_type == TaskType[task_type.upper()].value)
+        if status:
+            status = status.upper()
+            if status in ["ACTIVE", "RESET"]:
+                query = query.where(Task.status == status)
+            elif status == "INACTIVE":
+                query = query.where(Task.status.is_null() | (Task.status != "ACTIVE"))
+
         return self.api_response(
             query,
             exclude=[Task.created_by, Task.updated_by, Task.org],
@@ -531,7 +549,7 @@ class TaskAPI(TaskList):
             else:
                 data = request.json
 
-            if task_id:
+            if task_id is not None:
                 try:
                     task = Task.get(id=task_id)
                 except Task.DoesNotExist:
@@ -539,8 +557,11 @@ class TaskAPI(TaskList):
                 if task.created_by_id != current_user.id:
                     return jsonify({"error": "Access denied."}), 403
             else:
-                task_type = TaskType(data["task-type"]) if "task-type" in data else None
-                task = Task(task_type=task_type, org=current_user.organisaion)
+                task_type = data.get("task-type")
+                if not task_type:
+                    return jsonify({"error": "Missing task type."}), 400
+                task_type = TaskType(task_type)
+                task = Task(task_type=task_type, org=current_user.organisation)
             if "filename" in data:
                 task.filename = data["filename"]
             status = data.get("status")
@@ -2347,6 +2368,15 @@ class TokenAPI(MethodView):
                 type: "string"
               expires_in:
                 type: "integer"
+              email:
+                type: "string"
+                description: "User email address"
+              eppn:
+                type: "string"
+                description: "User ePPN"
+              orcid:
+                type: "string"
+                description: "User ORCID iD"
         tags:
           - "token"
         summary: "Retrieves user ORCID API access and refresh tokens."
@@ -2380,16 +2410,18 @@ class TokenAPI(MethodView):
             return jsonify(error=error_message), status_code
 
         org = request.oauth.client.org
-        tokens = OrcidToken.select().where(OrcidToken.user == user,
-                                           OrcidToken.org == org)
+        tokens = OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org)
 
-        return jsonify([
-            t.to_dict(recurse=False,
-                      only=[
-                          OrcidToken.access_token, OrcidToken.refresh_token, OrcidToken.scopes,
-                          OrcidToken.issue_time, OrcidToken.expires_in
-                      ]) for t in tokens
-        ]), 200
+        return jsonify([{
+            "access_token": t.access_token,
+            "expires_in": t.expires_in,
+            "issue_time": t.issue_time,
+            "refresh_token": t.refresh_token,
+            "scopes": t.scopes,
+            "email": user.email,
+            "eppn": user.eppn,
+            "orcid": user.orcid,
+        } for t in tokens]), 200
 
     def post(self, identifier=None):
         """
