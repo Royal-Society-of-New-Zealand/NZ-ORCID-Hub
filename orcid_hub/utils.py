@@ -695,7 +695,7 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
                                                              OrcidToken.scopes.contains("/person/update")).first()
     if token:
-        api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
+        api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
         profile_record = api.get_record()
     if profile_record:
         activities = profile_record.get("person")
@@ -730,30 +730,20 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
-                # Exact match
-                # Visibility and Display Index condition can be added once the bug of display index is fixed by ORCID.
-                if ((record.type == "URL" and r.get("url-name") == record.name
-                     and r.get("url", "value") == record.value) or
-                        (record.type in ["NAME", "KEYWORD"]
-                         and r.get("content") == record.value) or
-                        (record.type == "COUNTRY"
-                         and r.get("country", "value") == record.value)):  # noqa: E129
-
-                    record.put_code = put_code
-                    record.orcid = orcid
-                    return True
-
                 if record.put_code:
                     return
 
                 if put_code in taken_put_codes:
                     continue
 
-                # Partial match of URLs
-                if ((record.type == "URL" and ((r.get("url-name") is None and get_val(r, "url", "value") is None) or (
-                            r.get("url-name") == record.name and get_val(r, "url", "value") == record.value)))
-                    or (record.type in ["NAME", "KEYWORD"] and r.get("content") == record.value) or (
-                        record.type == "COUNTRY" and r.get("country", "value") == record.value)):
+                if (record.value and (record.name and record.type == "URL" and (
+                    r.get("url-name", default='') or '').lower() == record.name.lower()
+                                      and (r.get("url", "value", default='') or '').lower() == record.value.lower()) or
+                        (record.type in ["NAME", "KEYWORD"]
+                         and (r.get("content", default='') or '').lower() == record.value.lower()) or
+                        (record.type == "COUNTRY"
+                         and (r.get("country", "value",
+                                    default='') or '').lower() == record.value.lower())):  # noqa: E129
                     record.put_code = put_code
                     record.orcid = orcid
                     if not record.visibility:
@@ -769,27 +759,24 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
 
         for rr in (t.record for t in records):
             try:
-                no_orcid_call = match_put_code(rr)
-                if no_orcid_call:
-                    rr.add_status_line("Researcher property record unchanged.")
+                match_put_code(rr)
+                if rr.type == "URL":
+                    put_code, orcid, created, visibility = api.create_or_update_researcher_url(**rr.__data__)
+                elif rr.type == "NAME":
+                    put_code, orcid, created, visibility = api.create_or_update_other_name(**rr.__data__)
+                elif rr.type == "COUNTRY":
+                    put_code, orcid, created, visibility = api.create_or_update_address(**rr.__data__)
                 else:
-                    if rr.type == "URL":
-                        put_code, orcid, created, visibility = api.create_or_update_researcher_url(**rr.__data__)
-                    elif rr.type == "NAME":
-                        put_code, orcid, created, visibility = api.create_or_update_other_name(**rr.__data__)
-                    elif rr.type == "COUNTRY":
-                        put_code, orcid, created, visibility = api.create_or_update_address(**rr.__data__)
-                    else:
-                        put_code, orcid, created, visibility = api.create_or_update_keyword(**rr.__data__)
+                    put_code, orcid, created, visibility = api.create_or_update_keyword(**rr.__data__)
 
-                    if created:
-                        rr.add_status_line("Researcher property record was created.")
-                    else:
-                        rr.add_status_line("Researcher property record was updated.")
-                    rr.orcid = orcid
-                    rr.put_code = put_code
-                    if rr.visibility != visibility:
-                        rr.visibility = visibility
+                if created:
+                    rr.add_status_line(f"Researcher {rr.type} record was created.")
+                else:
+                    rr.add_status_line(f"Researcher {rr.type} record was updated.")
+                rr.orcid = orcid
+                rr.put_code = put_code
+                if rr.visibility != visibility:
+                    rr.visibility = visibility
             except ApiException as ex:
                 if ex.status == 404:
                     rr.put_code = None
@@ -819,7 +806,7 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
                                                              OrcidToken.scopes.contains("/person/update")).first()
     if token:
-        api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
+        api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
         profile_record = api.get_record()
     if profile_record:
         activities = profile_record.get("person")
@@ -842,26 +829,23 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
-                if (r.get("external-id-type") == record.type
-                    and get_val(r, "external-id-value") == record.value
-                    and get_val(r, "external-id-url", "value") == record.url
-                    and get_val(r, "external-id-relationship") == record.relationship):        # noqa: E129
-                    record.put_code = put_code
-                    record.orcid = orcid
-                    return True
-
                 if record.put_code:
                     return
 
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("external-id-type") is None and r.get("external-id-value") is None and get_val(
-                    r, "external-id-url", "value") is None and get_val(r, "external-id-relationship") is None)
-                    or (r.get("external-id-type") == record.type
-                        and get_val(r, "external-id-value") == record.value)):
+                # ORCID is not consistent with use of hiphens and underscores in external-id-value.
+                if (record.type and record.value and (r.get("external-id-type", default='') or '').replace(
+                    '-', '').replace('_', '').lower() == record.type.replace('-', '').replace('_', '').lower() and (
+                        r.get("external-id-value", default='') or '').lower() == record.value.lower()):
                     record.put_code = put_code
                     record.orcid = orcid
+                    if not record.visibility:
+                        record.visibility = r.get("visibility")
+                    if not record.display_index:
+                        record.display_index = r.get("display-index")
+
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the other id record "
@@ -871,20 +855,17 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
         for task_by_user in records:
             try:
                 rr = task_by_user.record
-                no_orcid_call = match_put_code(other_id_records, rr)
+                match_put_code(other_id_records, rr)
 
-                if no_orcid_call:
-                    rr.add_status_line("Other ID record unchanged.")
+                put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr.__data__)
+                if created:
+                    rr.add_status_line("Other ID record was created.")
                 else:
-                    put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr.__data__)
-                    if created:
-                        rr.add_status_line("Other ID record was created.")
-                    else:
-                        rr.add_status_line("Other ID record was updated.")
-                    rr.orcid = orcid
-                    rr.put_code = put_code
-                    if rr.visibility != visibility:
-                        rr.visibility = visibility
+                    rr.add_status_line("Other ID record was updated.")
+                rr.orcid = orcid
+                rr.put_code = put_code
+                if rr.visibility != visibility:
+                    rr.visibility = visibility
             except ApiException as ex:
                 if ex.status == 404:
                     rr.put_code = None

@@ -2008,11 +2008,7 @@ def delete_record(user_id, section_type, put_code):
             flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to delete this record", "warning")
             return redirect(_url)
 
-    # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR", "PRR"]:
-        api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
-    else:
-        api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
+    api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
 
     try:
         api.delete_section(section_type, put_code)
@@ -2061,11 +2057,7 @@ def edit_record(user_id, section_type, put_code=None):
             "permission to you to Add/Update these records", "warning")
         return redirect(_url)
 
-    # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR", "PRR"]:
-        api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
-    else:
-        api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
+    api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
 
     if section_type == "FUN":
         form = FundingForm(form_type=section_type)
@@ -2111,15 +2103,15 @@ def edit_record(user_id, section_type, put_code=None):
                 elif section_type == "PRR":
                     api_response = api.view_peer_reviewv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "RUR":
-                    api_response = api.view_researcher_url(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_researcher_urlv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "ONR":
-                    api_response = api.view_other_name(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_other_namev3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "ADR":
-                    api_response = api.view_address(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_addressv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "EXR":
-                    api_response = api.view_external_identifier(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_external_identifierv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "KWR":
-                    api_response = api.view_keyword(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_keywordv3(user.orcid, put_code, _preload_content=False)
 
                 _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
 
@@ -2195,15 +2187,18 @@ def edit_record(user_id, section_type, put_code=None):
                             visibility=(_data.get("visibility", default='') or '').upper(),
                             review_completion_date=PartialDate.create(_data.get("review-completion-date")))
                 elif section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
-                    data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
+                    data = dict(visibility=(_data.get("visibility", default='') or '').replace('-', '_').upper(),
+                                display_index=_data.get("display-index"))
                     if section_type == "RUR":
                         data.update(dict(name=_data.get("url-name"), value=_data.get("url", "value")))
                     elif section_type == "ADR":
                         data.update(dict(country=_data.get("country", "value")))
                     elif section_type == "EXR":
-                        data.update(dict(type=_data.get("external-id-type"), value=_data.get("external-id-value"),
+                        data.update(dict(type=(_data.get("external-id-type", default='') or ''),
+                                         value=_data.get("external-id-value"),
                                          url=_data.get("external-id-url", "value"),
-                                         relationship=_data.get("external-id-relationship")))
+                                         relationship=(_data.get("external-id-relationship", default='') or '').replace(
+                                             '-', '_').upper()))
                     else:
                         data.update(dict(content=_data.get("content")))
                 else:
@@ -2442,11 +2437,8 @@ def section(user_id, section_type="EMP"):
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(_url)
 
-    # Gradually mirgating to v3.x
-    if section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS", "FUN", "WOR", "PRR"]:
-        api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
-    else:
-        api = orcid_client.MemberAPI(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
+    api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
+
     try:
         api_response = api.get_section(section_type)
     except ApiException as ex:

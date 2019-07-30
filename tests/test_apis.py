@@ -1464,15 +1464,15 @@ def test_property_api(client, mocker):
                        data=open(os.path.join(data_path, "properties.json")).read())
     assert resp.status_code == 200
     assert Task.select().count() == 5
-
     user = User.get(orcid="0000-0000-0000-00X3")
     OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
-    get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=utils.get_profile(user=user))
+    get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record",
+                               return_value=utils.get_profile(user=user))
     send_email = mocker.patch("orcid_hub.utils.send_email")
-    create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_researcher_url")
-    create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_other_name")
-    create_or_update_address = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_address")
-    create_or_update_keyword = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_keyword")
+    create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_researcher_url")
+    create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_other_name")
+    create_or_update_address = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_address")
+    create_or_update_keyword = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_keyword")
     for r in records:
         del(r["id"])
         r["is-active"] = True
