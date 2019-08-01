@@ -3966,4 +3966,5 @@ def get_val(d, *keys, default=None):
 @lru_cache()
 def audit_models():
     """Inrospects the audit trail table models."""
-    return generate_models(db, schema="audit") if isinstance(db, PostgresqlDatabase) else {}
+    # return generate_models(db, schema="audit") if isinstance(db, PostgresqlDatabase) else {}
+    return {}
