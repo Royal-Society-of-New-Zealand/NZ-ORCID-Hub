@@ -29,7 +29,7 @@ from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCh
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
-from playhouse.reflection import generate_models
+# from playhouse.reflection import generate_models
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries, currencies, languages
 from pykwalify.core import Core
