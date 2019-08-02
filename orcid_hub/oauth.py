@@ -61,7 +61,7 @@ def save_token(token, request, *args, **kwargs):  # noqa: D103
         expires_in=expires_in,
         expires=expires,
         client=request.client,
-        user_id=request.user.id)
+        user=request.user)
 
 
 @app.route("/oauth/authorize", methods=["GET", "POST"])
