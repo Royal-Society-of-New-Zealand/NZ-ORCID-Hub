@@ -841,7 +841,13 @@ class AffiliationListAPI(TaskResource):
                 format: int64
               put-code:
                 type: string
-              external-id:
+              local-id:
+                type: string
+              external-id-type:
+                type: string
+              external-id-value:
+                type: string
+              external-id-relationship:
                 type: string
               is-active:
                 type: boolean

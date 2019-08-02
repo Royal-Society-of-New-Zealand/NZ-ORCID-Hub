@@ -34,6 +34,7 @@ def test_plural():
 
 def test_get_oauth_access_token(client):
     """Test the acquisition of OAuth access token."""
+    Token.update(expires=datetime(2017, 1, 1, 0, 0)).execute()
     resp = client.post(
             "/oauth/token",
             data=dict(
@@ -42,7 +43,7 @@ def test_get_oauth_access_token(client):
                 client_secret="CLIENT_SECRET"))
     assert resp.status_code == 200
     c = Client.get(client_id="CLIENT_ID")
-    token = Token.get(client=c)
+    token = Token.select().where(Token.client == c, Token.access_token != "TEST").first()
     assert resp.json["access_token"] == token.access_token
     assert resp.json["expires_in"] == client.application.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
     assert resp.json["token_type"] == token.token_type
@@ -80,31 +81,44 @@ def test_get_oauth_access_token(client):
     assert resp.json["error"] == "unsupported_grant_type"
 
 
-# def test_revoke_access_token(client):
-#     """Test the acquisition of OAuth access token."""
-#     resp = client.get(
-#             "/oauth/token",
-#             method="POST",
-#             data=dict(
-#                 grant_type="client_credentials",
-#                 client_id="CLIENT_ID",
-#                 client_secret="CLIENT_SECRET"))
-#         resp = ctx.app.full_dispatch_request()
-#         assert resp.status_code == 200
-#         data = json.loads(resp.data)
-#         client = Client.get(client_id="CLIENT_ID")
-#         token = Token.get(client=client)
-#         assert data["access_token"] == token.access_token
+def test_multiple_access_token(client):
+    """Test the acquisition of OAuth access token."""
+    resp = client.post(
+            "/oauth/token",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    c = Client.get(client_id="CLIENT_ID")
+    token = Token.get(client=c)
+    assert data["access_token"] != token.access_token
+    assert Token.select().count() == 2
 
-#     resp = client.get(
-#             "/oauth/token",
-#             data=dict(
-#                 grant_type="client_credentials",
-#                 client_id="CLIENT_ID",
-#                 client_secret="CLIENT_SECRET"))
-#         resp = ctx.app.full_dispatch_request()
-#         assert resp.status_code == 200
-#         data = json.loads(resp.data)
+    resp = client.post(
+            "/oauth/token",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert Token.select().count() == 3
+
+    token = Token.get(access_token=data["access_token"])
+    token.expires = datetime(555, 5, 5)
+    token.save()
+
+    resp = client.post(
+            "/oauth/token",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    assert Token.select().count() == 3
+    assert not Token.select().where(Token.access_token == token.access_token).exists()
 
 
 def test_me(client):
@@ -136,6 +150,7 @@ def test_me(client):
 ])
 def test_user_and_token_api(client, resource, version):
     """Test the echo endpoint."""
+    Token.update(expires=datetime.now()).execute()
     user = User.get(email="researcher@test0.edu")
     org2_user = User.get(email="researcher@org2.edu")
     resp = client.get(

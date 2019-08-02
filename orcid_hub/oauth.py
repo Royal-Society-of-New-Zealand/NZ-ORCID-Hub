@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from flask import jsonify, render_template, request
+from flask import render_template, request
 from flask_login import current_user, login_required
 
 from . import app, oauth
@@ -39,24 +39,16 @@ def save_grant(client_id, code, request, *args, **kwargs):  # noqa: D103 pragma:
 
 @oauth.tokengetter
 def load_token(access_token=None, refresh_token=None):  # noqa: D103
-    try:
-        if access_token:
-            return Token.get(access_token=access_token)
-        elif refresh_token:  # pragma: no cover
-            return Token.get(refresh_token=refresh_token)
-    except Token.DoesNotExist:
-        return None
+
+    return Token.select().where(Token.expires < datetime.now(),
+                                (Token.access_token == access_token),
+                                (Token.refresh_token == refresh_token)).first()
 
 
 @oauth.tokensetter
 def save_token(token, request, *args, **kwargs):  # noqa: D103
 
-    # make sure that every client has only one token connected to a user
-    try:
-        client = Client.get(client_id=request.client.client_id)
-    except Client.DoesNotExist:  # pragma: no cover
-        return jsonify({"error": "CLIENT DOESN'T EXIST"}), 404
-    Token.delete().where(Token.client == client).where(Token.user_id == request.user.id).execute()
+    Token.delete().where(Token.expires < datetime.now()).execute()
 
     expires_in = token.get("expires_in")
     expires = datetime.utcnow() + timedelta(seconds=expires_in)
@@ -66,10 +58,10 @@ def save_token(token, request, *args, **kwargs):  # noqa: D103
         refresh_token=token.get("refresh_token"),
         token_type=token["token_type"],
         _scopes=token["scope"],
+        expires_in=expires_in,
         expires=expires,
-        client=client,
-        user_id=request.user.id,
-    )
+        client=request.client,
+        user_id=request.user.id)
 
 
 @app.route("/oauth/authorize", methods=["GET", "POST"])
