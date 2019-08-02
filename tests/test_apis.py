@@ -150,7 +150,6 @@ def test_me(client):
 ])
 def test_user_and_token_api(client, resource, version):
     """Test the echo endpoint."""
-    Token.update(expires=datetime.now()).execute()
     user = User.get(email="researcher@test0.edu")
     org2_user = User.get(email="researcher@org2.edu")
     resp = client.get(
