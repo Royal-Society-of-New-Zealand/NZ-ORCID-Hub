@@ -1,27 +1,28 @@
 """HUB API."""
 
-from datetime import datetime
 import re
+from datetime import datetime
 from urllib.parse import unquote, urlencode
-import dateutil.parser
+from uuid import UUID
 
+import dateutil.parser
 import jsonschema
 import requests
 import validators
 import yaml
-from uuid import UUID
-from flask import (Response, abort, current_app, jsonify, make_response, render_template, request,
-                   stream_with_context, url_for)
+from flask import (Response, abort, current_app, jsonify, make_response,
+                   render_template, request, stream_with_context, url_for)
 from flask.views import MethodView
 from flask_login import current_user, login_user
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
+from rq import get_current_job
 
-from . import api, app, models, oauth, schemas
+from . import api, app, models, oauth, rq, schemas
 from .login_provider import roles_required
-from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
-                     PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User, UserOrg,
-                     validate_orcid_id, WorkRecord)
+from .models import (ORCID_ID_REGEX, AffiliationRecord, AsyncOrcidResponse, Client, FundingRecord,
+                     OrcidToken, PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User,
+                     UserOrg, WorkRecord, validate_orcid_id)
 from .utils import (activate_all_records, dump_yaml, enqueue_task_records, is_valid_url,
                     register_orcid_webhook, reset_all_records)
 
@@ -2984,6 +2985,10 @@ def orcid_proxy(version, orcid, rest=None):
     if rest and rest != "undefined":
         url += '/' + rest
 
+    if request.get("async"):
+        job = exeute_orcid_call_async.queue(request.method, url, data=request.data, headers=headers)
+        return jsonify({"job-id": str(job.id)}), 201
+
     proxy_req = requests.Request(
         request.method, url, data=request.stream, headers=headers).prepare()
     session = requests.Session()
@@ -3002,6 +3007,22 @@ def orcid_proxy(version, orcid, rest=None):
     proxy_resp = Response(
         stream_with_context(generate()), headers=proxy_headers, status=resp.status_code)
     return proxy_resp
+
+
+@rq.job(timeout=300)
+def exeute_orcid_call_async(method, url, data, headers):
+    """Execute asynchrouniously ORCID API request."""
+    job = get_current_job()
+    ar = AsyncOrcidResponse.crate(job_id=job.id,
+                                  enqueued_at=job.enqueued_at,
+                                  method=method,
+                                  url=url)
+    proxy_req = requests.Request(method, url, data=data, headers=headers).prepare()
+    session = requests.Session()
+    resp = session.send(proxy_req)
+
+    ar.status_code = resp.status_code
+    ar.body = resp.body
 
 
 @app.route("/api/v1/<string:orcid>/webhook", methods=["PUT", "DELETE"])
