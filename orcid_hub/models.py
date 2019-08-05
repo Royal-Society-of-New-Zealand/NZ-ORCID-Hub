@@ -305,6 +305,21 @@ class PartialDateField(Field):
         ), parts)))
 
 
+class UUIDField(Field):
+    """UUID field using build-in DBMS data type."""
+
+    field_type = "uuid"
+
+    def db_value(self, value):
+        """Return DB representation."""
+        return value.hex if isinstance(
+            value, uuid.UUID) else (value.replace('-', '') if '-' in value else value)
+
+    def python_value(self, value):
+        """Return Python representation."""
+        return uuid.UUID(value)
+
+
 class TaskType(IntEnum):
     """Enum used to represent Task type."""
 
@@ -1646,7 +1661,7 @@ class AffiliationRecord(RecordModel):
                     else:
                         rec = AffiliationRecord(task=task)
                     for k, v in r.items():
-                        if k == "id":
+                        if k == "id" or k.startswith("external"):
                             continue
                         k = k.replace('-', '_')
                         if k in ["visibility", "disambiguation_source"] and v:
@@ -1659,6 +1674,14 @@ class AffiliationRecord(RecordModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid record: {validator.errors}")
                         rec.save()
+                        ext_id_data = {k.replace('-', '_'): v for k, v in r.items() if k.startswith("external")}
+
+                        if ext_id_data.get("external_id_type") and ext_id_data.get("external_id_value"):
+                            ext_id = AffiliationExternalId.create(record=rec, **ext_id_data)
+                            if not ModelValidator(ext_id).validate():
+                                raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
+                            ext_id.save()
+
             except:
                 transaction.rollback()
                 app.logger.exception("Failed to load affiliation record task file.")
@@ -3789,13 +3812,15 @@ class Token(BaseModel):
     Flask-OAuthlib only comes with a bearer token.
     """
 
-    client = ForeignKeyField(Client, on_delete="CASCADE")
-    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
+    client = ForeignKeyField(Client, index=True, on_delete="CASCADE")
+    user = ForeignKeyField(User, null=True, index=True, on_delete="SET NULL")
     token_type = CharField(max_length=40)
 
     access_token = CharField(max_length=100, unique=True)
     refresh_token = CharField(max_length=100, unique=True, null=True)
-    expires = DateTimeField(null=True)
+    created_at = DateTimeField(default=datetime.utcnow, null=True)
+    expires_in = IntegerField(null=True)
+    expires = DateTimeField(null=True, index=True)
     _scopes = TextField(null=True)
 
     @property
@@ -3807,6 +3832,19 @@ class Token(BaseModel):
     @property
     def expires_at(self):  # noqa: D102
         return self.expires
+
+
+class AsyncOrcidResponse(BaseModel):
+    """Asynchronouly invoked ORCID API calls."""
+
+    job_id = UUIDField(primary_key=True)
+    enqueued_at = DateTimeField(default=datetime.utcnow, null=True)
+    executed_at = DateTimeField(default=datetime.utcnow, null=True)
+    method = CharField(max_length=10)
+    url = CharField(max_length=200)
+    status_code = SmallIntegerField(null=True)
+    headers = TextField(null=True)
+    body = TextField(null=True)
 
 
 DeferredForeignKey.resolve(User)
@@ -3865,6 +3903,7 @@ def create_tables(safe=True, drop=False):
             Grant,
             Token,
             Delegate,
+            AsyncOrcidResponse,
     ]:
 
         model.bind(db)
