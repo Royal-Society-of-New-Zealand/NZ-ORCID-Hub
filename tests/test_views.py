@@ -2059,41 +2059,38 @@ def validate(self=None, raise_exception=True):
     return False
 
 
-@patch("pykwalify.core.Core.validate", side_effect=validate)
-@patch("pykwalify.core.Core.__init__", side_effect=core_mock)
-def test_load_researcher_funding(patch, patch2, request_ctx):
+def test_load_researcher_funding(client):
     """Test preload organisation data."""
-    org = request_ctx.data["org"]
-    user = User.create(
-        email="test123@test.test.net",
-        name="TEST USER",
-        roles=Role.ADMIN,
-        orcid="123",
-        confirmed=True,
-        organisation=org)
+    org = client.data["org"]
+    user = User.create(email="test123@test.test.net",
+                       name="TEST USER",
+                       roles=Role.ADMIN,
+                       orcid="123",
+                       confirmed=True,
+                       organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
-    with request_ctx(
-            "/load/researcher/funding",
-            method="POST",
-            data={
-                "file_": (
-                        BytesIO(
-                            b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
-                            b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
-                            b'"title": { "title": { "value": "1ral"}},"short-description": "Mi","type": "CONTRACT",'
-                            b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
-                            b'"co_lead"},"credit-name": {"value": "firentini"}}]}'
-                            b', "external-ids": {"external-id": [{"external-id-value": '
-                            b'"GNS170661","external-id-type": "grant_number", "external-id-relationship": "SELF"}]}}]'),
-                        "logo.json",),
-                "email": user.email
-            }) as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        # Funding file successfully loaded.
-        assert "task_id" in resp.location
-        assert "funding" in resp.location
+    client.login(user)
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(b"""[{
+        "invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",
+                    "first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],
+        "title": { "title": { "value": "1ral"}},"short-description": "Mi","type": "CONTRACT",
+        "contributors": {"contributor": [{"contributor-attributes": {"contributor-role":
+                    "co_lead"},"credit-name": {"value": "firentini"}}]}
+                    , "external-ids": {"external-id": [{"external-id-value":
+                    "GNS170661","external-id-type": "grant_number", "external-id-relationship": "SELF"}]}}]"""),
+                "logo.json",
+            ),
+            "email":
+            user.email
+        })
+    assert resp.status_code == 302
+    # Funding file successfully loaded.
+    assert "task_id" in resp.location
+    assert "funding" in resp.location
 
 
 @patch("pykwalify.core.Core.validate", side_effect=validate)
@@ -3556,6 +3553,28 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
         follow_redirects=True)
     assert resp.status_code == 200
     assert b"Invalid External Id Value or Funding Id" in resp.data
+
+    # Test Funing task deletion:
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF"""),  # noqa: E501
+                "fundingABC.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
+    resp = client.get(
+        f"/admin/fundingrecord/export/json/?task_id={task.id}&url=%2Fadmin%2Ftask%2F")
+
+    resp = client.post("/load/researcher/funding",
+                       data={"file_": (BytesIO(resp.data), "fundingABC.json")})
+    task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
+    resp = client.post("/admin/task/delete/", data=dict(id=task.id, url="/admin/task/"))
+    assert not Task.select().where(Task.id == task.id).exists()
 
 
 def test_researcher_work(client, mocker):
