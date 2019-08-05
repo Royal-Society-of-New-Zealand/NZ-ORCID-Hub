@@ -1361,6 +1361,9 @@ def test_proxy_get_profile(client):
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
         assert "job-id" in resp.json
         assert AsyncOrcidResponse.select().exists()
+        ar = AsyncOrcidResponse.get()
+        assert ar.status_code == 200
+        assert ar.body is not None
 
     with patch("orcid_hub.apis.requests.Session.send") as mocksend:
         mockresp = MagicMock(status_code=201)

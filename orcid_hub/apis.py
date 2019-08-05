@@ -2638,6 +2638,14 @@ def get_spec(app):
             "type": "string",
             "description": "The rest of the ORCID API entry point URL.",
         },
+        "asyncParam": {
+            "in": "query",
+            "name": "async",
+            "required": False,
+            "type": "string",
+            "enum": ["t", "f", "yes", "no", "ture", "false"],
+            "description": "The indicator for asynchronous invokation.",
+        },
     }
     # Common responses:
     swag["responses"] = {
@@ -2738,6 +2746,7 @@ def get_spec(app):
         "parameters": [
             swag["parameters"]["versionParam"],
             swag["parameters"]["orcidParam"],
+            swag["parameters"]["asyncParam"],
         ],
         "get": {
             "tags": ["orcid-proxy"],
@@ -2773,6 +2782,7 @@ def get_spec(app):
             swag["parameters"]["versionParam"],
             swag["parameters"]["orcidParam"],
             swag["parameters"]["pathParam"],
+            swag["parameters"]["asyncParam"],
         ],
         "delete": {
             "tags": ["orcid-proxy"],
@@ -3022,7 +3032,8 @@ def exeute_orcid_call_async(method, url, data, headers):
     resp = session.send(proxy_req)
 
     ar.status_code = resp.status_code
-    ar.body = resp.body
+    ar.body = resp.text
+    ar.save()
 
 
 @app.route("/api/v1/<string:orcid>/webhook", methods=["PUT", "DELETE"])
