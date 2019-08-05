@@ -74,6 +74,7 @@ services:
       - ENV
       - MAIL_DEFAULT_SENDER
       - SECRET_KEY
+      - SENTRY_DSN
     volumes:
       - .:/src
     restart: always
@@ -86,6 +87,7 @@ services:
     command: ["./scheduler.sh"]
     environment:
       - ENV
+      - SENTRY_DSN
     volumes:
       - .:/src
     restart: always
