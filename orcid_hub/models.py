@@ -23,7 +23,7 @@ from urllib.parse import urlencode
 import validators
 import yaml
 from flask_login import UserMixin, current_user
-from peewee import JOIN, BlobField, SqliteDatabase, JSONField
+from peewee import JOIN, BlobField, SqliteDatabase
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
@@ -3843,8 +3843,8 @@ class AsyncOrcidResponse(BaseModel):
     method = CharField(max_length=10)
     url = CharField(max_length=200)
     status_code = SmallIntegerField()
-    headers = JSONField(null=True)
-    body = JSONField(null=True)
+    headers = TextField(null=True)
+    body = TextField(null=True)
 
 
 DeferredForeignKey.resolve(User)
