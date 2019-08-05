@@ -12,8 +12,8 @@ import pytest
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
-from orcid_hub.models import (AffiliationRecord, Client, OrcidToken, Organisation, Task, TaskType,
-                              Token, User, UserInvitation)
+from orcid_hub.models import (AffiliationRecord, AsyncOrcidResponse, Client, OrcidToken,
+                              Organisation, Task, TaskType, Token, User, UserInvitation)
 
 from unittest.mock import patch, MagicMock
 from tests import utils
@@ -1350,6 +1350,17 @@ def test_proxy_get_profile(client):
         assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}"
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
         assert resp.json == {"data": "TEST"}
+
+        # Asynchronous call:
+        resp = client.get(
+            f"/orcid/api/v2.23/{orcid_id}?async=true",
+            headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.status_code == 201
+        args, kwargs = mocksend.call_args
+        assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}"
+        assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
+        assert "job-id" in resp.json
+        assert AsyncOrcidResponse.select().exists()
 
     with patch("orcid_hub.apis.requests.Session.send") as mocksend:
         mockresp = MagicMock(status_code=201)

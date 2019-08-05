@@ -3842,7 +3842,7 @@ class AsyncOrcidResponse(BaseModel):
     executed_at = DateTimeField(default=datetime.utcnow, null=True)
     method = CharField(max_length=10)
     url = CharField(max_length=200)
-    status_code = SmallIntegerField()
+    status_code = SmallIntegerField(null=True)
     headers = TextField(null=True)
     body = TextField(null=True)
 
@@ -3903,6 +3903,7 @@ def create_tables(safe=True, drop=False):
             Grant,
             Token,
             Delegate,
+            AsyncOrcidResponse,
     ]:
 
         model.bind(db)

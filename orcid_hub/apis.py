@@ -2985,7 +2985,7 @@ def orcid_proxy(version, orcid, rest=None):
     if rest and rest != "undefined":
         url += '/' + rest
 
-    if request.get("async"):
+    if request.args.get("async") in ['1', "true", "TRUE", 'y', "yes", "YES", 't', 'T']:
         job = exeute_orcid_call_async.queue(request.method, url, data=request.data, headers=headers)
         return jsonify({"job-id": str(job.id)}), 201
 
@@ -3013,10 +3013,10 @@ def orcid_proxy(version, orcid, rest=None):
 def exeute_orcid_call_async(method, url, data, headers):
     """Execute asynchrouniously ORCID API request."""
     job = get_current_job()
-    ar = AsyncOrcidResponse.crate(job_id=job.id,
-                                  enqueued_at=job.enqueued_at,
-                                  method=method,
-                                  url=url)
+    ar = AsyncOrcidResponse.create(job_id=job.id,
+                                   enqueued_at=job.enqueued_at,
+                                   method=method,
+                                   url=url)
     proxy_req = requests.Request(method, url, data=data, headers=headers).prepare()
     session = requests.Session()
     resp = session.send(proxy_req)
