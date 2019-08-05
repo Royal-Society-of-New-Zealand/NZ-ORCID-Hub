@@ -279,7 +279,12 @@ def testdb():
             grant_type="client_credentials",
             response_type="XYZ")
 
-        Token.create(client=client, user=admin, access_token="TEST", token_type="Bearer")
+        Token.create(client=client,
+                     user=admin,
+                     access_token="TEST",
+                     refresh_token="TEST",
+                     token_type="Bearer",
+                     expires=datetime(2222, 1, 1, 0, 0))
 
         user = User.create(
             email="researcher@test0.edu",
