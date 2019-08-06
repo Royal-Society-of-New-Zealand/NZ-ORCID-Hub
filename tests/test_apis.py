@@ -120,6 +120,24 @@ def test_multiple_access_token(client):
     assert Token.select().count() == 3
     assert not Token.select().where(Token.access_token == token.access_token).exists()
 
+    # Multiple clients and multiple access tokens:
+    for o in Organisation.select():
+        u = o.users.first()
+        if u:
+            c = Client.create(org=o, user=u, client_id=u.name, client_secret=u.name)
+            resp = client.post(
+                    "/oauth/token",
+                    data=dict(
+                        grant_type="client_credentials",
+                        client_id=c.client_id,
+                        client_secret=c.client_secret))
+            assert resp.status_code == 200
+            assert "access_token" in resp.json
+            t = Token.select().where(Token.access_token == resp.json["access_token"]).first()
+            assert t is not None
+            assert t.user == u
+            assert t.client == c
+
 
 def test_me(client):
     """Test the echo endpoint."""
