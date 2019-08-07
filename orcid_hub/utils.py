@@ -22,7 +22,7 @@ from flask_login import current_user
 from html2text import html2text
 from jinja2 import Template
 from orcid_api.rest import ApiException
-from peewee import JOIN, SQL
+from peewee import JOIN
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
 
@@ -39,14 +39,22 @@ logger.addHandler(logging.StreamHandler())
 
 EDU_CODES = {"student", "edu", "education"}
 EMP_CODES = {"faculty", "staff", "emp", "employment"}
+DST_CODES = {"distinction", "dist", "dst"}
+INV_POS_CODES = {"invited position", "position"}
+QUA_CODES = {"qualification", "qua"}
+MEM_CODES = {"membership", "mem"}
+SER_CODES = {"service", "ser"}
 
 ENV = app.config.get("ENV")
 EXTERNAL_SP = app.config.get("EXTERNAL_SP")
 
 
-def get_next_url():
+def get_next_url(endpoint=None):
     """Retrieve and sanitize next/return URL."""
-    _next = request.args.get("next") or request.args.get("_next") or request.args.get("url")
+    _next = request.args.get("next") or request.args.get("_next") or request.args.get(
+        "url") or request.referrer
+    if not _next and endpoint:
+        _next = url_for(endpoint)
 
     if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
                   or "localhost" in _next or "c9users.io" in _next):
@@ -204,8 +212,8 @@ def new_invitation_token(length=5):
     """Generate a unique invitation token."""
     while True:
         token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
-        if not (UserInvitation.select(SQL("1")).where(UserInvitation.token == token)
-                | OrgInvitation.select(SQL("1")).where(OrgInvitation.token == token)).exists():
+        if not (UserInvitation.select().where(UserInvitation.token == token).exists() or
+                OrgInvitation.select().where(OrgInvitation.token == token).exists()):
             break
     return token
 
@@ -265,7 +273,7 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
     """Create or update work record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
 
     profile_record = api.get_record()
 
@@ -293,10 +301,9 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("title") is None and r.get("title").get("title") is None
-                     and r.get("title").get("title").get("value") is None and r.get("type") is None)
-                        or (r.get("title").get("title").get("value") == record.title
-                            and r.get("type") == record.type)):
+                if record.title and record.type and (r.get(
+                    "title", "title", "value", default='') or '').lower() == record.title.lower() and (r.get(
+                        "type", default='') or '').replace('-', '_').lower() == record.type.lower():
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -346,20 +353,15 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
     """Create or update peer review record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
 
     profile_record = api.get_record()
 
     if profile_record:
-        activities = profile_record.get("activities-summary")
-
-        peer_reviews = []
-
-        for r in activities.get("peer-reviews").get("group"):
-            peer_review_summary = r.get("peer-review-summary")
-            for ps in peer_review_summary:
-                if is_org_rec(org, ps):
-                    peer_reviews.append(ps)
+        peer_reviews = [s for ag in profile_record.get("activities-summary", "peer-reviews", "group", default=[])
+                        for pg in ag.get("peer-review-group", default=[])
+                        for s in pg.get("peer-review-summary", default=[]) if is_org_rec(org, s)
+                        ]
 
         taken_put_codes = {
             r.record.invitee.put_code
@@ -380,9 +382,8 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if (r.get("review-group-id")
-                        and r.get("review-group-id") == record.review_group_id
-                        and external_id_value in taken_external_id_values):  # noqa: E127
+                if record.review_group_id and external_id_value in taken_external_id_values and (r.get(
+                    "review-group-id", default='') or '').lower() == record.review_group_id.lower():  # noqa: E127
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -436,10 +437,9 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
     """Create or update funding record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
 
     profile_record = api.get_record()
-
     if profile_record:
         activities = profile_record.get("activities-summary")
 
@@ -464,13 +464,10 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("title") is None and r.get("title").get("title") is None
-                     and r.get("title").get("title").get("value") is None and r.get("type") is None
-                     and r.get("organization") is None
-                     and r.get("organization").get("name") is None)
-                        or (r.get("title").get("title").get("value") == record.title
-                            and r.get("type") == record.type
-                            and r.get("organization").get("name") == record.org_name)):
+                if record.title and record.type and record.org_name and (r.get(
+                    "title", "title", "value", default='') or '').lower() == record.title.lower() and (r.get(
+                        "type", default='') or '').replace('-', '_').lower() == record.type.lower() and (r.get(
+                        "organization", "name", default='') or '').lower() == record.org_name.lower():
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -483,7 +480,6 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
             fr = task_by_user.record
             fi = task_by_user.record.invitee
             match_put_code(fundings, fr, fi)
-
         for task_by_user in records:
             fi = task_by_user.record.invitee
 
@@ -537,12 +533,11 @@ def send_user_invitation(inviter,
                          course_or_role=None,
                          start_date=None,
                          end_date=None,
-                         affiliations=None,
+                         affiliations=Affiliation.NONE,
                          disambiguated_id=None,
                          disambiguation_source=None,
                          cc_email=None,
                          invitation_template=None,
-                         token_expiry_in_sec=1300000,
                          **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
@@ -620,14 +615,12 @@ def send_user_invitation(inviter,
                 user=user)
 
         user.save()
-
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
         if user_org_created:
             user_org.created_by = inviter.id
-            if affiliations is None and affiliation_types:
-                affiliations = 0
+            if not affiliations and affiliation_types:
                 if affiliation_types & EMP_CODES:
-                    affiliations = Affiliation.EMP
+                    affiliations |= Affiliation.EMP
                 if affiliation_types & EDU_CODES:
                     affiliations |= Affiliation.EDU
             user_org.affiliations = affiliations
@@ -702,7 +695,7 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
                                                              OrcidToken.scopes.contains("/person/update")).first()
     if token:
-        api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
+        api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
         profile_record = api.get_record()
     if profile_record:
         activities = profile_record.get("person")
@@ -737,30 +730,20 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
-                # Exact match
-                # Visibility and Display Index condition can be added once the bug of display index is fixed by ORCID.
-                if ((record.type == "URL" and r.get("url-name") == record.name
-                     and r.get("url", "value") == record.value) or
-                        (record.type in ["NAME", "KEYWORD"]
-                         and r.get("content") == record.value) or
-                        (record.type == "COUNTRY"
-                         and r.get("country", "value") == record.value)):  # noqa: E129
-
-                    record.put_code = put_code
-                    record.orcid = orcid
-                    return True
-
                 if record.put_code:
                     return
 
                 if put_code in taken_put_codes:
                     continue
 
-                # Partial match of URLs
-                if ((record.type == "URL" and ((r.get("url-name") is None and get_val(r, "url", "value") is None) or (
-                            r.get("url-name") == record.name and get_val(r, "url", "value") == record.value)))
-                    or (record.type in ["NAME", "KEYWORD"] and r.get("content") == record.value) or (
-                        record.type == "COUNTRY" and r.get("country", "value") == record.value)):
+                if (record.value and (record.name and record.type == "URL" and (
+                    r.get("url-name", default='') or '').lower() == record.name.lower()
+                                      and (r.get("url", "value", default='') or '').lower() == record.value.lower()) or
+                        (record.type in ["NAME", "KEYWORD"]
+                         and (r.get("content", default='') or '').lower() == record.value.lower()) or
+                        (record.type == "COUNTRY"
+                         and (r.get("country", "value",
+                                    default='') or '').lower() == record.value.lower())):  # noqa: E129
                     record.put_code = put_code
                     record.orcid = orcid
                     if not record.visibility:
@@ -774,30 +757,26 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                     )
                     break
 
-        for task_by_user in records:
+        for rr in (t.record for t in records):
             try:
-                rr = task_by_user.record
-                no_orcid_call = match_put_code(rr)
-                if no_orcid_call:
-                    rr.add_status_line("Researcher property record unchanged.")
+                match_put_code(rr)
+                if rr.type == "URL":
+                    put_code, orcid, created, visibility = api.create_or_update_researcher_url(**rr.__data__)
+                elif rr.type == "NAME":
+                    put_code, orcid, created, visibility = api.create_or_update_other_name(**rr.__data__)
+                elif rr.type == "COUNTRY":
+                    put_code, orcid, created, visibility = api.create_or_update_address(**rr.__data__)
                 else:
-                    if rr.type == "URL":
-                        put_code, orcid, created, visibility = api.create_or_update_researcher_url(**rr._data)
-                    elif rr.type == "NAME":
-                        put_code, orcid, created, visibility = api.create_or_update_other_name(**rr._data)
-                    elif rr.type == "COUNTRY":
-                        put_code, orcid, created, visibility = api.create_or_update_address(**rr._data)
-                    else:
-                        put_code, orcid, created, visibility = api.create_or_update_keyword(**rr._data)
+                    put_code, orcid, created, visibility = api.create_or_update_keyword(**rr.__data__)
 
-                    if created:
-                        rr.add_status_line("Researcher property record was created.")
-                    else:
-                        rr.add_status_line("Researcher property record was updated.")
-                    rr.orcid = orcid
-                    rr.put_code = put_code
-                    if rr.visibility != visibility:
-                        rr.visibility = visibility
+                if created:
+                    rr.add_status_line(f"Researcher {rr.type} record was created.")
+                else:
+                    rr.add_status_line(f"Researcher {rr.type} record was updated.")
+                rr.orcid = orcid
+                rr.put_code = put_code
+                if rr.visibility != visibility:
+                    rr.visibility = visibility
             except ApiException as ex:
                 if ex.status == 404:
                     rr.put_code = None
@@ -821,13 +800,13 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
 # TODO: delete
 def create_or_update_other_id(user, org_id, records, *args, **kwargs):
     """Create or update Other Id record of a user."""
-    records = list(unique_everseen(records, key=lambda t: t.other_id_record.id))
+    records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
                                                              OrcidToken.scopes.contains("/person/update")).first()
     if token:
-        api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
+        api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
         profile_record = api.get_record()
     if profile_record:
         activities = profile_record.get("person")
@@ -837,11 +816,11 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
         ]
 
         taken_put_codes = {
-            r.other_id_record.put_code
-            for r in records if r.other_id_record.put_code
+            r.record.put_code
+            for r in records if r.record.put_code
         }
 
-        def match_put_code(records, other_id_record):
+        def match_put_code(records, record):
             """Match and assign put-code to the existing ORCID records."""
             for r in records:
                 try:
@@ -850,49 +829,43 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
-                if (r.get("external-id-type") == other_id_record.type
-                    and get_val(r, "external-id-value") == other_id_record.value
-                    and get_val(r, "external-id-url", "value") == other_id_record.url
-                    and get_val(r, "external-id-relationship") == other_id_record.relationship):        # noqa: E129
-                    other_id_record.put_code = put_code
-                    other_id_record.orcid = orcid
-                    return True
-
-                if other_id_record.put_code:
+                if record.put_code:
                     return
 
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("external-id-type") is None and r.get("external-id-value") is None and get_val(
-                    r, "external-id-url", "value") is None and get_val(r, "external-id-relationship") is None)
-                    or (r.get("external-id-type") == other_id_record.type
-                        and get_val(r, "external-id-value") == other_id_record.value)):
-                    other_id_record.put_code = put_code
-                    other_id_record.orcid = orcid
+                # ORCID is not consistent with use of hiphens and underscores in external-id-value.
+                if (record.type and record.value and (r.get("external-id-type", default='') or '').replace(
+                    '-', '').replace('_', '').lower() == record.type.replace('-', '').replace('_', '').lower() and (
+                        r.get("external-id-value", default='') or '').lower() == record.value.lower()):
+                    record.put_code = put_code
+                    record.orcid = orcid
+                    if not record.visibility:
+                        record.visibility = r.get("visibility")
+                    if not record.display_index:
+                        record.display_index = r.get("display-index")
+
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the other id record "
-                        f"(ID: {other_id_record.id}, Task ID: {other_id_record.task_id})")
+                        f"(ID: {record.id}, Task ID: {record.task_id})")
                     break
 
         for task_by_user in records:
             try:
-                rr = task_by_user.other_id_record
-                no_orcid_call = match_put_code(other_id_records, rr)
+                rr = task_by_user.record
+                match_put_code(other_id_records, rr)
 
-                if no_orcid_call:
-                    rr.add_status_line("Other ID record unchanged.")
+                put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr.__data__)
+                if created:
+                    rr.add_status_line("Other ID record was created.")
                 else:
-                    put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr._data)
-                    if created:
-                        rr.add_status_line("Other ID record was created.")
-                    else:
-                        rr.add_status_line("Other ID record was updated.")
-                    rr.orcid = orcid
-                    rr.put_code = put_code
-                    if rr.visibility != visibility:
-                        rr.visibility = visibility
+                    rr.add_status_line("Other ID record was updated.")
+                rr.orcid = orcid
+                rr.put_code = put_code
+                if rr.visibility != visibility:
+                    rr.visibility = visibility
             except ApiException as ex:
                 if ex.status == 404:
                     rr.put_code = None
@@ -923,25 +896,28 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
     profile_record = api.get_record()
+    orcid_affiliation_types = [
+        "employment", "education", "distinction", "membership", "service", "qualification",
+        "invited-position"
+    ]
     if profile_record:
-        activities = profile_record.get("activities-summary")
 
-        employments = [
-            r for r in (activities.get("employments").get("employment-summary")) if is_org_rec(org, r)
-        ]
-        educations = [
-            r for r in (activities.get("educations").get("education-summary")) if is_org_rec(org, r)
-        ]
+        affiliations = {
+            at: [
+                s.get(f"{at}-summary") for ag in profile_record.get(
+                    "activities-summary", f"{at}s", "affiliation-group", default=[])
+                for s in ag.get("summaries", default=[])
+            ]
+            for at in orcid_affiliation_types
+        }
 
         taken_put_codes = {
             r.record.put_code
             for r in records if r.record.put_code
         }
-
-        edu_put_codes = [e["put-code"] for e in educations]
-        emp_put_codes = [e["put-code"] for e in employments]
+        put_codes = {at: [e["put-code"] for e in records] for at, records in affiliations.items()}
 
         def match_put_code(records, record):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
@@ -968,6 +944,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                                 "disambiguation-source") == record.disambiguation_source):
                     record.put_code = put_code
                     record.orcid = orcid
+                    record.visibility = r.get("visibility")
                     return True
 
                 if record.put_code:
@@ -980,6 +957,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     "department-name") is None and r.get("role-title") is None)
                     or (r.get("start-date") == start_date and r.get("department-name") == record.department
                         and r.get("role-title") == record.role)):
+                    record.visibility = r.get("visibility")
                     record.put_code = put_code
                     record.orcid = orcid
                     taken_put_codes.add(put_code)
@@ -995,59 +973,53 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 no_orcid_call = False
 
                 if ar.delete_record and profile_record:
-                    if ar.put_code in emp_put_codes:
-                        affiliation = Affiliation.EMP
-                    elif ar.put_code in edu_put_codes:
-                        affiliation = Affiliation.EDU
-                    else:
-                        affiliation = None
-                    for a in employments:
-                        if a["put-code"] == ar.put_code:
-                            affiliation = Affiliation.EMP
-                            break
-                    if not affiliation:
-                        for a in employments:
-                            if a["put-code"] == ar.put_code:
-                                affiliation = Affiliation.EDU
-                                break
-
                     try:
-                        if affiliation:
-                            if affiliation == Affiliation.EDU:
-                                api.delete_education(user.orcid, ar.put_code)
-                            else:
-                                api.delete_employment(user.orcid, ar.put_code)
-                            ar.add_status_line(f"Record was sucessfully deleted.")
-                            app.logger.info(f"ORCID record of {user} with put-code {ar.put_code} was deleted.")
+                        for at in orcid_affiliation_types:
+                            if ar.put_code in put_codes[at]:
+                                getattr(api, f"delete_{at}v3")(user.orcid, ar.put_code)
+                                app.logger.info(
+                                    f"ORCID record of {user} with put-code {ar.put_code} was deleted."
+                                )
+                                break
                         else:
                             ar.add_status_line(
                                 f"There is no record with the given put-code {ar.put_code} in the user {user} profile."
                             )
                     except Exception as ex:
                         ar.add_status_line(f"Exception occured processing the record: {ex}.")
-                    ar.processed_at = datetime.utcnow()
-                    ar.save()
-                    continue
+                        ar.processed_at = datetime.utcnow()
+                        ar.save()
+                        continue
 
                 if at in EMP_CODES:
-                    no_orcid_call = match_put_code(employments, ar)
                     affiliation = Affiliation.EMP
+                elif at in DST_CODES:
+                    affiliation = Affiliation.DST
+                elif at in MEM_CODES:
+                    affiliation = Affiliation.MEM
+                elif at in SER_CODES:
+                    affiliation = Affiliation.SER
+                elif at in QUA_CODES:
+                    affiliation = Affiliation.QUA
+                elif at in INV_POS_CODES:
+                    affiliation = Affiliation.POS
                 elif at in EDU_CODES:
-                    no_orcid_call = match_put_code(educations, ar)
                     affiliation = Affiliation.EDU
                 else:
                     logger.info(f"For {user} not able to determine affiliaton type with {org}")
                     ar.add_status_line(
-                        f"Unsupported affiliation type '{at}' allowed values are: " + ', '.join(
-                            at for at in AFFILIATION_TYPES))
+                        f"Unsupported affiliation type '{at}' allowed values are: "
+                        ', '.join(at for at in AFFILIATION_TYPES))
                     ar.save()
                     continue
 
+                no_orcid_call = any(
+                    match_put_code(affiliations[at], ar) for at in orcid_affiliation_types)
                 if no_orcid_call:
                     ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:
                     put_code, orcid, created, visibility = api.create_or_update_affiliation(
-                        affiliation=affiliation, **ar._data)
+                        affiliation=affiliation, **ar.__data__)
                     if created:
                         ar.add_status_line(f"{str(affiliation)} record was created.")
                     else:
@@ -1066,42 +1038,38 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 ar.save()
     else:
         for task_by_user in records:
-            user = User.get(
-                email=task_by_user.record.email, organisation=task_by_user.org)
+            user = User.get(email=task_by_user.record.email, organisation=task_by_user.org)
             user_org = UserOrg.get(user=user, org=task_by_user.org)
             token = new_invitation_token()
             with app.app_context():
-                invitation_url = flask.url_for(
-                    "orcid_login",
-                    invitation_token=token,
-                    _external=True,
-                    _scheme="http" if app.debug else "https")
-                send_email(
-                    "email/researcher_reinvitation.html",
-                    recipient=(user.organisation.name, user.email),
-                    reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
-                    invitation_url=invitation_url,
-                    org_name=user.organisation.name,
-                    org=org,
-                    user=user)
-            UserInvitation.create(
-                invitee_id=user.id,
-                inviter_id=task_by_user.created_by.id,
-                org=org,
-                email=user.email,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                orcid=user.orcid,
-                organisation=org.name,
-                city=org.city,
-                state=org.state,
-                country=org.country,
-                start_date=task_by_user.record.start_date,
-                end_date=task_by_user.record.end_date,
-                affiliations=user_org.affiliations,
-                disambiguated_id=org.disambiguated_id,
-                disambiguation_source=org.disambiguation_source,
-                token=token)
+                invitation_url = flask.url_for("orcid_login",
+                                               invitation_token=token,
+                                               _external=True,
+                                               _scheme="http" if app.debug else "https")
+                send_email("email/researcher_reinvitation.html",
+                           recipient=(user.organisation.name, user.email),
+                           reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
+                           invitation_url=invitation_url,
+                           org_name=user.organisation.name,
+                           org=org,
+                           user=user)
+            UserInvitation.create(invitee_id=user.id,
+                                  inviter_id=task_by_user.created_by.id,
+                                  org=org,
+                                  email=user.email,
+                                  first_name=user.first_name,
+                                  last_name=user.last_name,
+                                  orcid=user.orcid,
+                                  organisation=org.name,
+                                  city=org.city,
+                                  state=org.state,
+                                  country=org.country,
+                                  start_date=task_by_user.record.start_date,
+                                  end_date=task_by_user.record.end_date,
+                                  affiliations=user_org.affiliations,
+                                  disambiguated_id=org.disambiguated_id,
+                                  disambiguation_source=org.disambiguation_source,
+                                  token=token)
 
             status = "Exception occured while accessing user's profile. " \
                      "Hence, The invitation resent at " + datetime.utcnow().isoformat(timespec="seconds")
@@ -1130,7 +1098,7 @@ def process_work_records(max_rows=20, record_id=None):
             (OrcidToken.id.is_null(False)
              | ((WorkInvitee.status.is_null())
                 | (WorkInvitee.status.contains("sent").__invert__())))).join(
-                    WorkRecord, on=(Task.id == WorkRecord.task_id).alias("record")).join(
+                    WorkRecord, on=(Task.id == WorkRecord.task_id), attr="record").join(
                         WorkInvitee,
                         on=(WorkRecord.id == WorkInvitee.record_id).alias("invitee")).join(
                             User,
@@ -1182,18 +1150,12 @@ def process_work_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                token_expiry_in_sec = 2600000
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    # For researcher invitation the expiry is 30 days, if it is reset then it is 2 weeks.
-                    if WorkInvitee.select().where(
-                            WorkInvitee.email == email, WorkInvitee.status ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *k,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
 
                     (WorkInvitee.update(status=WorkInvitee.status + "\n" + status).where(
                         WorkInvitee.status.is_null(False), WorkInvitee.email == email).execute())
@@ -1262,7 +1224,7 @@ def process_peer_review_records(max_rows=20, record_id=None):
             (OrcidToken.id.is_null(False)
              | ((PeerReviewInvitee.status.is_null())
                 | (PeerReviewInvitee.status.contains("sent").__invert__())))).join(
-                    PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id).alias("record")).join(
+                    PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id), attr="record").join(
                         PeerReviewInvitee,
                         on=(PeerReviewRecord.id == PeerReviewInvitee.record_id).alias("invitee")).join(
                             User,
@@ -1313,18 +1275,12 @@ def process_peer_review_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                token_expiry_in_sec = 2600000
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    if PeerReviewInvitee.select().where(PeerReviewInvitee.email == email,
-                                                        PeerReviewInvitee.status
-                                                        ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *k,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
 
                     (PeerReviewInvitee.update(
                         status=PeerReviewInvitee.status + "\n" + status).where(
@@ -1397,7 +1353,7 @@ def process_funding_records(max_rows=20, record_id=None):
             (OrcidToken.id.is_null(False)
              | ((FundingInvitee.status.is_null())
                 | (FundingInvitee.status.contains("sent").__invert__())))).join(
-                    FundingRecord, on=(Task.id == FundingRecord.task_id).alias("record")).join(
+                    FundingRecord, on=(Task.id == FundingRecord.task_id), attr="record").join(
                         FundingInvitee,
                         on=(FundingRecord.id == FundingInvitee.record_id).alias("invitee")).join(
                             User,
@@ -1445,18 +1401,12 @@ def process_funding_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                token_expiry_in_sec = 2600000
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    if FundingInvitee.select().where(
-                            FundingInvitee.email == email,
-                            FundingInvitee.status ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *k,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
 
                     (FundingInvitee.update(status=FundingInvitee.status + "\n" + status).where(
                         FundingInvitee.status.is_null(False),
@@ -1527,7 +1477,7 @@ def process_affiliation_records(max_rows=20, record_id=None):
                 & UserInvitation.id.is_null()
                 & (AffiliationRecord.status.is_null()
                    | AffiliationRecord.status.contains("sent").__invert__())))).join(
-                       AffiliationRecord, on=(Task.id == AffiliationRecord.task_id).alias("record")).join(
+                       AffiliationRecord, on=(Task.id == AffiliationRecord.task_id), attr="record").join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == AffiliationRecord.email)
@@ -1577,18 +1527,11 @@ def process_affiliation_records(max_rows=20, record_id=None):
             }
             for invitation, affiliations in invitation_dict.items():
                 email = invitation[2]
-                token_expiry_in_sec = 2600000
                 try:
-                    # For researcher invitation the expiry is 30 days, if it is reset then it 2 weeks.
-                    if AffiliationRecord.select().where(
-                            AffiliationRecord.task_id == task_id, AffiliationRecord.email == email,
-                            AffiliationRecord.status ** "%reset%").count() != 0:
-                        token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *invitation,
                         affiliation_types=affiliations,
-                        task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec)
+                        task_id=task_id)
                 except Exception as ex:
                     (AffiliationRecord.update(
                         processed_at=datetime.utcnow(),
@@ -1649,7 +1592,7 @@ def process_property_records(max_rows=20, record_id=None):
                 & (PropertyRecord.status.is_null()
                    | PropertyRecord.status.contains("sent").__invert__())))).join(
                        PropertyRecord,
-                       on=(Task.id == PropertyRecord.task_id).alias("record")).join(
+                       on=(Task.id == PropertyRecord.task_id), attr="record").join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == PropertyRecord.email)
@@ -1750,7 +1693,7 @@ def process_other_id_records(max_rows=20, record_id=None):
                 & UserInvitation.id.is_null()
                 & (OtherIdRecord.status.is_null()
                    | OtherIdRecord.status.contains("sent").__invert__())))).join(
-                       OtherIdRecord, on=(Task.id == OtherIdRecord.task_id)).join(
+                       OtherIdRecord, on=(Task.id == OtherIdRecord.task_id), attr="record").join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == OtherIdRecord.email)
@@ -1778,14 +1721,14 @@ def process_other_id_records(max_rows=20, record_id=None):
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.other_id_record.user, )):
+            t.record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scopes.contains("/person/update"))).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
-                    lambda t: (t.created_by, t.org, t.other_id_record.email, t.other_id_record.first_name,
-                               t.other_id_record.last_name)):  # noqa: E501
+                    lambda t: (t.created_by, t.org, t.record.email, t.record.first_name,
+                               t.record.last_name)):  # noqa: E501
                 try:
                     email = k[2]
                     send_user_invitation(*k, task_id=task_id)
@@ -1877,7 +1820,8 @@ def process_tasks(max_rows=20):
         tasks = tasks.limit(max_rows)
     for task in tasks:
 
-        if task.records is None:
+        if not task.task_type or task.records is None:
+            app.logger.error(f"Unknown task \"{task}\" (ID: {task.id}) task type.")
             continue
 
         export_model = task.record_model._meta.name + ".export"
@@ -1932,17 +1876,18 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
 
     If URL is given, it will be used for as call-back URL.
     """
-    set_server_name()
     local_handler = (callback_url is None)
 
+    # Don't delete the webhook if there is anyther organisation with enabled webhook:
     if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
         return
 
-    try:
-        token = OrcidToken.get(org=user.organisation, scopes="/webhook")
-    except OrcidToken.DoesNotExist:
+    # Any 'webhook' access token can be used:
+    token = OrcidToken.select().where(OrcidToken.scopes == "/webhook").order_by(OrcidToken.id.desc()).first()
+    if not token:
         token = get_client_credentials_token(org=user.organisation, scopes="/webhook")
     if local_handler:
+        set_server_name()
         with app.app_context():
             callback_url = quote(url_for("update_webhook", user_id=user.id), safe='')
     elif '/' in callback_url or ':' in callback_url:
@@ -1954,43 +1899,42 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Content-Length": "0"
     }
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
-    if local_handler and resp.status_code // 200 == 1:
-        if delete:
-            user.webhook_enabled = False
-        else:
-            user.webhook_enabled = True
-        user.save()
+    if local_handler:
+        user.webhook_enabled = (resp.status_code in [201, 204]) and not delete
+    user.save()
     return resp
 
 
 def notify_about_update(user, event_type="UPDATED"):
     """Notify all organisation about changes of the user."""
-    for org in user.organisations.where(Organisation.webhook_enabled):
-
-        if org.webhook_url:
+    for org in user.organisations.where(Organisation.webhook_enabled
+                                        | Organisation.email_notifications_enabled):
+        if org.webhook_enabled and org.webhook_url:
             invoke_webhook_handler.queue(org.webhook_url,
                                          user.orcid,
                                          user.created_at or user.updated_at,
                                          user.updated_at or user.created_at,
-                                         event_type=event_type)
+                                         event_type=event_type,
+                                         append_orcid=org.webhook_append_orcid)
 
         if org.email_notifications_enabled:
             url = app.config["ORCID_BASE_URL"] + user.orcid
             send_email(f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
-                profile was updated or user had linked her/his account at
+                {"profile was updated" if event_type == "UPDATED" else "has linked her/his account"} at
                 {(user.updated_at or user.created_at).isoformat(timespec="minutes", sep=' ')}.</p>""",
                        recipient=org.notification_email
                        or (org.tech_contact.name, org.tech_contact.email),
+                       cc_email=(org.tech_contact.name, org.tech_contact.email) if org.notification_email else None,
                        subject=f"ORCID Profile Update ({user.orcid})",
                        org=org)
 
 
 @rq.job(timeout=300)
 def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, updated_at=None, message=None,
-                           event_type="UPDATED", attempts=5):
+                           event_type="UPDATED", url=None, attempts=5, append_orcid=False):
     """Propagate 'updated' event to the organisation event handler URL."""
-    url = app.config["ORCID_BASE_URL"] + orcid
-    if message is None:
+    if not message:
+        url = app.config["ORCID_BASE_URL"] + orcid
         message = {
             "orcid": orcid,
             "url": url,
@@ -2002,19 +1946,33 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             message["updated-at"] = updated_at.isoformat(timespec="seconds")
 
         if orcid:
-            user = User.select().where(User.orcid == orcid).limit(1).first()
+            user = User.select().where(User.orcid == orcid).order_by(User.id.desc()).limit(1).first()
             if user:
                 message["email"] = user.email
                 if user.eppn:
                     message["eppn"] = user.eppn
 
-    resp = requests.post(webhook_url + '/' + orcid, json=message)
-    if resp.status_code // 200 != 1:
-        if attempts > 0:
+        url = webhook_url
+        if append_orcid:
+            if not url.endswith('/'):
+                url += '/'
+            url += orcid
+
+    try:
+        resp = requests.post(url, json=message)
+    except:
+        if attempts == 1:
+            raise
+
+    if not resp or resp.status_code // 200 != 1:
+        if attempts > 1:
             invoke_webhook_handler.schedule(timedelta(minutes=5 *
                                                       (6 - attempts) if attempts < 6 else 5),
                                             message=message,
+                                            url=url,
                                             attempts=attempts - 1)
+        else:
+            raise Exception(f"Failed to propaged the event. Status code: {resp.status_code}")
     return resp
 
 
@@ -2023,9 +1981,8 @@ def enable_org_webhook(org):
     """Enable Organisation Webhook."""
     org.webhook_enabled = True
     org.save()
-    for u in org.users:
-        if not u.webhook_enabled:
-            register_orcid_webhook.queue(u)
+    for u in org.users.where(User.webhook_enabled.NOT()):
+        register_orcid_webhook.queue(u)
 
 
 @rq.job(timeout=300)
@@ -2108,12 +2065,12 @@ def sync_profile(task_id, delay=0.1):
     org = task.org
     if not org.disambiguated_id:
         return
-    api = orcid_client.MemberAPI(org=org)
+    api = orcid_client.MemberAPIV3(org=org)
     count = 0
     for u in task.org.users.select(User, OrcidToken.access_token.alias("access_token")).where(
             User.orcid.is_null(False)).join(
             OrcidToken,
-            on=((OrcidToken.user_id == User.id) & OrcidToken.scopes.contains("/activities/update"))).naive():
+            on=((OrcidToken.user_id == User.id) & OrcidToken.scopes.contains("/activities/update"))).objects():
         Log.create(task=task_id, message=f"Processing user {u} / {u.orcid} profile.")
         api.sync_profile(user=u, access_token=u.access_token, task=task)
         count += 1
@@ -2139,7 +2096,7 @@ def dump_yaml(data):
 
 def enqueue_user_records(user):
     """Enqueue all active and not yet processed record related to the user."""
-    for task in list(Task.select().where(Task.completed_at.is_null())):
+    for task in list(Task.select().where(Task.completed_at.is_null(), Task.task_type != TaskType.SYNC)):
         func = globals().get(f"process_{task.task_type.name.lower()}_records")
         records = task.records.where(
                 task.record_model.is_active,
@@ -2220,7 +2177,7 @@ def reset_all_records(task):
                     record.processed_at = None
                     record.status = status
 
-                    invitee_class = record.invitees.model_class
+                    invitee_class = record.invitees.model
                     invitee_class.update(
                         processed_at=None,
                         status=status).where(invitee_class.record == record.id).execute()
@@ -2241,3 +2198,34 @@ def reset_all_records(task):
             task.status = "RESET"
             task.save()
     return count
+
+
+def plural(word):
+    """Convert a reguralr noun to its regular plural form."""
+    if word.endswith("fe"):
+        # wolf -> wolves
+        return word[:-2] + "ves"
+    elif word.endswith('f'):
+        # knife -> knives
+        return word[:-1] + "ves"
+    elif word.endswith('o'):
+        # potato -> potatoes
+        return word + "es"
+    elif word.endswith("us"):
+        # cactus -> cacti
+        return word[:-2] + 'i'
+    elif word.endswith("ion"):
+        # criterion -> criteria
+        return word + 's'
+    elif word.endswith("on"):
+        # criterion -> criteria
+        return word[:-2] + 'a'
+    elif word.endswith('y'):
+        # community -> communities
+        return word[:-1] + "ies"
+    elif word[-1] in "sx" or word[-2:] in ["sh", "ch"]:
+        return word + "es"
+    elif word.endswith("an"):
+        return word[:-2] + "en"
+    else:
+        return word + 's'

@@ -7,7 +7,6 @@ from unittest.mock import Mock, patch
 import pytest
 from flask_login import login_user
 from peewee import Model, SqliteDatabase
-from playhouse.test_utils import test_database
 
 from orcid_hub import utils
 from orcid_hub.models import *
@@ -62,98 +61,101 @@ FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manag
     exception.assert_called_once()
 
 
-def test_process_tasks(request_ctx):
+def test_process_tasks(client, mocker):
     """Test expiration data setting and deletion of the exprired tasks."""
     org = Organisation.get(name="TEST0")
-    super_user = User.get(email="admin@test0.edu")
-    with patch("orcid_hub.utils.send_email") as send_email, request_ctx("/") as ctx:
-        login_user(super_user)
-        # flake8: noqa
-        task = Task.load_from_csv(
-            """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title\tStart date	End date	Student/Staff\tCountry
-    FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff\tNew Zealand
-    """,
-            filename="TEST_TASK.tsv",
-            org=org)
-        Task.update(created_at=datetime(1999, 1, 1), updated_at=datetime(1999, 1, 1)).execute()
-        utils.process_tasks()
-        assert Task.select().count() == 1
-        assert not Task.select().where(Task.expires_at.is_null()).exists()
-        send_email.assert_called_once()
-        task = Task.select().first()
-        args, kwargs = send_email.call_args
-        assert "email/task_expiration.html" in args
-        assert kwargs["error_count"] == 0
-        hostname = ctx.request.host
-        assert kwargs["export_url"].endswith(
-            f"//{hostname}/admin/affiliationrecord/export/csv/?task_id={task.id}")
-        assert kwargs["recipient"] == (
-            super_user.name,
-            super_user.email,
-        )
-        assert kwargs["subject"] == "Batch process task is about to expire"
-        assert kwargs["task"] == task
+    admin = User.get(email="admin@test0.edu")
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    client.login(admin)
 
-        # After the second go everything should be deleted
-        utils.process_tasks()
-        assert Task.select().count() == 0
+    # flake8: noqa
+    task = Task.load_from_csv(
+        """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title\tStart date	End date	Student/Staff\tCountry
+FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff\tNew Zealand
+""",
+        filename="TEST_TASK.tsv",
+        org=org)
+    Task.update(created_at=datetime(1999, 1, 1), updated_at=datetime(1999, 1, 1)).execute()
+    utils.process_tasks()
+    assert Task.select().count() == 1
+    assert not Task.select().where(Task.expires_at.is_null()).exists()
+    send_email.assert_called_once()
+    task = Task.select().first()
+    args, kwargs = send_email.call_args
+    assert "email/task_expiration.html" in args
+    assert kwargs["error_count"] == 0
 
-        # Funding processing task:
-        task = Task.create(
+    assert kwargs["export_url"].endswith(
+        f"/admin/affiliationrecord/export/csv/?task_id={task.id}")
+    assert kwargs["recipient"] == (
+        admin.name,
+        admin.email,
+    )
+    assert kwargs["subject"] == "Batch process task is about to expire"
+    assert kwargs["task"] == task
+
+    # After the second go everything should be deleted
+    utils.process_tasks()
+    assert Task.select().count() == 0
+
+    # Funding processing task:
+    task = Task.create(
+        created_at=datetime(1999, 1, 1),
+        org=org,
+        filename="FUNDING.json",
+        created_by=admin,
+        updated_by=admin,
+        task_type=TaskType.FUNDING)
+
+    Task.update(updated_at=datetime(1999, 1, 1)).execute()
+    assert Task.select().where(Task.expires_at.is_null()).count() == 1
+
+    utils.process_tasks()
+    assert Task.select().count() == 1
+    assert Task.select().where(Task.expires_at.is_null()).count() == 0
+
+    utils.process_tasks()
+    assert Task.select().count() == 0
+    args, kwargs = send_email.call_args
+    assert "email/task_expiration.html" in args
+    assert kwargs["error_count"] == 0
+    assert kwargs["export_url"].endswith(
+        f"/admin/fundingrecord/export/csv/?task_id={task.id}")
+    assert kwargs["recipient"] == (
+        admin.name,
+        admin.email,
+    )
+    assert kwargs["subject"] == "Batch process task is about to expire"
+    assert kwargs["task"] == task
+
+    # Incorrect task type:
+    task = Task.create(
+        created_at=datetime(1999, 1, 1),
+        org=org,
+        filename="ERROR.err",
+        created_by=admin,
+        updated_by=admin,
+        task_type=-12345)
+
+    Task.update(updated_at=datetime(1999, 1, 1)).execute()
+    with patch("orcid_hub.app.logger.error") as error:
+        utils.process_tasks()
+        error.assert_called_with('Unknown task "ERROR.err" (ID: 1) task type.')
+    task.delete().execute()
+
+    # Cover case with an exterenal SP:
+    with patch("orcid_hub.utils.EXTERNAL_SP", "SOME.EXTERNAL.SP"):
+        Task.create(
             created_at=datetime(1999, 1, 1),
             org=org,
-            filename="FUNDING.json",
-            created_by=super_user,
-            updated_by=super_user,
-            task_type=TaskType.FUNDING)
-
+            filename="FILE.file",
+            created_by=admin,
+            updated_by=admin)
         Task.update(updated_at=datetime(1999, 1, 1)).execute()
-        assert Task.select().where(Task.expires_at.is_null()).count() == 1
-        utils.process_tasks()
         assert Task.select().count() == 1
-        assert Task.select().where(Task.expires_at.is_null()).count() == 0
+        utils.process_tasks()
         utils.process_tasks()
         assert Task.select().count() == 0
-        args, kwargs = send_email.call_args
-        assert "email/task_expiration.html" in args
-        assert kwargs["error_count"] == 0
-        hostname = ctx.request.host
-        assert kwargs["export_url"].endswith(
-            f"//{hostname}/admin/fundingrecord/export/csv/?task_id={task.id}")
-        assert kwargs["recipient"] == (
-            super_user.name,
-            super_user.email,
-        )
-        assert kwargs["subject"] == "Batch process task is about to expire"
-        assert kwargs["task"] == task
-
-        # Incorrect task type:
-        task = Task.create(
-            created_at=datetime(1999, 1, 1),
-            org=org,
-            filename="ERROR.err",
-            created_by=super_user,
-            updated_by=super_user,
-            task_type=-12345)
-
-        Task.update(updated_at=datetime(1999, 1, 1)).execute()
-        with pytest.raises(Exception, message="Unexpeced task type: -12345 (ERROR.err)."):
-            utils.process_tasks()
-        task.delete().execute()
-
-        # Cover case with an exterenal SP:
-        with patch("orcid_hub.utils.EXTERNAL_SP", "SOME.EXTERNAL.SP"):
-            Task.create(
-                created_at=datetime(1999, 1, 1),
-                org=org,
-                filename="FILE.file",
-                created_by=super_user,
-                updated_by=super_user)
-            Task.update(updated_at=datetime(1999, 1, 1)).execute()
-            assert Task.select().count() == 1
-            utils.process_tasks()
-            utils.process_tasks()
-            assert Task.select().count() == 0
 
 
 def test_enqueue_user_records(client, mocker):
@@ -163,7 +165,7 @@ def test_enqueue_user_records(client, mocker):
     data_dir = os.path.join(os.path.dirname(__file__), "data")
     raw_data = open(os.path.join(data_dir, "example_works.json"), "r").read()
 
-    user = User.select().join(OrcidToken).where(User.orcid.is_null(False)).first()
+    user = User.select().join(OrcidToken, on=OrcidToken.user).where(User.orcid.is_null(False)).first()
     org = user.organisation
     admin = org.admins.first()
     client.login(admin)

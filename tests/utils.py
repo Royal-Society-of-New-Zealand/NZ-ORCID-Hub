@@ -138,155 +138,133 @@ def get_profile(org=None, user=None):
         },
         'activities-summary': {
             'educations': {
-                'education-summary': [
+                "affiliation-group": [
                     {
-                        "created-date": {
-                            "value": 1532322530230
-                        },
-                        "last-modified-date": {
-                            "value": 1532322530230
-                        },
-                        "source": {
-                            "source-client-id": {
-                                "uri": f"http://sandbox.orcid.org/client/{client_id}",
-                                "path": client_id,
-                                "host": "sandbox.orcid.org"
-                            },
-                            "source-name": {
-                                "value": "The University of Auckland - MyORCiD"
+                        "summaries": [
+                            {
+                                'education-summary': {
+                                    "created-date": {
+                                        "value": 1532322530230
+                                    },
+                                    "last-modified-date": {
+                                        "value": 1532322530230
+                                    },
+                                    "source": {
+                                        "source-client-id": {
+                                            "uri": f"http://sandbox.orcid.org/client/{client_id}",
+                                            "path": client_id,
+                                            "host": "sandbox.orcid.org"
+                                        },
+                                        "source-name": {
+                                            "value": "The University of Auckland - MyORCiD"
+                                        }
+                                    },
+                                    "department-name": "",
+                                    "role-title": "ROLE",
+                                    "start-date": {
+                                        "year": {"value": "1996"},
+                                        "month": {"value": "11"}},
+                                    "end-date": {
+                                        "year": {"value": "2019"},
+                                        "month": {"value": "02"},
+                                        "day": {"value": "29"}},
+                                    "organization": {
+                                        "name": "The University of Auckland",
+                                        "address": {
+                                            "city": "Auckland",
+                                            "region": "Auckland",
+                                            "country": "NZ"
+                                        },
+                                        "disambiguated-organization": {
+                                            "disambiguated-organization-identifier": "123456",
+                                            "disambiguation-source": "RINGGOLD"
+                                        }
+                                    },
+                                    "visibility": "PUBLIC",
+                                    "put-code": 1,
+                                    "path": f"/{orcid}/education/1"
+                                }
                             }
-                        },
-                        "department-name": "",
-                        "role-title": "ROLE",
-                        "start-date": {
-                            "year": {"value": "1996"},
-                            "month": {"value": "11"}},
-                        "end-date": {
-                            "year": {"value": "2019"},
-                            "month": {"value": "02"},
-                            "day": {"value": "29"}},
-                        "organization": {
-                            "name": "The University of Auckland",
-                            "address": {
-                                "city": "Auckland",
-                                "region": "Auckland",
-                                "country": "NZ"
-                            },
-                            "disambiguated-organization": {
-                                "disambiguated-organization-identifier": "123456",
-                                "disambiguation-source": "RINGGOLD"
-                            }
-                        },
-                        "visibility": "PUBLIC",
-                        "put-code": 31136,
-                        "path": f"/{orcid}/education/31136"
-                    },
-                    {
-                        "created-date": {
-                            "value": 1532322530230
-                        },
-                        "last-modified-date": {
-                            "value": 1532322530230
-                        },
-                        "source": {
-                            "source-client-id": {
-                                "uri": f"http://sandbox.orcid.org/client/{client_id}",
-                                "path": client_id,
-                                "host": "sandbox.orcid.org"
-                            },
-                            "source-name": {
-                                "value": "The University of Auckland - MyORCiD"
-                            }
-                        },
-                        "department-name": "",
-                        "role-title": "ROLE",
-                        "start-date": {
-                            "year": {"value": "1996"},
-                            "month": {"value": "11"}},
-                        "end-date": {
-                            "year": {"value": "2019"},
-                            "month": {"value": "02"},
-                            "day": {"value": "29"}},
-                        "organization": {
-                            "name": "The University of Auckland",
-                            "address": {
-                                "city": "Auckland",
-                                "region": "Auckland",
-                                "country": "NZ"
-                            },
-                            "disambiguated-organization": {
-                                "disambiguated-organization-identifier": "123456",
-                                "disambiguation-source": "RINGGOLD"
-                            }
-                        },
-                        "visibility": "PUBLIC",
-                        "put-code": 1,
-                        "path": f"/{orcid}/education/1"
-                    },
+                        ]
+                    }
                 ],
                 'path':
-                f"/{orcid}/educations"
+                    f"/{orcid}/educations"
             },
             "employments": {
-                "employment-summary": [
+                "affiliation-group": [
                     {
-                        "source": {
-                            "source-client-id": {
-                                "uri": "http://sandbox.orcid.org/client/{client_id}",
-                                "path": client_id,
-                                "host": "sandbox.orcid.org"
-                            },
-                            "source-name": {
-                                "value": "The University of Auckland - MyORCiD"
+                        "summaries": [
+                            {
+                                "employment-summary": {
+                                    "source": {
+                                        "source-client-id": {
+                                            "uri": "http://sandbox.orcid.org/client/{client_id}",
+                                            "path": client_id,
+                                            "host": "sandbox.orcid.org"
+                                        },
+                                        "source-name": {
+                                            "value": "The University of Auckland - MyORCiD"
+                                        }
+                                    },
+                                    "department-name": None,
+                                    "role-title": None,
+                                    "start-date": None,
+                                    "end-date": None,
+                                    "organization": {
+                                        "name": "The University of Auckland",
+                                        "address": {
+                                            "city": "Auckland",
+                                            "region": None,
+                                            "country": "NZ"
+                                        },
+                                        "disambiguated-organization": None
+                                    },
+                                    "visibility": "PUBLIC",
+                                    "put-code": 2,
+                                    "path": f"/{orcid}/employment/2"
+                                }
                             }
-                        },
-                        "department-name": None,
-                        "role-title": None,
-                        "start-date": None,
-                        "end-date": None,
-                        "organization": {
-                            "name": "The University of Auckland",
-                            "address": {
-                                "city": "Auckland",
-                                "region": None,
-                                "country": "NZ"
-                            },
-                            "disambiguated-organization": None
-                        },
-                        "visibility": "PUBLIC",
-                        "put-code": 29272,
-                        "path": f"/{orcid}/employment/29272"
-                    },
-                    {
-                        "source": {
-                            "source-client-id": {
-                                "uri": "http://sandbox.orcid.org/client/{client_id}",
-                                "path": client_id,
-                                "host": "sandbox.orcid.org"
-                            },
-                            "source-name": {
-                                "value": "The University of Auckland - MyORCiD"
-                            }
-                        },
-                        "department-name": None,
-                        "role-title": None,
-                        "start-date": None,
-                        "end-date": None,
-                        "organization": {
-                            "name": "The University of Auckland",
-                            "address": {
-                                "city": "Auckland",
-                                "region": None,
-                                "country": "NZ"
-                            },
-                            "disambiguated-organization": None
-                        },
-                        "visibility": "PUBLIC",
-                        "put-code": 2,
-                        "path": f"/{orcid}/employment/2"
-                    }],
+                        ]
+                    }
+                ],
                 "path":
                     f"//employments"
+            },
+            "invited-positions": {
+                "last-modified-date": None,
+                "affiliation-group": [
+
+                ],
+                "path": f"/{orcid}/invited-positions"
+            },
+            "memberships": {
+                "last-modified-date": None,
+                "affiliation-group": [
+
+                ],
+                "path": f"/{orcid}/memberships"
+            },
+            "qualifications": {
+                "last-modified-date": None,
+                "affiliation-group": [
+
+                ],
+                "path": f"/{orcid}/qualifications"
+            },
+            "services": {
+                "last-modified-date": None,
+                "affiliation-group": [
+
+                ],
+                "path": f"/{orcid}/services"
+            },
+            "distinctions": {
+                "last-modified-date": None,
+                "affiliation-group": [
+
+                ],
+                "path": f"/{orcid}/distinctions"
             },
             'fundings': {
                 'last-modified-date': {
@@ -352,7 +330,7 @@ def get_profile(org=None, user=None):
                     }]
                 }],
                 'path':
-                '/0000-0002-3879-2651/fundings'
+                    '/0000-0002-3879-2651/fundings'
             },
             "peer-reviews": {
                 "group": [{
@@ -364,43 +342,44 @@ def get_profile(org=None, user=None):
                             "external-id-relationship": None
                         }]
                     },
-                    "peer-review-summary": [{
-                        "source": {
-                            "source-client-id": {
-                                "uri": "http://sandbox.orcid.org/client/{client_id}",
-                                "path": client_id,
-                                "host": "sandbox.orcid.org"
-                            },
-                            "source-name": {
-                                "value": "The University of Auckland - MyORCiD"
-                            }
-                        },
-                        "external-ids": {
-                            "external-id": [{
-                                "external-id-type": "source-work-id",
-                                "external-id-value": "122334",
-                                "external-id-url": {
-                                    "value": "https://localsystem.org/1234"
+                    "peer-review-group": [{
+                        "peer-review-summary": [{
+                            "source": {
+                                "source-client-id": {
+                                    "uri": "http://sandbox.orcid.org/client/{client_id}",
+                                    "path": client_id,
+                                    "host": "sandbox.orcid.org"
                                 },
-                                "external-id-relationship": "SELF"
-                            }]
-                        },
-                        "review-group-id": "issn:12131",
-                        "convening-organization": {
-                            "name": "The University of Auckland",
-                            "address": {
-                                "city": "Auckland",
-                                "region": "Auckland",
-                                "country": "NZ"
+                                "source-name": {
+                                    "value": "The University of Auckland - MyORCiD"
+                                }
                             },
-                            "disambiguated-organization": None
-                        },
-                        "visibility": "PUBLIC",
-                        "put-code": 2622,
-                    }]
+                            "external-ids": {
+                                "external-id": [{
+                                    "external-id-type": "source-work-id",
+                                    "external-id-value": "122334",
+                                    "external-id-url": {
+                                        "value": "https://localsystem.org/1234"
+                                    },
+                                    "external-id-relationship": "SELF"
+                                }]
+                            },
+                            "review-group-id": "issn:12131",
+                            "convening-organization": {
+                                "name": "The University of Auckland",
+                                "address": {
+                                    "city": "Auckland",
+                                    "region": "Auckland",
+                                    "country": "NZ"
+                                },
+                                "disambiguated-organization": None
+                            },
+                            "visibility": "PUBLIC",
+                            "put-code": 2622,
+                        }]}]
                 }],
                 "path":
-                f"/{orcid}/peer-reviews"
+                    f"/{orcid}/peer-reviews"
             },
             'works': {
                 'group': [{
@@ -438,7 +417,7 @@ def get_profile(org=None, user=None):
                     }]
                 }],
                 "path":
-                f"/{orcid}/works"
+                    f"/{orcid}/works"
             },
             "path": f"/{orcid}/activities"
         },

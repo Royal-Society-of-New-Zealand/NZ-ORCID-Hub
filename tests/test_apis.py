@@ -12,8 +12,8 @@ import pytest
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
-from orcid_hub.models import (AffiliationRecord, Client, OrcidToken, Organisation, Task, TaskType,
-                              Token, User, UserInvitation)
+from orcid_hub.models import (AffiliationRecord, AsyncOrcidResponse, Client, OrcidToken,
+                              Organisation, Task, TaskType, Token, User, UserInvitation)
 
 from unittest.mock import patch, MagicMock
 from tests import utils
@@ -34,6 +34,7 @@ def test_plural():
 
 def test_get_oauth_access_token(client):
     """Test the acquisition of OAuth access token."""
+    Token.update(expires=datetime(2017, 1, 1, 0, 0)).execute()
     resp = client.post(
             "/oauth/token",
             data=dict(
@@ -42,7 +43,7 @@ def test_get_oauth_access_token(client):
                 client_secret="CLIENT_SECRET"))
     assert resp.status_code == 200
     c = Client.get(client_id="CLIENT_ID")
-    token = Token.get(client=c)
+    token = Token.select().where(Token.client == c, Token.access_token != "TEST").first()
     assert resp.json["access_token"] == token.access_token
     assert resp.json["expires_in"] == client.application.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
     assert resp.json["token_type"] == token.token_type
@@ -80,31 +81,62 @@ def test_get_oauth_access_token(client):
     assert resp.json["error"] == "unsupported_grant_type"
 
 
-# def test_revoke_access_token(client):
-#     """Test the acquisition of OAuth access token."""
-#     resp = client.get(
-#             "/oauth/token",
-#             method="POST",
-#             data=dict(
-#                 grant_type="client_credentials",
-#                 client_id="CLIENT_ID",
-#                 client_secret="CLIENT_SECRET"))
-#         resp = ctx.app.full_dispatch_request()
-#         assert resp.status_code == 200
-#         data = json.loads(resp.data)
-#         client = Client.get(client_id="CLIENT_ID")
-#         token = Token.get(client=client)
-#         assert data["access_token"] == token.access_token
+def test_multiple_access_token(client):
+    """Test the acquisition of OAuth access token."""
+    resp = client.post(
+            "/oauth/token",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    c = Client.get(client_id="CLIENT_ID")
+    token = Token.get(client=c)
+    assert data["access_token"] != token.access_token
+    assert Token.select().count() == 2
 
-#     resp = client.get(
-#             "/oauth/token",
-#             data=dict(
-#                 grant_type="client_credentials",
-#                 client_id="CLIENT_ID",
-#                 client_secret="CLIENT_SECRET"))
-#         resp = ctx.app.full_dispatch_request()
-#         assert resp.status_code == 200
-#         data = json.loads(resp.data)
+    resp = client.post(
+            "/oauth/token",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert Token.select().count() == 3
+
+    token = Token.get(access_token=data["access_token"])
+    token.expires = datetime(555, 5, 5)
+    token.save()
+
+    resp = client.post(
+            "/oauth/token",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    assert Token.select().count() == 3
+    assert not Token.select().where(Token.access_token == token.access_token).exists()
+
+    # Multiple clients and multiple access tokens:
+    for o in Organisation.select():
+        u = o.users.first()
+        if u:
+            c = Client.create(org=o, user=u, client_id=u.name, client_secret=u.name)
+            resp = client.post(
+                    "/oauth/token",
+                    data=dict(
+                        grant_type="client_credentials",
+                        client_id=c.client_id,
+                        client_secret=c.client_secret))
+            assert resp.status_code == 200
+            assert "access_token" in resp.json
+            t = Token.select().where(Token.access_token == resp.json["access_token"]).first()
+            assert t is not None
+            assert t.user == u
+            assert t.client == c
 
 
 def test_me(client):
@@ -132,7 +164,7 @@ def test_me(client):
     "tokens",
 ])
 @pytest.mark.parametrize("version", [
-    "v1.0",
+    "v1",
 ])
 def test_user_and_token_api(client, resource, version):
     """Test the echo endpoint."""
@@ -601,7 +633,7 @@ def test_users_api(client):
     data = json.loads(resp.data)
     access_token = data["access_token"]
     resp = client.get(
-        "/api/v1.0/users?page=1&page_size=2000",
+        "/api/v1/users?page=1&page_size=2000",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json")
 
@@ -610,21 +642,21 @@ def test_users_api(client):
     assert not any(u["email"] == "researcher102@test1.edu" for u in data)
 
     resp = client.get(
-        "/api/v1.0/users?page=1&page_size=2000&from_date=2000-12-01&to_date=1999-01-01",
+        "/api/v1/users?page=1&page_size=2000&from_date=2000-12-01&to_date=1999-01-01",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json")
     data = json.loads(resp.data)
     assert len(data) == 0
 
     resp = client.get(
-        "/api/v1.0/users/researcher102@test1.edu",
+        "/api/v1/users/researcher102@test1.edu",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json")
     assert resp.status_code == 404
     data = json.loads(resp.data)
 
     resp = client.get(
-        "/api/v1.0/users/researcher102@test0.edu",
+        "/api/v1/users/researcher102@test0.edu",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json")
     assert resp.status_code == 200
@@ -643,7 +675,7 @@ def test_affiliation_api(client, mocker):
     data = json.loads(resp.data)
     access_token = data["access_token"]
     resp = client.post(
-        "/api/v1.0/affiliations/?filename=TEST42.csv",
+        "/api/v1/affiliations/?filename=TEST42.csv",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="text/csv",
         data=b"First Name,Last Name,email,Organisation,Affiliation Type,Role,Department,Start Date,"
@@ -660,17 +692,32 @@ def test_affiliation_api(client, mocker):
     assert len(data["records"]) == 3
     task_id = data["id"]
 
-    resp = client.get("/api/v1.0/tasks", headers=dict(authorization=f"Bearer {access_token}"))
+    resp = client.get("/api/v1/tasks", headers=dict(authorization=f"Bearer {access_token}"))
     tasks = json.loads(resp.data)
     assert tasks[0]["id"] == task_id
 
     resp = client.get(
-        "/api/v1.0/tasks?type=AFFILIATION", headers=dict(authorization=f"Bearer {access_token}"))
+        "/api/v1/tasks?type=AFFILIATION", headers=dict(authorization=f"Bearer {access_token}"))
     tasks = json.loads(resp.data)
     assert tasks[0]["id"] == task_id
 
     resp = client.get(
-        "/api/v1.0/tasks?type=AFFILIATION&page=1&page_size=20",
+        "/api/v1/tasks?type=AFFILIATION&status=ACTIVE", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 0
+
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=RESET", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 0
+
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=INACTIVE", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 1
+
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&page=1&page_size=20",
         headers=dict(authorization=f"Bearer {access_token}"))
     tasks = json.loads(resp.data)
     assert tasks[0]["id"] == task_id
@@ -679,7 +726,7 @@ def test_affiliation_api(client, mocker):
     del(task_copy["id"])
     task_copy["filename"] = "TASK-COPY.csv"
     resp = client.post(
-        "/api/v1.0/affiliations/",
+        "/api/v1/affiliations/",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(task_copy))
@@ -689,7 +736,7 @@ def test_affiliation_api(client, mocker):
         del(r["id"])
         r["city"] = "TEST000"
     resp = client.post(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
@@ -699,7 +746,7 @@ def test_affiliation_api(client, mocker):
 
     del(data["records"][2])
     resp = client.post(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
@@ -711,7 +758,7 @@ def test_affiliation_api(client, mocker):
         "last-name": "TEST000 LN",
     })
     resp = client.post(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(incorrect_data))
@@ -719,7 +766,7 @@ def test_affiliation_api(client, mocker):
     assert resp.json["error"] == "Validation error."
 
     resp = client.get(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     incorrect_data = copy.deepcopy(resp.json)
     incorrect_data["records"].insert(0, {
@@ -728,7 +775,7 @@ def test_affiliation_api(client, mocker):
         "last-name": "TEST000 LN",
     })
     resp = client.post(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(incorrect_data))
@@ -736,7 +783,7 @@ def test_affiliation_api(client, mocker):
     assert resp.json["error"] == "Validation error."
 
     resp = client.get(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     new_data = copy.deepcopy(resp.json)
     new_data["records"].insert(0, {
@@ -747,7 +794,7 @@ def test_affiliation_api(client, mocker):
         "city": "TEST000"
     })
     resp = client.post(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(new_data))
@@ -756,7 +803,7 @@ def test_affiliation_api(client, mocker):
     assert len(data["records"]) == 3
 
     resp = client.put(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
@@ -765,13 +812,13 @@ def test_affiliation_api(client, mocker):
     assert len(resp.json["records"]) == 3
 
     resp = client.get(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     new_data = copy.deepcopy(resp.json)
     for i, r in enumerate(new_data["records"]):
         new_data["records"][i] = {"id": r["id"], "is-active": True}
     resp = client.patch(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(new_data))
@@ -781,22 +828,22 @@ def test_affiliation_api(client, mocker):
     assert all(r["city"] == "TEST000" for r in resp.json["records"])
 
     resp = client.head(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert "Last-Modified" in resp.headers
 
     resp = client.head(
-        "/api/v1.0/affiliations/999999999",
+        "/api/v1/affiliations/999999999",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
     resp = client.get(
-        "/api/v1.0/affiliations/999999999",
+        "/api/v1/affiliations/999999999",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
     resp = client.patch(
-        "/api/v1.0/affiliations/999999999",
+        "/api/v1/affiliations/999999999",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(new_data))
@@ -804,18 +851,18 @@ def test_affiliation_api(client, mocker):
 
     with patch.object(Task, "get", side_effect=Exception("ERROR")):
         resp = client.delete(
-            f"/api/v1.0/affiliations/{task_id}",
+            f"/api/v1/affiliations/{task_id}",
             headers=dict(authorization=f"Bearer {access_token}"))
         assert resp.status_code == 400
         assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
 
     resp = client.delete(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert Task.select().count() == 1
 
     resp = client.delete(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
@@ -827,36 +874,36 @@ def test_affiliation_api(client, mocker):
         task_type=TaskType.AFFILIATION)
 
     resp = client.head(
-        f"/api/v1.0/affiliations/{other_task.id}",
+        f"/api/v1/affiliations/{other_task.id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 403
 
     resp = client.get(
-        f"/api/v1.0/affiliations/{other_task.id}",
+        f"/api/v1/affiliations/{other_task.id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 403
 
     resp = client.patch(
-        f"/api/v1.0/affiliations/{other_task.id}",
+        f"/api/v1/affiliations/{other_task.id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(new_data))
     assert resp.status_code == 403
 
     resp = client.delete(
-        f"/api/v1.0/affiliations/{other_task.id}",
+        f"/api/v1/affiliations/{other_task.id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 403
 
     resp = client.patch(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=b'')
     assert resp.status_code == 400
 
     resp = client.post(
-        "/api/v1.0/affiliations/?filename=TEST42.csv",
+        "/api/v1/affiliations/?filename=TEST42.csv",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
         content_type="text/yaml",
         data="""task-type: AFFILIATION
@@ -902,22 +949,37 @@ records:
     assert task.affiliation_records.count() == 3
 
     resp = client.patch(
-        f"/api/v1.0/tasks/{task_id}",
+        f"/api/v1/tasks/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
         content_type="text/yaml",
         data="status: ACTIVE\n")
     assert Task.get(task_id).status == "ACTIVE"
     assert task.records.where(task.record_model.is_active).count() == 3
 
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=ACTIVE", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 1
+
     resp = client.put(
-        f"/api/v1.0/tasks/{task_id}",
+        f"/api/v1/tasks/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
         content_type="application/json",
         data="""{"status": "RESET"}""")
     assert Task.get(task_id).status == "RESET"
 
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=ACTIVE", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 0
+
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=RESET", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 1
+
     resp = client.put(
-        f"/api/v1.0/tasks/{task_id}",
+        f"/api/v1/tasks/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
         content_type="application/json",
         data="""{"status": "INVALID"}""")
@@ -925,7 +987,7 @@ records:
 
     with patch("orcid_hub.models.Task.save", side_effect=Exception("FAILURE")):
         resp = client.put(
-            f"/api/v1.0/tasks/{task_id}",
+            f"/api/v1/tasks/{task_id}",
             headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
             content_type="application/json",
             data="""{"status": "ACTIVE"}""")
@@ -934,19 +996,19 @@ records:
         assert resp.json["exception"] == "FAILURE"
 
     resp = client.post(
-        "/api/v1.0/tasks/999999999999",
+        "/api/v1/tasks/999999999999",
         headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
         content_type="application/json",
         data="""{"status": "RESET"}""")
     assert resp.status_code == 404
 
     resp = client.get(
-        f"/api/v1.0/tasks/{other_task.id}",
+        f"/api/v1/tasks/{other_task.id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 403
 
     resp = client.put(
-        f"/api/v1.0/affiliations/{task_id}",
+        f"/api/v1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
         content_type="text/yaml",
         data="""task-type: AFFILIATION
@@ -966,11 +1028,11 @@ records:
 """)
     assert resp.status_code == 400
     assert resp.json["error"] == "Unhandled exception occurred."
-    assert "Instance matching query does not exist" in resp.json["exception"]
+    assert "instance matching query does not exist" in resp.json["exception"]
 
     with patch.object(AffiliationRecord, "get", side_effect=Exception("ERROR")):
         resp = client.put(
-            f"/api/v1.0/affiliations/{task_id}",
+            f"/api/v1/affiliations/{task_id}",
             headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
             content_type="text/yaml",
             data="""task-type: AFFILIATION
@@ -992,7 +1054,7 @@ records:
         assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
 
     resp = client.post(
-        f"/api/v1.0/affiliations/?filename=TEST42.csv",
+        f"/api/v1/affiliations/?filename=TEST42.csv",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
         content_type="text/yaml",
         data="""task-type: INCORRECT
@@ -1006,7 +1068,7 @@ records:
     assert "INCORRECT" in resp.json["message"]
 
     resp = client.post(
-        "/api/v1.0/affiliations/?filename=TEST_ERROR.csv",
+        "/api/v1/affiliations/?filename=TEST_ERROR.csv",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
         content_type="text/yaml",
         data="""task-type: AFFILIATION
@@ -1020,6 +1082,13 @@ something fishy is going here...
     assert "something fishy is going here..." in resp.json["message"]
     exception.assert_called()
     capture_event.assert_called()
+
+    # attempt to use ID:0
+    resp = client.put(
+        f"/api/v1/tasks/0",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "ACTIVE"}""")
 
 
 def test_funding_api(client):
@@ -1055,20 +1124,20 @@ def test_funding_api(client):
     access_token = data["access_token"]
 
     resp = client.get(
-        "/api/v1.0/tasks?type=FUNDING",
+        "/api/v1/tasks?type=FUNDING",
         headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     task_id = int(data[0]["id"])
 
     resp = client.get(
-        f"/api/v1.0/funds/{task_id}",
+        f"/api/v1/funds/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     assert len(data["records"]) == 2
     assert data["filename"] == "fundings042.csv"
 
     resp = client.post(
-        "/api/v1.0/funds/?filename=fundings333.json",
+        "/api/v1/funds/?filename=fundings333.json",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
@@ -1077,7 +1146,7 @@ def test_funding_api(client):
 
     records = data["records"]
     resp = client.post(
-        "/api/v1.0/funds/?filename=fundings444.json",
+        "/api/v1/funds/?filename=fundings444.json",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(records))
@@ -1085,7 +1154,7 @@ def test_funding_api(client):
     assert Task.select().count() == 3
 
     resp = client.post(
-        f"/api/v1.0/funds/{task_id}",
+        f"/api/v1/funds/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(records))
@@ -1093,24 +1162,24 @@ def test_funding_api(client):
     assert Task.select().count() == 3
 
     resp = client.head(
-        f"/api/v1.0/funds/{task_id}",
+        f"/api/v1/funds/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert "Last-Modified" in resp.headers
     assert resp.status_code == 200
 
     resp = client.delete(
-        f"/api/v1.0/funds/{task_id}",
+        f"/api/v1/funds/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 200
     assert Task.select().count() == 2
 
     resp = client.delete(
-        f"/api/v1.0/tesks/{task_id}",
+        f"/api/v1/tesks/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
     resp = client.head(
-        f"/api/v1.0/funds/{task_id}",
+        f"/api/v1/funds/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
@@ -1132,13 +1201,13 @@ def test_work_api(client):
     access_token = client.get_access_token()
 
     resp = client.get(
-        "/api/v1.0/tasks?type=work",
+        "/api/v1/tasks?type=work",
         headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     task_id = int(data[0]["id"])
 
     resp = client.get(
-        f"/api/v1.0/works/{task_id}",
+        f"/api/v1/works/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     assert len(data["records"]) == 1
@@ -1146,7 +1215,7 @@ def test_work_api(client):
 
     del(data["id"])
     resp = client.post(
-        "/api/v1.0/works/?filename=works333.json",
+        "/api/v1/works/?filename=works333.json",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
@@ -1155,7 +1224,7 @@ def test_work_api(client):
 
     records = data["records"]
     resp = client.post(
-        "/api/v1.0/works/?filename=works444.json",
+        "/api/v1/works/?filename=works444.json",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(records))
@@ -1163,7 +1232,7 @@ def test_work_api(client):
     assert Task.select().count() == 3
 
     resp = client.post(
-        f"/api/v1.0/works/{task_id}",
+        f"/api/v1/works/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(records))
@@ -1171,19 +1240,19 @@ def test_work_api(client):
     assert Task.select().count() == 3
 
     resp = client.head(
-        f"/api/v1.0/works/{task_id}",
+        f"/api/v1/works/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert "Last-Modified" in resp.headers
     assert resp.status_code == 200
 
     resp = client.delete(
-        f"/api/v1.0/works/{task_id}",
+        f"/api/v1/works/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 200
     assert Task.select().count() == 2
 
     resp = client.head(
-        f"/api/v1.0/works/{task_id}",
+        f"/api/v1/works/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
@@ -1206,13 +1275,13 @@ def test_peer_review_api(client):
     access_token = client.get_access_token()
 
     resp = client.get(
-        "/api/v1.0/tasks?type=PEER_REVIEW",
+        "/api/v1/tasks?type=PEER_REVIEW",
         headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     task_id = int(data[0]["id"])
 
     resp = client.get(
-        f"/api/v1.0/peer-reviews/{task_id}",
+        f"/api/v1/peer-reviews/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     assert len(data["records"]) == 1
@@ -1220,7 +1289,7 @@ def test_peer_review_api(client):
 
     del(data["id"])
     resp = client.post(
-        "/api/v1.0/peer-reviews/?filename=peer_reviews333.json",
+        "/api/v1/peer-reviews/?filename=peer_reviews333.json",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
@@ -1229,7 +1298,7 @@ def test_peer_review_api(client):
 
     records = data["records"]
     resp = client.post(
-        "/api/v1.0/peer-reviews/?filename=peer_reviews444.json",
+        "/api/v1/peer-reviews/?filename=peer_reviews444.json",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(records))
@@ -1237,7 +1306,7 @@ def test_peer_review_api(client):
     assert Task.select().count() == 3
 
     resp = client.post(
-        "/api/v1.0/peer-reviews",
+        "/api/v1/peer-reviews",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(records))
@@ -1245,7 +1314,7 @@ def test_peer_review_api(client):
     assert Task.select().count() == 4
 
     resp = client.post(
-        f"/api/v1.0/peer-reviews/{task_id}",
+        f"/api/v1/peer-reviews/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(records))
@@ -1253,19 +1322,19 @@ def test_peer_review_api(client):
     assert Task.select().count() == 4
 
     resp = client.head(
-        f"/api/v1.0/peer-reviews/{task_id}",
+        f"/api/v1/peer-reviews/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert "Last-Modified" in resp.headers
     assert resp.status_code == 200
 
     resp = client.delete(
-        f"/api/v1.0/peer-reviews/{task_id}",
+        f"/api/v1/peer-reviews/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 200
     assert Task.select().count() == 3
 
     resp = client.head(
-        f"/api/v1.0/peer-reviews/{task_id}",
+        f"/api/v1/peer-reviews/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
@@ -1299,6 +1368,20 @@ def test_proxy_get_profile(client):
         assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}"
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
         assert resp.json == {"data": "TEST"}
+
+        # Asynchronous call:
+        resp = client.get(
+            f"/orcid/api/v2.23/{orcid_id}?async=true",
+            headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.status_code == 201
+        args, kwargs = mocksend.call_args
+        assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}"
+        assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
+        assert "job-id" in resp.json
+        assert AsyncOrcidResponse.select().exists()
+        ar = AsyncOrcidResponse.get()
+        assert ar.status_code == 200
+        assert ar.body is not None
 
     with patch("orcid_hub.apis.requests.Session.send") as mocksend:
         mockresp = MagicMock(status_code=201)
@@ -1365,19 +1448,19 @@ def test_property_api(client, mocker):
 
     access_token = client.get_access_token()
 
-    resp = client.get("/api/v1.0/tasks?type=PROPERTY",
+    resp = client.get("/api/v1/tasks?type=PROPERTY",
                       headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     task_id = int(data[0]["id"])
 
-    resp = client.get(f"/api/v1.0/properties/{task_id}",
+    resp = client.get(f"/api/v1/properties/{task_id}",
                       headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     assert len(data["records"]) == 19
     assert data["filename"] == "properties042.csv"
 
     del (data["id"])
-    resp = client.post("/api/v1.0/properties/?filename=properties333.json",
+    resp = client.post("/api/v1/properties/?filename=properties333.json",
                        headers=dict(authorization=f"Bearer {access_token}"),
                        content_type="application/json",
                        data=json.dumps(data))
@@ -1385,67 +1468,67 @@ def test_property_api(client, mocker):
     assert Task.select().count() == 2
 
     records = data["records"]
-    resp = client.post("/api/v1.0/properties/?filename=properties444.json",
+    resp = client.post("/api/v1/properties/?filename=properties444.json",
                        headers=dict(authorization=f"Bearer {access_token}"),
                        content_type="application/json",
                        data=json.dumps(records))
     assert resp.status_code == 200
     assert Task.select().count() == 3
 
-    resp = client.post("/api/v1.0/properties",
+    resp = client.post("/api/v1/properties",
                        headers=dict(authorization=f"Bearer {access_token}"),
                        content_type="application/json",
                        data=json.dumps(records))
     assert resp.status_code == 200
     assert Task.select().count() == 4
 
-    resp = client.post(f"/api/v1.0/properties/{task_id}",
+    resp = client.post(f"/api/v1/properties/{task_id}",
                        headers=dict(authorization=f"Bearer {access_token}"),
                        content_type="application/json",
                        data=json.dumps(records))
     assert resp.status_code == 200
     assert Task.select().count() == 4
 
-    resp = client.head(f"/api/v1.0/properties/{task_id}",
+    resp = client.head(f"/api/v1/properties/{task_id}",
                        headers=dict(authorization=f"Bearer {access_token}"))
     assert "Last-Modified" in resp.headers
     assert resp.status_code == 200
 
-    resp = client.delete(f"/api/v1.0/properties/{task_id}",
+    resp = client.delete(f"/api/v1/properties/{task_id}",
                          headers=dict(authorization=f"Bearer {access_token}"))
 
-    resp = client.post("/api/v1.0/properties/?filename=properties333.csv",
+    resp = client.post("/api/v1/properties/?filename=properties333.csv",
                        headers=dict(authorization=f"Bearer {access_token}"),
                        content_type="text/csv",
                        data=open(os.path.join(data_path, "properties.csv")).read())
     assert resp.status_code == 200
     assert Task.select().count() == 4
 
-    resp = client.post("/api/v1.0/properties/?filename=properties333.json",
+    resp = client.post("/api/v1/properties/?filename=properties333.json",
                        headers=dict(authorization=f"Bearer {access_token}"),
                        content_type="application/json",
                        data=open(os.path.join(data_path, "properties.json")).read())
     assert resp.status_code == 200
     assert Task.select().count() == 5
-
     user = User.get(orcid="0000-0000-0000-00X3")
     OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
-    get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=utils.get_profile(user=user))
+    get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record",
+                               return_value=utils.get_profile(user=user))
     send_email = mocker.patch("orcid_hub.utils.send_email")
-    create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_researcher_url")
-    create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_other_name")
-    create_or_update_address = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_address")
-    create_or_update_keyword = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_keyword")
+    create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_researcher_url")
+    create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_other_name")
+    create_or_update_address = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_address")
+    create_or_update_keyword = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_keyword")
     for r in records:
         del(r["id"])
         r["is-active"] = True
-    resp = client.post("/api/v1.0/properties/?filename=properties777.json",
+    resp = client.post("/api/v1/properties/?filename=properties777.json",
                        headers=dict(authorization=f"Bearer {access_token}"),
                        content_type="application/json",
                        data=json.dumps(records))
     assert resp.status_code == 200
     assert Task.select().count() == 6
-    assert UserInvitation.select().count() == 7
+    assert UserInvitation.select().count() == 10
     get_profile.assert_called()
     send_email.assert_called()
     create_or_update_researcher_url.assert_called_once()

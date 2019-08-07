@@ -3,7 +3,7 @@ version: '3.5'
 services:
 
   db:
-    image: postgres:11.3
+    image: postgres:11.4
     environment:
       - PGPASSWORD
       - POSTGRES_PASSWORD="${PGPASSWORD:-p455w0rd}"
@@ -25,7 +25,7 @@ services:
     depends_on:
       - db
       - redis
-    image: orcidhub/app-dev
+    image: orcidhub/app-dev:6.3
     environment:
       - ENV
       # - SHIB_SP_DOMAINNAME
@@ -65,7 +65,7 @@ services:
         ipv4_address: ${SUBNET:-172.33}.0.88
 
   worker:
-    image: orcidhub/app-dev
+    image: orcidhub/app-dev:6.3
     depends_on:
       - redis
       - db
@@ -74,18 +74,20 @@ services:
       - ENV
       - MAIL_DEFAULT_SENDER
       - SECRET_KEY
+      - SENTRY_DSN
     volumes:
       - .:/src
     restart: always
 
   scheduler:
-    image: orcidhub/app-dev
+    image: orcidhub/app-dev:6.3
     depends_on:
       - redis
       - db
     command: ["./scheduler.sh"]
     environment:
       - ENV
+      - SENTRY_DSN
     volumes:
       - .:/src
     restart: always

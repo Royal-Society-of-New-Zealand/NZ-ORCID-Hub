@@ -53,7 +53,10 @@ def utility_processor():  # noqa: D202
     """Define funcions callable form Jinja2 using application context."""
 
     def has_audit_logs():
-        return bool(audit_models)
+        return bool(audit_models())
+
+    def all_audit_models():
+        return audit_models()
 
     def onboarded_organisations():
         rv = cache.get("onboarded_organisations")
@@ -113,7 +116,7 @@ def utility_processor():  # noqa: D202
                     record_id = int(record_id)
         except:
             return None
-        return task.records.model_class.get(record_id)
+        return task.records.model.get(record_id)
 
     return dict(
         orcid_login_url=orcid_login_url,
@@ -122,6 +125,7 @@ def utility_processor():  # noqa: D202
         current_task=current_task,
         current_record=current_record,
         has_audit_logs=has_audit_logs,
+        audit_models=all_audit_models,
     )
 
 
@@ -667,26 +671,25 @@ def orcid_callback():
         app.logger.error(f"For {current_user} encountered exception: Scope missing")
         return redirect(url_for("index"))
 
-    orcid_token, orcid_token_found = OrcidToken.get_or_create(
+    orcid_token, orcid_token_created = OrcidToken.get_or_create(
         user_id=user.id, org=user.organisation, scopes=scope_list)
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     orcid_token.expires_in = token["expires_in"]
-    with db.atomic():
+    with db.atomic() as transaction:
         try:
             orcid_token.save()
             user.save()
         except Exception as ex:
-            db.rollback()
+            transaction.rollback()
             flash(f"Failed to save data: {ex}")
             app.logger.exception("Failed to save ORCID token.")
 
-    app.logger.info("User %r authorized %r to have %r access to the profile "
-                    "and now trying to update employment or education record", user,
-                    user.organisation, scope_list)
+    app.logger.info(f"User {user} authorized {user.organisation} to have {scope_list} access to the profile "
+                    "and now trying to update employment or education record")
 
-    if scopes.ACTIVITIES_UPDATE in scope_list and orcid_token_found:
-        api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
+    if scopes.ACTIVITIES_UPDATE in scope_list and orcid_token_created:
+        api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
 
         for a in Affiliation:
 
@@ -708,7 +711,7 @@ def orcid_callback():
                 f"Please contact your Organisation Administrator(s) if you believe this is an error.",
                 "warning")
 
-    notify_about_update(user, event_type="UPDATED" if orcid_token_found else "CREATED")
+    notify_about_update(user, event_type="CREATED" if orcid_token_created else "UPDATED")
     session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
 
@@ -1170,6 +1173,8 @@ def orcid_login_callback(request):
 
         if not user.orcid and orcid_id:
             user.orcid = orcid_id
+            if org:
+                user.organisation = org
             if user.organisation.webhook_enabled:
                 register_orcid_webhook.queue(user)
         elif user.orcid != orcid_id and email:
@@ -1271,8 +1276,8 @@ def orcid_login_callback(request):
 
                 try:
                     if invitation.affiliations & (Affiliation.EMP | Affiliation.EDU):
-                        api = orcid_client.MemberAPI(org, user)
-                        params = {k: v for k, v in invitation._data.items() if v != ""}
+                        api = orcid_client.MemberAPIV3(org, user)
+                        params = {k: v for k, v in invitation.__data__.items() if v != ""}
                         for a in Affiliation:
                             if a & invitation.affiliations:
                                 params["affiliation"] = a
@@ -1330,11 +1335,12 @@ def orcid_login_callback(request):
 def select_user_org(user_org_id):
     """Change the current organisation of the current user."""
     user_org_id = int(user_org_id)
-    _next = get_next_url() or request.referrer or url_for("index")
+    _next = get_next_url("index")
     try:
-        uo = UserOrg.get(id=user_org_id)
-        if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email
-                or uo.user.eppn == current_user.eppn):
+        uo = UserOrg.get(user_org_id)
+        if ((uo.user.orcid and uo.user.orcid == current_user.orcid)
+                or uo.user.email == current_user.email
+                or (uo.user.eppn and uo.user.eppn == current_user.eppn)):
             if uo.user_id != current_user.id:
                 login_user(uo.user)
             if current_user.organisation_id != uo.org_id:

@@ -14,6 +14,7 @@ from io import BytesIO
 import requests
 import tablib
 import yaml
+import orcid_api_v3 as v3
 from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
                    send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
@@ -45,14 +46,14 @@ from .forms import (AddressForm, ApplicationFrom, BitmapMultipleValueField, Cred
                     RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm,
                     validate_orcid_id_field)
 from .login_provider import roles_required
-from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
+from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId, CharField, Client, Delegate,
+                     ExternalId, FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
                      Grant, GroupIdRecord, ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
                      Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
                      UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
-                     db, get_val)
+                     db)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -192,6 +193,7 @@ class AppModelView(ModelView):
     """ModelView customization."""
 
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
+    column_editable_list = ["name", "is_active", "email", "role", "city", "state", "value", "url", "display_index"]
     roles_required = Role.SUPERUSER
     export_types = [
         "csv",
@@ -214,7 +216,7 @@ class AppModelView(ModelView):
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=orcid_link_formatter)
-    column_default_sort = "id"
+    column_default_sort = ("id", True)
     column_labels = dict(org="Organisation", orcid="ORCID iD")
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({datetime: lambda view, value: isodate(value)})
@@ -229,6 +231,7 @@ class AppModelView(ModelView):
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
     form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
     model_form_converter = AppCustomModelConverter
+    column_display_pk = False
 
     def __init__(self, model=None, *args, **kwargs):
         """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
@@ -247,11 +250,16 @@ class AppModelView(ModelView):
     # TODO: remove when it gets merged into the upstream repo (it's a workaround to make
     # joins LEFT OUTER)
     def _handle_join(self, query, field, joins):
-        if field.model_class != self.model:
-            model_name = field.model_class.__name__
+        if field.model != self.model:
+            model_name = field.model.__name__
+            foreign_keys, _ = self.model._meta.get_rel_for_model(field.model)
 
             if model_name not in joins:
-                query = query.join(field.model_class, "LEFT OUTER")
+                # TODO: find a simple way of getting to the right joining forein key
+                if len(foreign_keys) > 1:
+                    query = query.join(field.model, JOIN.LEFT_OUTER, on=foreign_keys[0])
+                else:
+                    query = query.join(field.model, JOIN.LEFT_OUTER)
                 joins.add(model_name)
 
         return query
@@ -311,17 +319,17 @@ class AppModelView(ModelView):
                 Role.ADMIN):
             # Show only rows related to the current organisation the user is admin for.
             # Skip this part for SUPERUSER.
-            db_columns = [c.db_column for c in self.model._meta.fields.values()]
-            if "org_id" in db_columns or "organisation_id" in db_columns:
-                if "org_id" in db_columns:
+            column_names = [c.column_name for c in self.model._meta.fields.values()]
+            if "org_id" in column_names or "organisation_id" in column_names:
+                if "org_id" in column_names:
                     query = query.where(self.model.org_id == current_user.organisation.id)
                 else:
                     query = query.where(self.model.organisation_id == current_user.organisation.id)
 
         if request.args and any(a.endswith("_id") for a in request.args):
             for f in self.model._meta.fields.values():
-                if f.db_column.endswith("_id") and f.db_column in request.args:
-                    query = query.where(f == int(request.args[f.db_column]))
+                if f.column_name.endswith("_id") and f.column_name in request.args:
+                    query = query.where(f == int(request.args[f.column_name]))
         return query
 
     def _get_list_extra_args(self):
@@ -331,12 +339,12 @@ class AppModelView(ModelView):
             k: v
             for k, v in request.args.items()
             if k not in (
-                'page',
-                'page_size',
-                'sort',
-                'desc',
-                'search',
-            ) and not k.startswith('flt')
+                "page",
+                "page_size",
+                "sort",
+                "desc",
+                "search",
+            ) and not k.startswith("flt")
         }
         view_args.extra_args = extra_args
         return view_args
@@ -349,6 +357,7 @@ class AuditLogModelView(AppModelView):
     can_delete = False
     can_create = False
     can_view_details = False
+    column_default_sort = [("ts", True), ("id", True)]
 
     def __init__(self, model, *args, **kwargs):
         """Set up the search list."""
@@ -517,6 +526,7 @@ class OrcidTokenAdmin(AppModelView):
 class OrcidApiCallAmin(AppModelView):
     """ORCID API calls."""
 
+    column_default_sort = ("id", True)
     can_export = True
     can_edit = False
     can_delete = False
@@ -596,7 +606,7 @@ class TaskAdmin(AppModelView):
         filters.FilterEqual(column=Task.task_type, options=models.TaskType.options(), name="Task Type"),
     )
     column_formatters = dict(
-        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title(),
+        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title() if m.task_type else "N/A",
         completed_count=lambda v, c, m, p: (
             '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )
@@ -741,7 +751,7 @@ class RecordModelView(AppModelView):
         """Reset batch task records."""
         status = "The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
         task_id = None
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 if request.method == "POST" and request.form.get("rowid"):
                     # get the first ROWID:
@@ -769,7 +779,7 @@ class RecordModelView(AppModelView):
                     self.enqueue_record(record_id)
 
             except Exception as ex:
-                db.rollback()
+                transaction.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
 
@@ -951,7 +961,7 @@ class InviteeAdmin(RecordChildAdmin):
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
@@ -964,7 +974,7 @@ class InviteeAdmin(RecordChildAdmin):
                     rec_class.is_active, rec_class.id == record_id).execute()
                 getattr(utils, f"process_{rec_class.underscore_name()}s").queue(record_id)
             except Exception as ex:
-                db.rollback()
+                transaction.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
@@ -1013,7 +1023,7 @@ class CompositeRecordModelView(RecordModelView):
         elif self.model == FundingRecord:
             self._export_columns = [(v, v.replace('_', '-')) for v in
                                     ['invitees', 'title', 'type', 'organization_defined_type', 'short_description',
-                                     'amount', 'start_date', 'end_date', 'organization', 'contributors',
+                                     'amount', 'url', 'start_date', 'end_date', 'organization', 'contributors',
                                      'external_ids']]
         elif self.model == WorkRecord:
             self._export_columns = [(v, v.replace('_', '-')) for v in
@@ -1245,6 +1255,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
         "organization_defined_type",
         "short_description",
         "amount",
+        "url",
         "currency",
         "start_date",
         "end_date",
@@ -1277,7 +1288,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
 
         ext_ids = [r.id for r in
                    ExternalId.select(models.fn.min(ExternalId.id).alias("id")).join(FundingRecord).where(
-                       FundingRecord.task == self.current_task_id).group_by(FundingRecord.id).naive()]
+                       FundingRecord.task == self.current_task_id).group_by(FundingRecord.id).objects()]
 
         return count, query.select(
             self.model,
@@ -1298,7 +1309,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
             on=(ExternalId.record_id == self.model.id)).where(ExternalId.id << ext_ids).join(
             FundingInvitee,
             JOIN.LEFT_OUTER,
-            on=(FundingInvitee.record_id == self.model.id)).naive()
+            on=(FundingInvitee.record_id == self.model.id)).objects()
 
 
 class WorkRecordAdmin(CompositeRecordModelView):
@@ -1352,7 +1363,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
 
         ext_ids = [r.id for r in
                    WorkExternalId.select(models.fn.min(WorkExternalId.id).alias("id")).join(WorkRecord).where(
-                       WorkRecord.task == self.current_task_id).group_by(WorkRecord.id).naive()]
+                       WorkRecord.task == self.current_task_id).group_by(WorkRecord.id).objects()]
 
         return count, query.select(
             self.model,
@@ -1373,7 +1384,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
             on=(WorkExternalId.record_id == self.model.id)).where(WorkExternalId.id << ext_ids).join(
             WorkInvitee,
             JOIN.LEFT_OUTER,
-            on=(WorkInvitee.record_id == self.model.id)).naive()
+            on=(WorkInvitee.record_id == self.model.id)).objects()
 
 
 class PeerReviewRecordAdmin(CompositeRecordModelView):
@@ -1457,7 +1468,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         ext_ids = [r.id for r in
                    PeerReviewExternalId.select(models.fn.min(PeerReviewExternalId.id).alias("id")).join(
                        PeerReviewRecord).where(
-                       PeerReviewRecord.task == self.current_task_id).group_by(PeerReviewRecord.id).naive()]
+                       PeerReviewRecord.task == self.current_task_id).group_by(PeerReviewRecord.id).objects()]
 
         return count, query.select(
             self.model,
@@ -1478,7 +1489,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
             on=(PeerReviewExternalId.record_id == self.model.id)).where(PeerReviewExternalId.id << ext_ids).join(
                 PeerReviewInvitee,
                 JOIN.LEFT_OUTER,
-                on=(PeerReviewInvitee.record_id == self.model.id)).naive()
+                on=(PeerReviewInvitee.record_id == self.model.id)).objects()
 
 
 class AffiliationRecordAdmin(RecordModelView):
@@ -1559,6 +1570,7 @@ class ViewMembersAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "viewMembers.html"
+    edit_template = "admin/member_edit.html"
     form_columns = ["name", "orcid", "email", "eppn"]
     form_widget_args = {c: {"readonly": True} for c in form_columns if c != "email"}
     column_list = ["email", "orcid", "created_at", "updated_at", "orcid_updated_at"]
@@ -1588,9 +1600,8 @@ class ViewMembersAdmin(AppModelView):
         query, joins = super()._order_by(query, joins, order)
         # add ID only if all fields are NULLable (exlcude ones given by str):
         if all(not isinstance(f, str) and f.null for (f, _) in order):
-            clauses = query._order_by
-            clauses.append(self.model.id.desc() if order[0][1] else self.model.id)
-            query = query.order_by(*clauses)
+            query = query.order_by(*query._order_by,
+                                   self.model.id.desc() if order[0][1] else self.model.id)
         return query, joins
 
     def get_one(self, rec_id):
@@ -1610,8 +1621,8 @@ class ViewMembersAdmin(AppModelView):
         org = current_user.organisation
         token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
 
-        if UserOrg.select().where((UserOrg.user_id == model.id) & (UserOrg.org_id == org.id)
-                                  & UserOrg.is_admin).exists():
+        if UserOrg.select().where(UserOrg.user_id == model.id, UserOrg.org_id == org.id,
+                                  UserOrg.is_admin).exists():
             flash(
                 f"Failed to delete record for {model}, As User appears to be one of the admins. "
                 f"Please contact orcid@royalsociety.org.nz for support", "danger")
@@ -1640,12 +1651,12 @@ class ViewMembersAdmin(AppModelView):
         try:
             self.on_model_delete(model)
             if model.organisations.count() < 2:
-                model.delete_instance(recursive=True)
+                model.delete_instance()
             else:
                 if model.organisation == user_org.org:
                     model.organisation = model.organisations.first()
                     model.save()
-                user_org.delete_instance(recursive=True)
+                user_org.delete_instance()
 
         except Exception as ex:
             if not self.handle_view_exception(ex):
@@ -1678,7 +1689,7 @@ class ViewMembersAdmin(AppModelView):
             flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'danger')
 
     @action(
-        "export_affiations", "Expoert Affiliation Records",
+        "export_affiliations", "Export Affiliation Records",
         "Are you sure you want to retrieve and export selected records affiliation entries from ORCID?"
     )
     def action_export_affiliations(self, ids):
@@ -1694,7 +1705,7 @@ class ViewMembersAdmin(AppModelView):
         for t in tokens:
 
             try:
-                api = orcid_client.MemberAPI(user=t.user, access_token=t.access_token)
+                api = orcid_client.MemberAPIV3(user=t.user, access_token=t.access_token)
                 profile = api.get_record()
                 if not profile:
                     continue
@@ -1710,11 +1721,10 @@ class ViewMembersAdmin(AppModelView):
                 abort(500, ex)
 
             records = itertools.chain(
-                records,
-                [(t.user, r)
-                 for r in profile.get("activities-summary", "employments", "employment-summary")],
-                [(t.user, r)
-                 for r in profile.get("activities-summary", "educations", "education-summary")])
+                *[[(t.user, s.get(f"{rt}-summary")) for ag in
+                   profile.get("activities-summary", f"{rt}s", "affiliation-group", default=[])
+                   for s in ag.get("summaries")] for rt in ["employment", "education", "distinction", "membership",
+                                                            "service", "qualification", "invited-position"]])
 
         # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
         class Echo(object):
@@ -1852,6 +1862,7 @@ admin.add_view(OrgInvitationAdmin())
 
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
+admin.add_view(RecordChildAdmin(AffiliationExternalId))
 admin.add_view(FundingRecordAdmin())
 admin.add_view(RecordChildAdmin(FundingContributor))
 admin.add_view(InviteeAdmin(FundingInvitee))
@@ -1874,8 +1885,14 @@ admin.add_view(AppModelView(Token))
 admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
-for name, model in models.audit_models.items():
+for name, model in models.audit_models().items():
     admin.add_view(AuditLogModelView(model, endpoint=name + "_log"))
+
+
+@app.template_filter("plural")
+def plural(single):
+    """Pluralize a noun."""
+    return utils.plural(single)
 
 
 @app.template_filter("year_range")
@@ -1962,7 +1979,7 @@ def reset_all():
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
     """Delete an employment, education, peer review, works or funding record."""
-    _url = request.args.get("url") or request.referrer or url_for(
+    _url = request.referrer or request.args.get("url") or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
@@ -1991,30 +2008,10 @@ def delete_record(user_id, section_type, put_code):
             flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to delete this record", "warning")
             return redirect(_url)
 
-    api_instance = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
+    api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
 
     try:
-        # Delete an Employment
-        if section_type == "EMP":
-            api_instance.delete_employment(user.orcid, put_code)
-        elif section_type == "FUN":
-            api_instance.delete_funding(user.orcid, put_code)
-        elif section_type == "PRR":
-            api_instance.delete_peer_review(user.orcid, put_code)
-        elif section_type == "WOR":
-            api_instance.delete_work(user.orcid, put_code)
-        elif section_type == "RUR":
-            api_instance.delete_researcher_url(user.orcid, put_code)
-        elif section_type == "ADR":
-            api_instance.delete_address(user.orcid, put_code)
-        elif section_type == "EXR":
-            api_instance.delete_external_identifier(user.orcid, put_code)
-        elif section_type == "ONR":
-            api_instance.delete_other_name(user.orcid, put_code)
-        elif section_type == "KWR":
-            api_instance.delete_keyword(user.orcid, put_code)
-        else:
-            api_instance.delete_education(user.orcid, put_code)
+        api.delete_section(section_type, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
         flash("The record was successfully deleted.", "success")
     except ApiException as e:
@@ -2049,24 +2046,18 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     orcid_token = None
-    if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
-        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                       OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scopes.contains(
-                                                                           orcid_client.PERSON_UPDATE)).first()
-        if not orcid_token:
-            flash("The user hasn't given 'PERSON/UPDATE' permission to you to Add/Update these records", "warning")
-            return redirect(_url)
-    else:
-        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                       OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scopes.contains(
-                                                                           orcid_client.ACTIVITIES_UPDATE)).first()
-        if not orcid_token:
-            flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to you to Add/Update these records", "warning")
-            return redirect(_url)
+    is_person_update = section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]
+    orcid_token = OrcidToken.select(OrcidToken.access_token).where(
+        OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
+        OrcidToken.scopes.contains(orcid_client.PERSON_UPDATE if is_person_update else orcid_client
+                                   .ACTIVITIES_UPDATE)).first()
+    if not orcid_token:
+        flash(
+            f"""The user hasn't given '{"PERSON/UPDATE" if is_person_update else "ACTIVITIES/UPDATE"}' """
+            "permission to you to Add/Update these records", "warning")
+        return redirect(_url)
 
-    api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
+    api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
 
     if section_type == "FUN":
         form = FundingForm(form_type=section_type)
@@ -2092,161 +2083,169 @@ def edit_record(user_id, section_type, put_code=None):
             try:
                 # Fetch an Employment
                 if section_type == "EMP":
-                    api_response = api.view_employment(user.orcid, put_code)
+                    api_response = api.view_employmentv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "EDU":
-                    api_response = api.view_education(user.orcid, put_code)
+                    api_response = api.view_educationv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "DST":
+                    api_response = api.view_distinctionv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "MEM":
+                    api_response = api.view_membershipv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "SER":
+                    api_response = api.view_servicev3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "QUA":
+                    api_response = api.view_qualificationv3(user.orcid, put_code, _preload_content=False)
+                elif section_type == "POS":
+                    api_response = api.view_invited_positionv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "FUN":
-                    api_response = api.view_funding(user.orcid, put_code)
+                    api_response = api.view_fundingv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "WOR":
-                    api_response = api.view_work(user.orcid, put_code)
+                    api_response = api.view_workv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "PRR":
-                    api_response = api.view_peer_review(user.orcid, put_code)
+                    api_response = api.view_peer_reviewv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "RUR":
-                    api_response = api.view_researcher_url(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_researcher_urlv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "ONR":
-                    api_response = api.view_other_name(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_other_namev3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "ADR":
-                    api_response = api.view_address(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_addressv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "EXR":
-                    api_response = api.view_external_identifier(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_external_identifierv3(user.orcid, put_code, _preload_content=False)
                 elif section_type == "KWR":
-                    api_response = api.view_keyword(user.orcid, put_code, _preload_content=False)
+                    api_response = api.view_keywordv3(user.orcid, put_code, _preload_content=False)
 
-                if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
-                    _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
-                else:
-                    _data = api_response.to_dict()
+                _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
 
                 if section_type == "PRR" or section_type == "WOR":
 
                     if section_type == "PRR":
-                        external_ids_list = get_val(_data, "review_identifiers", "external-id")
+                        external_ids_list = _data.get("review-identifiers", "external-id", default=[])
                     else:
-                        external_ids_list = get_val(_data, "external_ids", "external-id")
+                        external_ids_list = _data.get("external-ids", "external-id", default=[])
 
                     for extid in external_ids_list:
-                        external_id_value = extid['external-id-value'] if extid['external-id-value'] else ''
-                        external_id_url = get_val(extid['external-id-url'], "value") if get_val(
-                            extid['external-id-url'], "value") else ''
-                        external_id_relationship = extid['external-id-relationship'] if extid[
-                            'external-id-relationship'] else ''
-                        external_id_type = extid['external-id-type'] if extid[
-                            'external-id-relationship'] else ''
+                        external_id_value = (extid.get('external-id-value', default='') or '')
+                        external_id_url = (extid.get('external-id-url', 'value', default='') or '')
+                        external_id_relationship = (extid.get(
+                            'external-id-relationship', default='') or '').replace('-', '_').upper()
+                        external_id_type = (extid.get('external-id-type', default='') or '')
 
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
                                                     grant_relationship=external_id_relationship,
                                                     grant_type=external_id_type))
 
                     if section_type == "WOR":
-                        data = dict(work_type=get_val(_data, "type"),
-                                    title=get_val(_data, "title", "title", "value"),
-                                    subtitle=get_val(_data, "title", "subtitle", "value"),
-                                    translated_title=get_val(_data, "title", "translated-title", "value"),
-                                    translated_title_language_code=get_val(_data, "title", "translated-title",
-                                                                           "language-code"),
-                                    journal_title=get_val(_data, "journal_title", "value"),
-                                    short_description=get_val(_data, "short_description"),
-                                    citation_type=get_val(_data, "citation", "citation_type"),
-                                    citation=get_val(_data, "citation", "citation_value"),
-                                    url=get_val(_data, "url", "value"),
-                                    language_code=get_val(_data, "language_code"),
+                        data = dict(work_type=(_data.get("type", default='') or '').replace('-', '_').upper(),
+                                    title=_data.get("title", "title", "value"),
+                                    subtitle=_data.get("title", "subtitle", "value"),
+                                    translated_title=_data.get("title", "translated-title", "value"),
+                                    translated_title_language_code=_data.get("title", "translated-title",
+                                                                             "language-code"),
+                                    journal_title=_data.get("journal-title", "value"),
+                                    short_description=_data.get("short-description"),
+                                    citation_type=(_data.get("citation", "citation-type", default='') or '').replace(
+                                        '-', '_').upper(),
+                                    citation=_data.get("citation", "citation-value"),
+                                    url=_data.get("url", "value"),
+                                    language_code=_data.get("language-code"),
                                     # Removing key 'media-type' from the publication_date dict.
                                     publication_date=PartialDate.create(
-                                        {date_key: _data.get("publication_date")[date_key] for date_key in
-                                         ('day', 'month', 'year')}) if _data.get("publication_date") else None,
-                                    country=get_val(_data, "country", "value"))
+                                        {date_key: _data.get("publication-date")[date_key] for date_key in
+                                         ('day', 'month', 'year')}) if _data.get("publication-date") else None,
+                                    country=_data.get("country", "value"),
+                                    visibility=(_data.get("visibility", default='') or '').upper())
                     else:
                         data = dict(
-                            org_name=get_val(_data, "convening_organization", "name"),
-                            disambiguated_id=get_val(
-                                _data, "convening_organization", "disambiguated-organization",
-                                "disambiguated-organization-identifier"),
-                            disambiguation_source=get_val(
-                                _data, "convening_organization", "disambiguated-organization",
-                                "disambiguation-source"),
-                            city=get_val(_data, "convening_organization", "address", "city"),
-                            state=get_val(_data, "convening_organization", "address", "region"),
-                            country=get_val(_data, "convening_organization", "address", "country"),
-                            reviewer_role=_data.get("reviewer_role", ""),
-                            review_url=get_val(_data, "review_url", "value"),
-                            review_type=_data.get("review_type", ""),
-                            review_group_id=_data.get("review_group_id", ""),
-                            subject_external_identifier_type=get_val(_data, "subject_external_identifier",
-                                                                     "external-id-type"),
-                            subject_external_identifier_value=get_val(_data, "subject_external_identifier",
-                                                                      "external-id-value"),
-                            subject_external_identifier_url=get_val(_data, "subject_external_identifier",
-                                                                    "external-id-url",
-                                                                    "value"),
-                            subject_external_identifier_relationship=get_val(_data, "subject_external_identifier",
-                                                                             "external-id-relationship"),
-                            subject_container_name=get_val(_data, "subject_container_name", "value"),
-                            subject_type=_data.get("subject_type", ""),
-                            subject_title=get_val(_data, "subject_name", "title", "value"),
-                            subject_subtitle=get_val(_data, "subject_name", "subtitle"),
-                            subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
-                            subject_translated_title_language_code=get_val(_data, "subject_name", "translated-title",
-                                                                           "language-code"),
-                            subject_url=get_val(_data, "subject_url", "value"),
-                            review_completion_date=PartialDate.create(_data.get("review_completion_date")))
+                            org_name=_data.get("convening-organization", "name"),
+                            disambiguated_id=_data.get("convening-organization", "disambiguated-organization",
+                                                       "disambiguated-organization-identifier"),
+                            disambiguation_source=_data.get("convening-organization", "disambiguated-organization",
+                                                            "disambiguation-source"),
+                            city=_data.get("convening-organization", "address", "city"),
+                            state=_data.get("convening-organization", "address", "region"),
+                            country=_data.get("convening-organization", "address", "country"),
+                            reviewer_role=(_data.get("reviewer-role", default='') or '').replace('-', '_').upper(),
+                            review_url=_data.get("review-url", "value"),
+                            review_type=(_data.get("review-type", default='') or '').replace('-', '_').upper(),
+                            review_group_id=_data.get("review-group-id", default=''),
+                            subject_external_identifier_type=_data.get("subject-external-identifier",
+                                                                       "external-id-type"),
+                            subject_external_identifier_value=_data.get("subject-external-identifier",
+                                                                        "external-id-value"),
+                            subject_external_identifier_url=_data.get("subject-external-identifier", "external-id-url",
+                                                                      "value"),
+                            subject_external_identifier_relationship=(_data.get(
+                                "subject-external-identifier", "external-id-relationship", default='') or '').replace(
+                                '-', '_').upper(),
+                            subject_container_name=_data.get("subject-container-name", "value"),
+                            subject_type=(_data.get("subject-type", default='') or '').replace('-', '_').upper(),
+                            subject_title=_data.get("subject-name", "title", "value"),
+                            subject_subtitle=_data.get("subject-name", "subtitle"),
+                            subject_translated_title=_data.get("subject-name", "translated-title", "value"),
+                            subject_translated_title_language_code=_data.get("subject-name", "translated-title",
+                                                                             "language-code"),
+                            subject_url=_data.get("subject-url", "value"),
+                            visibility=(_data.get("visibility", default='') or '').upper(),
+                            review_completion_date=PartialDate.create(_data.get("review-completion-date")))
                 elif section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
-                    data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
+                    data = dict(visibility=(_data.get("visibility", default='') or '').replace('-', '_').upper(),
+                                display_index=_data.get("display-index"))
                     if section_type == "RUR":
                         data.update(dict(name=_data.get("url-name"), value=_data.get("url", "value")))
                     elif section_type == "ADR":
                         data.update(dict(country=_data.get("country", "value")))
                     elif section_type == "EXR":
-                        data.update(dict(type=_data.get("external-id-type"), value=_data.get("external-id-value"),
+                        data.update(dict(type=(_data.get("external-id-type", default='') or ''),
+                                         value=_data.get("external-id-value"),
                                          url=_data.get("external-id-url", "value"),
-                                         relationship=_data.get("external-id-relationship")))
+                                         relationship=(_data.get("external-id-relationship", default='') or '').replace(
+                                             '-', '_').upper()))
                     else:
                         data.update(dict(content=_data.get("content")))
                 else:
                     data = dict(
-                        org_name=get_val(_data, "organization", "name"),
-                        disambiguated_id=get_val(
-                            _data, "organization", "disambiguated_organization",
-                            "disambiguated_organization_identifier"),
-                        disambiguation_source=get_val(
-                            _data, "organization", "disambiguated_organization",
-                            "disambiguation_source"),
-                        city=get_val(_data, "organization", "address", "city"),
-                        state=get_val(_data, "organization", "address", "region"),
-                        country=get_val(_data, "organization", "address", "country"),
-                        department=_data.get("department_name", ""),
-                        role=_data.get("role_title", ""),
-                        start_date=PartialDate.create(_data.get("start_date")),
-                        end_date=PartialDate.create(_data.get("end_date")))
+                        org_name=_data.get("organization", "name"),
+                        disambiguated_id=_data.get("organization", "disambiguated-organization",
+                                                   "disambiguated-organization-identifier"),
+                        disambiguation_source=_data.get("organization", "disambiguated-organization",
+                                                        "disambiguation-source"),
+                        city=_data.get("organization", "address", "city"),
+                        state=_data.get("organization", "address", "region"),
+                        country=_data.get("organization", "address", "country"),
+                        department=_data.get("department-name"),
+                        role=_data.get("role-title"),
+                        url=_data.get("url", "value"),
+                        visibility=(_data.get("visibility", default='') or '').upper(),
+                        start_date=PartialDate.create(_data.get("start-date")),
+                        end_date=PartialDate.create(_data.get("end-date")))
 
+                    external_ids_list = _data.get("external-ids", "external-id", default=[])
+
+                    for extid in external_ids_list:
+                        external_id_value = extid.get('external-id-value', default='')
+                        external_id_url = extid.get('external-id-url', 'value', default='')
+                        external_id_relationship = (extid.get(
+                            'external-id-relationship', default='') or '').replace('-', '_').upper()
+                        external_id_type = extid.get('external-id-type', default='')
+
+                        grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                    grant_relationship=external_id_relationship,
+                                                    grant_type=external_id_type))
                     if section_type == "FUN":
-                        external_ids_list = get_val(_data, "external_ids", "external_id")
-
-                        for extid in external_ids_list:
-                            external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
-                            external_id_url = get_val(extid['external_id_url'], "value") if get_val(
-                                extid['external_id_url'], "value") else ''
-                            external_id_relationship = extid['external_id_relationship'] if extid[
-                                'external_id_relationship'] else ''
-                            external_id_type = extid['external_id_type'] if extid[
-                                'external_id_relationship'] else ''
-
-                            grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
-                                                        grant_relationship=external_id_relationship,
-                                                        grant_type=external_id_type))
-
-                        data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
-                                         funding_translated_title=get_val(_data, "title", "translated_title", "value"),
-                                         translated_title_language=get_val(_data, "title", "translated_title",
-                                                                           "language_code"),
-                                         funding_type=get_val(_data, "type"),
-                                         funding_subtype=get_val(_data, "organization_defined_type", "value"),
-                                         funding_description=get_val(_data, "short_description"),
-                                         total_funding_amount=get_val(_data, "amount", "value"),
-                                         total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
+                        data.update(dict(funding_title=_data.get("title", "title", "value"),
+                                         funding_translated_title=_data.get("title", "translated-title", "value"),
+                                         translated_title_language=_data.get("title", "translated-title",
+                                                                             "language-code"),
+                                         funding_type=(_data.get("type", default='') or '').replace('-', '_').upper(),
+                                         funding_subtype=_data.get("organization-defined-type", "value"),
+                                         funding_description=_data.get("short-description"),
+                                         total_funding_amount=_data.get("amount", "value"),
+                                         total_funding_amount_currency=_data.get("amount", "currency-code")))
+                    else:
+                        data.update(dict(display_index=_data.get("display-index")))
 
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-                app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
+                app.logger.error(f"Exception when calling ORCID API: {message}")
             except Exception as ex:
                 app.logger.exception(
                     "Unhandler error occured while creating or editing a profile record.")
@@ -2263,7 +2262,32 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type in ["FUN", "PRR", "WOR"]:
+            if section_type == "RUR":
+                put_code, orcid, created, visibility = api.create_or_update_researcher_url(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "ONR":
+                put_code, orcid, created, visibility = api.create_or_update_other_name(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "ADR":
+                put_code, orcid, created, visibility = api.create_or_update_address(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "EXR":
+                put_code, orcid, created, visibility = api.create_or_update_person_external_id(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "KWR":
+                put_code, orcid, created, visibility = api.create_or_update_keyword(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            else:
                 grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
@@ -2290,62 +2314,37 @@ def edit_record(user_id, section_type, put_code=None):
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
                            for f in form})
-                else:
+                elif section_type == "PRR":
                     put_code, orcid, created = api.create_or_update_individual_peer_review(
                         put_code=put_code,
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
                            for f in form})
-            elif section_type == "RUR":
-                put_code, orcid, created, visibility = api.create_or_update_researcher_url(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "ONR":
-                put_code, orcid, created, visibility = api.create_or_update_other_name(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "ADR":
-                put_code, orcid, created, visibility = api.create_or_update_address(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "EXR":
-                put_code, orcid, created, visibility = api.create_or_update_person_external_id(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            elif section_type == "KWR":
-                put_code, orcid, created, visibility = api.create_or_update_keyword(
-                    put_code=put_code,
-                    **{f.name: f.data
-                       for f in form})
-            else:
-                put_code, orcid, created, visibility = api.create_or_update_affiliation(
-                    put_code=put_code,
-                    affiliation=Affiliation[section_type],
-                    **{f.name: f.data
-                       for f in form})
+                else:
+                    put_code, orcid, created, visibility = api.create_or_update_affiliation(
+                        put_code=put_code,
+                        affiliation=Affiliation[section_type],
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
 
-                affiliation, _ = UserOrgAffiliation.get_or_create(
-                    user=user,
-                    organisation=org,
-                    put_code=put_code)
+                    affiliation, _ = UserOrgAffiliation.get_or_create(
+                        user=user,
+                        organisation=org,
+                        put_code=put_code)
 
-                affiliation.department_name = form.department.data
-                affiliation.department_city = form.city.data
-                affiliation.role_title = form.role.data
-                form.populate_obj(affiliation)
-
-                affiliation.save()
+                    affiliation.department_name = form.department.data
+                    affiliation.department_city = form.city.data
+                    affiliation.role_title = form.role.data
+                    form.populate_obj(affiliation)
+                    affiliation.save()
             if put_code and created:
                 flash("Record details has been added successfully!", "success")
             else:
                 flash("Record details has been updated successfully!", "success")
             return redirect(_url)
 
-        except ApiException as e:
+        except (ApiException, v3.rest.ApiException) as e:
             body = json.loads(e.body)
             message = body.get("user-message")
             dev_message = body.get("developer-message")
@@ -2374,7 +2373,8 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR", "ADR", "EXR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR", "ADR", "EXR", "DST", "MEM", "SER",
+                            "QUA", "POS"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -2391,10 +2391,9 @@ def section(user_id, section_type="EMP"):
     orcid_token = None
     if request.method == "POST" and section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         try:
-            orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                           OrcidToken.org_id == user.organisation_id,
-                                                                           OrcidToken.scopes.contains(
-                                                                               orcid_client.PERSON_UPDATE)).first()
+            orcid_token = OrcidToken.select(OrcidToken.access_token).where(
+                OrcidToken.user_id == user.id, OrcidToken.org_id == user.organisation_id,
+                OrcidToken.scopes.contains(orcid_client.PERSON_UPDATE)).first()
             if orcid_token:
                 flash(
                     "There is no need to send an invite as you already have the token with 'PERSON/UPDATE' permission",
@@ -2420,7 +2419,7 @@ def section(user_id, section_type="EMP"):
                     token=token)
 
                 utils.send_email(
-                    "email/person_update_invitation.html",
+                    "email/property_invitation.html",
                     invitation=ui,
                     invitation_url=invitation_url,
                     recipient=(current_user.organisation.name, user.email),
@@ -2438,32 +2437,10 @@ def section(user_id, section_type="EMP"):
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(_url)
 
-    orcid_client.configuration.access_token = orcid_token.access_token
-    # create an instance of the API class
-    api_instance = orcid_client.MemberAPIV20Api()
+    api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
+
     try:
-        # Fetch all entries
-        # NB! need to add _preload_content=False to get raw response
-        if section_type == "EMP":
-            api_response = api_instance.view_employments(user.orcid, _preload_content=False)
-        elif section_type == "EDU":
-            api_response = api_instance.view_educations(user.orcid, _preload_content=False)
-        elif section_type == "RUR":
-            api_response = api_instance.view_researcher_urls(user.orcid, _preload_content=False)
-        elif section_type == "ONR":
-            api_response = api_instance.view_other_names(user.orcid, _preload_content=False)
-        elif section_type == "ADR":
-            api_response = api_instance.view_addresses(user.orcid, _preload_content=False)
-        elif section_type == "EXR":
-            api_response = api_instance.view_external_identifiers(user.orcid, _preload_content=False)
-        elif section_type == "KWR":
-            api_response = api_instance.view_keywords(user.orcid, _preload_content=False)
-        elif section_type == "FUN":
-            api_response = api_instance.view_fundings(user.orcid)
-        elif section_type == "WOR":
-            api_response = api_instance.view_works(user.orcid)
-        else:
-            api_response = api_instance.view_peer_reviews(user.orcid)
+        api_response = api.get_section(section_type)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
@@ -2479,68 +2456,47 @@ def section(user_id, section_type="EMP"):
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
     try:
-        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR", "ADR", "EXR"]:
-            data = json.loads(api_response.data, object_pairs_hook=NestedDict)
-        else:
-            data = api_response.to_dict()
+        data = json.loads(api_response.data, object_pairs_hook=NestedDict)
     except Exception as ex:
         flash("User didn't give permissions to update his/her records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
-    # TODO: transform data for presentation:
 
-    records = []
-    if section_type == 'FUN':
-        if data and data.get("group"):
-            for k in data.get("group"):
-                fs = k.get("funding_summary")[0]
-                records.append(fs)
-        return render_template(
-            "funding_section.html",
-            url=_url,
-            records=records,
-            section_type=section_type,
-            user_id=user_id,
-            org_client_id=user.organisation.orcid_client_id)
-    elif section_type == 'PRR':
-        if data and data.get("group"):
-            for k in data.get("group"):
-                for ps in k.get("peer-review-summary"):
-                    records.append(ps)
-        return render_template(
-            "peer_review_section.html",
-            url=_url,
-            records=records,
-            section_type=section_type,
-            user_id=user_id,
-            org_client_id=user.organisation.orcid_client_id)
-    elif section_type == 'WOR':
-        if data and data.get("group"):
-            for k in data.get("group"):
-                for ps in k.get("work-summary"):
-                    records.append(ps)
-        return render_template(
-            "work_section.html",
-            url=_url,
-            records=records,
-            section_type=section_type,
-            user_id=user_id,
-            org_client_id=user.organisation.orcid_client_id)
+    if section_type in ["FUN", "WOR"]:
+        records = (fs for g in data.get("group") for fs in g.get({
+            "FUN": "funding-summary",
+            "WOR": "work-summary",
+        }[section_type])) if data.get("group") else None
+    elif section_type == "PRR":
+        records = (fs for g in data.get("group") for pg in g.get("peer-review-group") for fs in pg.get({
+            "PRR": "peer-review-summary",
+        }[section_type])) if data.get("group") else None
+    elif section_type in ["EDU", "EMP", "DST", "MEM", "SER", "QUA", "POS"]:
+        records = (ss.get({"EDU": "education-summary",
+                           "EMP": "employment-summary",
+                           "DST": "distinction-summary",
+                           "MEM": "membership-summary",
+                           "SER": "service-summary",
+                           "QUA": "qualification-summary",
+                           "POS": "invited-position-summary"}[section_type]) for ag in
+                   data.get("affiliation-group", default=[]) for ss in ag.get("summaries", default=[]))
     else:
-        records = data.get("education-summary" if section_type == "EDU" else
-                           "employment-summary" if section_type == "EMP" else
-                           "researcher-url" if section_type == "RUR" else
-                           "keyword" if section_type == "KWR" else
-                           "address" if section_type == "ADR" else
-                           "external-identifier" if section_type == "EXR" else "other-name")
+        records = data.get({
+            "RUR": "researcher-url",
+            "KWR": "keyword",
+            "ADR": "address",
+            "ONR": "other-name",
+            "EXR": "external-identifier",
+        }[section_type])
 
     return render_template(
         "section.html",
+        user=user,
         url=_url,
+        Affiliation=Affiliation,
         records=records,
         section_type=section_type,
-        user_id=user_id,
         org_client_id=user.organisation.orcid_client_id)
 
 
@@ -2566,7 +2522,7 @@ def search_group_id_record():
         id_type = request.form.get('type')
         put_code = request.form.get('put_code')
 
-        with db.atomic():
+        with db.atomic() as transaction:
             try:
                 gir, created = GroupIdRecord.get_or_create(organisation=current_user.organisation,
                                                            group_id=group_id, name=name, description=description,
@@ -2581,7 +2537,7 @@ def search_group_id_record():
                 gir.save()
 
             except Exception as ex:
-                db.rollback()
+                transaction.rollback()
                 flash(f"Failed to save GroupID Record: {ex}", "warning")
                 app.logger.exception(f"Failed to save GroupID Record: {ex}")
 
@@ -3037,18 +2993,6 @@ def invite_organisation():
     return render_template("registration.html", form=form, org_info=org_info)
 
 
-@app.route("/user/<int:user_id>/organisations", methods=["GET", "POST"])
-@roles_required(Role.SUPERUSER)
-def user_organisations(user_id):
-    """Manage user organisaions."""
-    user_orgs = (Organisation.select(
-        Organisation.id, Organisation.name,
-        (Organisation.tech_contact_id == user_id).alias("is_tech_contact"), UserOrg.is_admin).join(
-            UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == user_id)))
-                 .naive())
-    return render_template("user_organisations.html", user_orgs=user_orgs)
-
-
 @app.route("/invite/user", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER, Role.ADMIN)
 def invite_user():
@@ -3079,7 +3023,7 @@ def invite_user():
                 & (OrcidToken.scopes.contains("/activities/update"))).exists()):
             try:
                 if affiliations & (Affiliation.EMP | Affiliation.EDU):
-                    api = orcid_client.MemberAPI(org, invited_user)
+                    api = orcid_client.MemberAPIV3(org, invited_user)
                     params = {f.name: f.data for f in form if f.data != ""}
                     for a in Affiliation:
                         if a & affiliations:
@@ -3266,6 +3210,9 @@ def api_credentials(app_id=None):
     """Manage API credentials."""
     if app_id:
         client = Client.select().where(Client.id == app_id).first()
+        if client and client.user_id != current_user.id:
+            flash("Access denied!", "danger")
+            return redirect(url_for("application"))
     else:
         client = Client.select().where(Client.user_id == current_user.id).first()
     if not client:
@@ -3390,6 +3337,9 @@ def update_webhook(user_id):
     try:
         updated_at = datetime.utcnow()
         user = User.get(user_id)
+        if not user.orcid:
+            return '', 404
+
         user.orcid_updated_at = updated_at
         user.save()
         utils.notify_about_update(user)
@@ -3408,24 +3358,22 @@ def update_webhook(user_id):
 @roles_required(Role.TECHNICAL, Role.SUPERUSER)
 def org_webhook():
     """Manage organisation invitation email template."""
+    _url = request.values.get("url") or request.referrer
     org = current_user.organisation
+
     form = WebhookForm(obj=org)
 
     if form.validate_on_submit():
-        old_webhook_url = org.webhook_url
-        if old_webhook_url and old_webhook_url != form.webhook_url.data:
-            for u in org.users.where(User.webhook_enabled):
-                utils.register_orcid_webhook.queue(u, delete=True)
         form.populate_obj(org)
         org.save()
-        if form.webhook_enabled.data:
+        if form.webhook_enabled.data or form.email_notifications_enabled.data:
             job = utils.enable_org_webhook.queue(org)
             flash(f"Webhook activation was initiated (task id: {job.id})", "info")
         else:
             utils.disable_org_webhook.queue(org)
             flash(f"Webhook was disabled.", "info")
 
-    return render_template("form.html", form=form, title="Organisation Webhook")
+    return render_template("form.html", form=form, title="Organisation Webhook", url=_url)
 
 
 @app.route("/sync_profiles/<int:task_id>", methods=["GET", "POST"])

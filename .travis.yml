@@ -14,11 +14,16 @@ before_install:
 
 install:
     - gen-keys/genkey.sh $DOMAIN
-    - ls -l
+    - openssl genrsa -out .keys/dkim.key 1024
     - for t in sp server; do cp build-server.key .keys/${ENV}-$t.key; cp build-server.crt .keys/${ENV}-$t.crt; done
     - mkdir -p pgdata data/redis archive backup
     - export UID
     - docker-compose up -d
+    # Wait for containers get started...
+    - for t in {1..40}; do (docker-compose ps app | grep -q ' Up ') && break ; sleep 1; done
+
+before_script:
+    - docker-compose exec app coverage erase
 
 script:
     - wait_pg_up() { until docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to start..."; sleep 1; done }
@@ -29,15 +34,18 @@ script:
     - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
     - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
     - docker-compose exec app w3c_validator https://localhost https://localhost/about https://localhost/faq
-    - touch .keys/dkim.key
     - docker-compose exec app ./pytest.sh
     - docker-compose logs app
 
 after_success:
     - echo "*** Deploying from $(curl ipv4.icanhazip.com)"
+    - docker-compose exec app coverage report
     - docker-compose exec app coveralls
-    - docker-compose exec app python3.6 ./setup.py sdist
-    - docker-compose exec app twine upload -u "$PYPI_USER" -p "$PYPI_PASSWORD" --skip-existing dist/*
+    - |
+        if [[ $TRAVIS_COMMIT_MESSAGE == *"[PUBLISH]"* ]] ; then
+            docker-compose exec app python3.6 ./setup.py sdist
+            docker-compose exec app twine upload -u "$PYPI_USER" -p "$PYPI_PASSWORD" --skip-existing dist/*
+        fi
     - eval "$(ssh-agent -s)"
     - openssl rsa -in .travis/.deploy.key -out .travis/deploy.key -passin env:DEPLOY_KEY_PASSPHRASE
     - chmod 400 .travis/deploy.key

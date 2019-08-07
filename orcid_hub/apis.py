@@ -1,27 +1,28 @@
 """HUB API."""
 
-from datetime import datetime
 import re
+from datetime import datetime
 from urllib.parse import unquote, urlencode
-import dateutil.parser
+from uuid import UUID
 
+import dateutil.parser
 import jsonschema
 import requests
 import validators
 import yaml
-from uuid import UUID
-from flask import (Response, abort, current_app, jsonify, make_response, render_template, request,
-                   stream_with_context, url_for)
+from flask import (Response, abort, current_app, jsonify, make_response,
+                   render_template, request, stream_with_context, url_for)
 from flask.views import MethodView
 from flask_login import current_user, login_user
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
+from rq import get_current_job
 
-from . import api, app, db, models, oauth, schemas
+from . import api, app, models, oauth, rq, schemas
 from .login_provider import roles_required
-from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
-                     PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User, UserOrg,
-                     validate_orcid_id, WorkRecord)
+from .models import (ORCID_ID_REGEX, AffiliationRecord, AsyncOrcidResponse, Client, FundingRecord,
+                     OrcidToken, PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User,
+                     UserOrg, WorkRecord, validate_orcid_id)
 from .utils import (activate_all_records, dump_yaml, enqueue_task_records, is_valid_url,
                     register_orcid_webhook, reset_all_records)
 
@@ -54,7 +55,7 @@ def validate_uuid4(uuid_string):
 
 
 @app.route('/api/me')
-@app.route("/api/v1.0/me")
+@app.route("/api/v1/me")
 @oauth.require_oauth()
 def me():
     """Get the token user data."""
@@ -103,7 +104,7 @@ class AppResource(Resource):
         if request.method != "DELETE":
             if self.is_yaml_request:
                 try:
-                    data = yaml.load(request.data)
+                    data = yaml.safe_load(request.data)
                 except Exception as ex:
                     return jsonify({
                         "error": "Invalid request format. Only JSON or YAML are acceptable.",
@@ -297,7 +298,7 @@ class TaskResource(AppResource):
                 task = Task.get(id=task)
             except Task.DoesNotExist:
                 return jsonify({"error": "The task doesn't exist."}), 404
-            if task.created_by != current_user:
+            if task.created_by_id != current_user.id:
                 return jsonify({"error": "Access denied."}), 403
         if request.method != "HEAD":
             if task.task_type in [
@@ -323,7 +324,7 @@ class TaskResource(AppResource):
             app.logger.exception(f"Failed to find the task with ID: {task_id}")
             return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 
-        if task.created_by != current_user:
+        if task.created_by_id != current_user.id:
             abort(403)
         task.delete_instance()
         return {"message": "The task was successfully deleted."}
@@ -361,7 +362,7 @@ class TaskResource(AppResource):
                 task = Task.get(id=task_id)
             except Task.DoesNotExist:
                 return jsonify({"error": "The task doesn't exist."}), 404
-            if task.created_by != current_user:
+            if task.created_by_id != current_user.id:
                 return jsonify({"error": "Access denied."}), 403
         try:
             task = AffiliationRecord.load(
@@ -371,7 +372,6 @@ class TaskResource(AppResource):
                 skip_schema_validation=True,
                 override=(request.method == "POST"))
         except Exception as ex:
-            db.rollback()
             app.logger.exception("Failed to handle affiliation API request.")
             return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 
@@ -386,7 +386,7 @@ class TaskResource(AppResource):
                     task = Task.get(id=task_id)
                 except Task.DoesNotExist:
                     return jsonify({"error": "The task doesn't exist."}), 404
-                if task.created_by != current_user:
+                if task.created_by_id != current_user.id:
                     return jsonify({"error": "Access denied."}), 403
             else:
                 task = None
@@ -483,6 +483,16 @@ class TaskList(TaskResource, AppResourceList):
               - PEER_REVIEW
               - PROPERTY
               - WORK
+          - name: "status"
+            in: "query"
+            required: false
+            description: >
+                The task status: ACTIVE, RESET or INACTIVE, that indicats
+                if all records were activated or not
+            type: "string"
+            enum:
+              - ACTIVE
+              - INACTIVE
           - in: query
             name: page
             description: The number of the page of retrieved data starting counting from 1
@@ -512,8 +522,16 @@ class TaskList(TaskResource, AppResourceList):
         login_user(request.oauth.user)
         query = Task.select().where(Task.org_id == current_user.organisation_id)
         task_type = request.args.get("type")
+        status = request.args.get("status")
         if task_type:
             query = query.where(Task.task_type == TaskType[task_type.upper()].value)
+        if status:
+            status = status.upper()
+            if status in ["ACTIVE", "RESET"]:
+                query = query.where(Task.status == status)
+            elif status == "INACTIVE":
+                query = query.where(Task.status.is_null() | (Task.status != "ACTIVE"))
+
         return self.api_response(
             query,
             exclude=[Task.created_by, Task.updated_by, Task.org],
@@ -528,20 +546,23 @@ class TaskAPI(TaskList):
         try:
             login_user(request.oauth.user)
             if self.is_yaml_request:
-                data = yaml.load(request.data)
+                data = yaml.safe_load(request.data)
             else:
                 data = request.json
 
-            if task_id:
+            if task_id is not None:
                 try:
                     task = Task.get(id=task_id)
                 except Task.DoesNotExist:
                     return jsonify({"error": "The task doesn't exist."}), 404
-                if task.created_by != current_user:
+                if task.created_by_id != current_user.id:
                     return jsonify({"error": "Access denied."}), 403
             else:
-                task_type = TaskType(data["task-type"]) if "task-type" in data else None
-                task = Task(task_type=task_type, org=current_user.organisaion)
+                task_type = data.get("task-type")
+                if not task_type:
+                    return jsonify({"error": "Missing task type."}), 400
+                task_type = TaskType(task_type)
+                task = Task(task_type=task_type, org=current_user.organisation)
             if "filename" in data:
                 task.filename = data["filename"]
             status = data.get("status")
@@ -738,8 +759,8 @@ class TaskAPI(TaskList):
         return self.delete_task(task_id)
 
 
-api.add_resource(TaskList, "/api/v1.0/tasks")
-api.add_resource(TaskAPI, "/api/v1.0/tasks/<int:task_id>")
+api.add_resource(TaskList, "/api/v1/tasks")
+api.add_resource(TaskAPI, "/api/v1/tasks/<int:task_id>")
 
 
 class AffiliationListAPI(TaskResource):
@@ -821,7 +842,13 @@ class AffiliationListAPI(TaskResource):
                 format: int64
               put-code:
                 type: string
-              external-id:
+              local-id:
+                type: string
+              external-id-type:
+                type: string
+              external-id-value:
+                type: string
+              external-id-relationship:
                 type: string
               is-active:
                 type: boolean
@@ -1051,8 +1078,8 @@ class AffiliationAPI(TaskResource):
         return self.delete_task(task_id)
 
 
-api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
-api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
+api.add_resource(AffiliationListAPI, "/api/v1/affiliations")
+api.add_resource(AffiliationAPI, "/api/v1/affiliations/<int:task_id>")
 
 
 class FundListAPI(TaskResource):
@@ -1239,8 +1266,8 @@ class FundAPI(FundListAPI):
         return self.delete_task(task_id)
 
 
-api.add_resource(FundListAPI, "/api/v1.0/funds")
-api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
+api.add_resource(FundListAPI, "/api/v1/funds")
+api.add_resource(FundAPI, "/api/v1/funds/<int:task_id>")
 
 
 class WorkListAPI(TaskResource):
@@ -1426,8 +1453,8 @@ class WorkAPI(WorkListAPI):
         return self.delete_task(task_id)
 
 
-api.add_resource(WorkListAPI, "/api/v1.0/works")
-api.add_resource(WorkAPI, "/api/v1.0/works/<int:task_id>")
+api.add_resource(WorkListAPI, "/api/v1/works")
+api.add_resource(WorkAPI, "/api/v1/works/<int:task_id>")
 
 
 class PeerReviewListAPI(TaskResource):
@@ -1613,8 +1640,8 @@ class PeerReviewAPI(PeerReviewListAPI):
         return self.delete_task(task_id)
 
 
-api.add_resource(PeerReviewListAPI, "/api/v1.0/peer-reviews")
-api.add_resource(PeerReviewAPI, "/api/v1.0/peer-reviews/<int:task_id>")
+api.add_resource(PeerReviewListAPI, "/api/v1/peer-reviews")
+api.add_resource(PeerReviewAPI, "/api/v1/peer-reviews/<int:task_id>")
 
 
 class PropertyListAPI(TaskResource):
@@ -1938,8 +1965,8 @@ class PropertyAPI(PropertyListAPI):
         return self.delete_task(task_id)
 
 
-api.add_resource(PropertyListAPI, "/api/v1.0/properties")
-api.add_resource(PropertyAPI, "/api/v1.0/properties/<int:task_id>")
+api.add_resource(PropertyListAPI, "/api/v1/properties")
+api.add_resource(PropertyAPI, "/api/v1/properties/<int:task_id>")
 
 
 class UserListAPI(AppResourceList):
@@ -2075,7 +2102,7 @@ class UserListAPI(AppResourceList):
         return self.handle_user()
 
 
-api.add_resource(UserListAPI, "/api/v1.0/users")
+api.add_resource(UserListAPI, "/api/v1/users")
 
 
 class UserAPI(AppResource):
@@ -2292,7 +2319,7 @@ class UserAPI(AppResource):
         return self.handle_user(identifier)
 
 
-api.add_resource(UserAPI, "/api/v1.0/users/<identifier>")
+api.add_resource(UserAPI, "/api/v1/users/<identifier>")
 
 
 class TokenAPI(MethodView):
@@ -2348,6 +2375,15 @@ class TokenAPI(MethodView):
                 type: "string"
               expires_in:
                 type: "integer"
+              email:
+                type: "string"
+                description: "User email address"
+              eppn:
+                type: "string"
+                description: "User ePPN"
+              orcid:
+                type: "string"
+                description: "User ORCID iD"
         tags:
           - "token"
         summary: "Retrieves user ORCID API access and refresh tokens."
@@ -2381,16 +2417,18 @@ class TokenAPI(MethodView):
             return jsonify(error=error_message), status_code
 
         org = request.oauth.client.org
-        tokens = OrcidToken.select().where(OrcidToken.user == user,
-                                           OrcidToken.org == org)
+        tokens = OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org)
 
-        return jsonify([
-            t.to_dict(recurse=False,
-                      only=[
-                          OrcidToken.access_token, OrcidToken.refresh_token, OrcidToken.scopes,
-                          OrcidToken.issue_time, OrcidToken.expires_in
-                      ]) for t in tokens
-        ]), 200
+        return jsonify([{
+            "access_token": t.access_token,
+            "expires_in": t.expires_in,
+            "issue_time": t.issue_time,
+            "refresh_token": t.refresh_token,
+            "scopes": t.scopes,
+            "email": user.email,
+            "eppn": user.eppn,
+            "orcid": user.orcid,
+        } for t in tokens]), 200
 
     def post(self, identifier=None):
         """
@@ -2508,7 +2546,7 @@ class TokenAPI(MethodView):
                           ])), 201
 
 
-app.add_url_rule("/api/v1.0/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"))
+app.add_url_rule("/api/v1/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"))
 
 
 def get_spec(app):
@@ -2600,6 +2638,14 @@ def get_spec(app):
             "type": "string",
             "description": "The rest of the ORCID API entry point URL.",
         },
+        "asyncParam": {
+            "in": "query",
+            "name": "async",
+            "required": False,
+            "type": "string",
+            "enum": ["t", "f", "yes", "no", "ture", "false"],
+            "description": "The indicator for asynchronous invokation.",
+        },
     }
     # Common responses:
     swag["responses"] = {
@@ -2663,7 +2709,7 @@ def get_spec(app):
             },
         },
     }
-    swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
+    swag["paths"]["/api/v1/{orcid}/webhook"] = {
         "parameters": [swag["parameters"]["orcidParam"]],
         "put": {
             "tags": ["webhooks"],
@@ -2674,7 +2720,7 @@ def get_spec(app):
             "responses": delete_responses,
         }
     }
-    swag["paths"]["/api/v1.0/{orcid}/webhook/{callback_url}"] = {
+    swag["paths"]["/api/v1/{orcid}/webhook/{callback_url}"] = {
         "parameters": [
             swag["parameters"]["orcidParam"],
             {
@@ -2700,6 +2746,7 @@ def get_spec(app):
         "parameters": [
             swag["parameters"]["versionParam"],
             swag["parameters"]["orcidParam"],
+            swag["parameters"]["asyncParam"],
         ],
         "get": {
             "tags": ["orcid-proxy"],
@@ -2735,6 +2782,7 @@ def get_spec(app):
             swag["parameters"]["versionParam"],
             swag["parameters"]["orcidParam"],
             swag["parameters"]["pathParam"],
+            swag["parameters"]["asyncParam"],
         ],
         "delete": {
             "tags": ["orcid-proxy"],
@@ -2928,7 +2976,7 @@ def orcid_proxy(version, orcid, rest=None):
         validate_orcid_id(orcid)
     except Exception as ex:
         return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 415
-    token = OrcidToken.select().join(User).where(
+    token = OrcidToken.select().join(User, on=OrcidToken.user).where(
         User.orcid == orcid, OrcidToken.org == current_user.organisation).first()
     if not token:
         return jsonify({"message": "The user hasn't granted access to the user profile"}), 403
@@ -2946,6 +2994,10 @@ def orcid_proxy(version, orcid, rest=None):
     # Swagger-UI sets 'path' to 'undefined':
     if rest and rest != "undefined":
         url += '/' + rest
+
+    if request.args.get("async") in ['1', "true", "TRUE", 'y', "yes", "YES", 't', 'T']:
+        job = exeute_orcid_call_async.queue(request.method, url, data=request.data, headers=headers)
+        return jsonify({"job-id": str(job.id)}), 201
 
     proxy_req = requests.Request(
         request.method, url, data=request.stream, headers=headers).prepare()
@@ -2967,8 +3019,25 @@ def orcid_proxy(version, orcid, rest=None):
     return proxy_resp
 
 
-@app.route("/api/v1.0/<string:orcid>/webhook", methods=["PUT", "DELETE"])
-@app.route("/api/v1.0/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
+@rq.job(timeout=300)
+def exeute_orcid_call_async(method, url, data, headers):
+    """Execute asynchrouniously ORCID API request."""
+    job = get_current_job()
+    ar = AsyncOrcidResponse.create(job_id=job.id,
+                                   enqueued_at=job.enqueued_at,
+                                   method=method,
+                                   url=url)
+    proxy_req = requests.Request(method, url, data=data, headers=headers).prepare()
+    session = requests.Session()
+    resp = session.send(proxy_req)
+
+    ar.status_code = resp.status_code
+    ar.body = resp.text
+    ar.save()
+
+
+@app.route("/api/v1/<string:orcid>/webhook", methods=["PUT", "DELETE"])
+@app.route("/api/v1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
 @oauth.require_oauth()
 def register_webhook(orcid, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""

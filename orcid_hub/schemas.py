@@ -7,7 +7,11 @@ affiliation_record = {
     "properties": {
         "id": {"type": "integer", "format": "int64"},
         "put-code": {"type": ["string", "null", "integer"]},
-        "external-id": {"type": ["string", "null"]},
+        "local-id": {"type": ["string", "null"]},
+        "external-id-type": {"type": ["string", "null"]},
+        "external-id-value": {"type": ["string", "null"]},
+        "external-id-url": {"type": ["string", "null"]},
+        "external-id-relationship": {"type": ["string", "null"]},
         "is-active": {"type": "boolean"},
         "email": {"type": ["string", "null"]},
         "first-name": {"type": ["string", "null"]},
@@ -25,12 +29,15 @@ affiliation_record = {
         "end-date": {"type": ["string", "null"]},
         "processed-at": {"type": ["string", "null"], "format": "date-time"},
         "status": {"type": ["string", "null"]},
+        "url": {"type": ["string", "null"]},
+        "visibility": {"type": ["string", "null"]},
+        "display_index": {"type": ["string", "null"]},
         "orcid": {
             "type": ["string", "null"],
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
         }
     },
-    "required": ["email", "first-name", "last-name", "affiliation-type"]
+    "required": ["email", "affiliation-type"]
 }
 
 affiliation_task = {
@@ -48,7 +55,6 @@ affiliation_task = {
             "items": affiliation_record
         },
     },
-    "required": ["records"]
 }
 
 hub_user = {

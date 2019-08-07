@@ -2,6 +2,7 @@
 """Tests for forms and WTForms extensions."""
 
 # noqa: D103
+import itertools
 from unittest.mock import MagicMock
 
 import pytest
@@ -141,6 +142,11 @@ def test_partial_date_field_errors(test_form):  # noqa
     tf = test_form(DummyPostData({"pdf1:year": "1994", "pdf1:month": "4", "pdf1:day": "31"}))
     tf.validate()
     assert len(tf.pdf1.errors) > 0
+
+    for m in itertools.chain(range(9, 13, 2), range(2, 8, 2)):
+        tf = test_form(DummyPostData({"pdf1:year": "1994", "pdf1:month": f"{m}", "pdf1:day": "31"}))
+        tf.validate()
+        assert len(tf.pdf1.errors) > 0
 
 
 def test_partial_date_field_with_filter(test_form):  # noqa
