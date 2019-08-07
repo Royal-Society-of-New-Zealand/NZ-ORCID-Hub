@@ -26,8 +26,8 @@ from flask_login import UserMixin, current_user
 from peewee import JOIN, BlobField, SqliteDatabase
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCharField,
-                    ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    SmallIntegerField, TextField, fn)
+                    ForeignKeyField, IntegerField, ManyToManyField, Model, OperationalError,
+                    PostgresqlDatabase, SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
 # from playhouse.reflection import generate_models
 from playhouse.shortcuts import model_to_dict
@@ -1118,10 +1118,7 @@ class Task(AuditedModel):
         Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE", backref="tasks")
     completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
-    # created_by = ForeignKeyField(
-    #     User, on_delete="SET NULL", null=True, backref="created_tasks")
-    # updated_by = ForeignKeyField(
-    #     User, on_delete="SET NULL", null=True, backref="updated_tasks")
+    is_raw = BooleanField(null=True, default=False)
     task_type = TaskTypeField(
         default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
     expires_at = DateTimeField(null=True)
@@ -3322,7 +3319,7 @@ class FundingContributor(ContributorModel):
         table_alias = "fc"
 
 
-class InviteeModel(BaseModel):
+class Invitee(BaseModel):
     """Common model bits of the invitees records."""
 
     identifier = CharField(max_length=120, null=True)
@@ -3347,8 +3344,11 @@ class InviteeModel(BaseModel):
             d["ORCID-iD"] = self.orcid
         return d
 
+    class Meta:  # noqa: D101,D106
+        table_alias = "i"
 
-class PeerReviewInvitee(InviteeModel):
+
+class PeerReviewInvitee(Invitee):
     """Researcher or Invitee - related to peer review."""
 
     record = ForeignKeyField(
@@ -3358,7 +3358,7 @@ class PeerReviewInvitee(InviteeModel):
         table_alias = "pi"
 
 
-class WorkInvitee(InviteeModel):
+class WorkInvitee(Invitee):
     """Researcher or Invitee - related to work."""
 
     record = ForeignKeyField(
@@ -3368,7 +3368,7 @@ class WorkInvitee(InviteeModel):
         table_alias = "wi"
 
 
-class FundingInvitee(InviteeModel):
+class FundingInvitee(Invitee):
     """Researcher or Invitee - related to funding."""
 
     record = ForeignKeyField(
@@ -3697,6 +3697,17 @@ class ResourceRecord(RecordModel):
 #     class Meta:  # noqa: D106
 #         table_alias = "rei"
 
+class Record(RecordModel):
+    """ORCID message loaded from structured batch task file."""
+
+    version = CharField(null=True)
+    type = CharField()
+    message = TextField()
+    invitees = ManyToManyField(Invitee, backref="records")
+
+
+RecordInvitee = Record.invitees.get_through_model()
+
 
 class Delegate(BaseModel):
     """External applications that can be redirected to."""
@@ -3949,6 +3960,9 @@ def create_tables(safe=True, drop=False):
             Token,
             Delegate,
             AsyncOrcidResponse,
+            Record,
+            Invitee,
+            RecordInvitee,
     ]:
 
         model.bind(db)
@@ -3972,8 +3986,6 @@ def create_audit_tables():
             with db.cursor() as cr:
                 cr.execute(sql)
             db.commit()
-    # elif isinstance(db, SqliteDatabase):
-    #     db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
 
 
 def drop_tables():
