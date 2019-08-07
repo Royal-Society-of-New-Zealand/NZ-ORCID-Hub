@@ -169,6 +169,15 @@ def no_sentry(mocker):
 @pytest.fixture
 def testdb():
     with _db:
+        if isinstance(_db, SqliteDatabase):
+            # this is a workaround for Travis
+            if _db.in_transaction():
+                try:
+                    _db.rollback()
+                except:
+                    pass
+            _db.attach(":memory:", "audit")
+
         models.create_tables()
 
         # Add some data:
@@ -270,7 +279,12 @@ def testdb():
             grant_type="client_credentials",
             response_type="XYZ")
 
-        Token.create(client=client, user=admin, access_token="TEST", token_type="Bearer")
+        Token.create(client=client,
+                     user=admin,
+                     access_token="TEST",
+                     refresh_token="TEST",
+                     token_type="Bearer",
+                     expires=datetime(2222, 1, 1, 0, 0))
 
         user = User.create(
             email="researcher@test0.edu",

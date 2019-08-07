@@ -700,7 +700,7 @@ class MemberAPIMixin:
             rec.external_ids = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
         if visibility:
-            rec.visibility = visibility.lower()
+            rec.visibility = visibility.replace('_', '-').lower()
 
         try:
             api_call = self.update_fundingv3 if put_code else self.create_fundingv3
@@ -832,7 +832,7 @@ class MemberAPIMixin:
             rec.review_identifiers = v3.ExternalIDsV30(external_id=external_ids)  # noqa: F405
 
         if visibility:
-            rec.visibility = visibility.lower()
+            rec.visibility = visibility.replace('_', '-').lower()
 
         try:
             api_call = self.update_peer_reviewv3 if put_code else self.create_peer_reviewv3
@@ -931,7 +931,7 @@ class MemberAPIMixin:
             rec.put_code = put_code
 
         if visibility:
-            rec.visibility = visibility.lower()
+            rec.visibility = visibility.replace('_', '-').lower()
 
         try:
             api_call = self.update_workv3 if put_code else self.create_workv3
@@ -1147,21 +1147,21 @@ class MemberAPIMixin:
     def create_or_update_researcher_url(self, name=None, value=None, display_index=None, orcid=None,
                                         put_code=None, visibility=None, *args, **kwargs):
         """Create or update researcher url record of a user."""
-        rec = ResearcherUrl()       # noqa: F405
+        rec = v3.ResearcherUrlV30()       # noqa: F405
 
-        if put_code:
-            rec.put_code = put_code
         if name:
             rec.url_name = name
         if value:
-            rec.url = Url(value=value)      # noqa: F405
+            rec.url = v3.UrlV30(value=value)      # noqa: F405
         if visibility:
-            rec.visibility = visibility
+            rec.visibility = visibility.replace('_', '-').lower()
+        if put_code:
+            rec.put_code = put_code
         if display_index:
             rec.display_index = display_index
 
         try:
-            api_call = self.edit_researcher_url if put_code else self.create_researcher_url
+            api_call = self.edit_researcher_urlv3 if put_code else self.create_researcher_urlv3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code
@@ -1179,7 +1179,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
+                    resp, "data") and json.loads(resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1193,7 +1194,7 @@ class MemberAPIMixin:
     def create_or_update_other_name(self, content=None, value=None, display_index=None, orcid=None, put_code=None,
                                     visibility=None, *args, **kwargs):
         """Create or update other name record of a user."""
-        rec = OtherName()       # noqa: F405
+        rec = v3.OtherNameV30()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
@@ -1201,12 +1202,12 @@ class MemberAPIMixin:
         if content:
             rec.content = content
         if visibility:
-            rec.visibility = visibility
+            rec.visibility = visibility.replace('_', '-').lower()
         if display_index:
             rec.display_index = display_index
 
         try:
-            api_call = self.edit_other_name if put_code else self.create_other_name
+            api_call = self.edit_other_namev3 if put_code else self.create_other_namev3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code
@@ -1224,7 +1225,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
+                    resp, "data") and json.loads(resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1238,20 +1240,20 @@ class MemberAPIMixin:
     def create_or_update_address(self, country=None, value=None, display_index=None, orcid=None, put_code=None,
                                  visibility=None, *args, **kwargs):
         """Create or update address record of an user."""
-        rec = Address()       # noqa: F405
+        rec = v3.AddressV30()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
         country = country or value
         if country:
-            rec.country = Country(value=country)      # noqa: F405
+            rec.country = v3.CountryV30(value=country)      # noqa: F405
         if visibility:
-            rec.visibility = visibility
+            rec.visibility = visibility.replace('_', '-').lower()
         if display_index:
             rec.display_index = display_index
 
         try:
-            api_call = self.edit_address if put_code else self.create_address
+            api_call = self.edit_addressv3 if put_code else self.create_addressv3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code
@@ -1269,7 +1271,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
+                    resp, "data") and json.loads(resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1284,25 +1287,25 @@ class MemberAPIMixin:
                                             display_index=None, orcid=None, put_code=None, visibility=None,
                                             *args, **kwargs):
         """Create or update person external identifier record of an user."""
-        rec = PersonExternalIdentifier()       # noqa: F405
+        rec = v3.PersonExternalIdentifierV30()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
         if type:
-            rec.external_id_type = type
+            rec.external_id_type = type.replace('_', '-').lower()
         if value:
             rec.external_id_value = value
         if url:
-            rec.external_id_url = Url(value=url)      # noqa: F405
+            rec.external_id_url = v3.UrlV30(value=url)      # noqa: F405
         if relationship:
-            rec.external_id_relationship = relationship
+            rec.external_id_relationship = relationship.replace('_', '-').lower()
         if visibility:
-            rec.visibility = visibility
+            rec.visibility = visibility.replace('_', '-').lower()
         if display_index:
             rec.display_index = display_index
 
         try:
-            api_call = self.edit_external_identifier if put_code else self.create_external_identifier
+            api_call = self.edit_external_identifierv3 if put_code else self.create_external_identifierv3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code
@@ -1320,7 +1323,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
+                    resp, "data") and json.loads(resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1334,7 +1338,7 @@ class MemberAPIMixin:
     def create_or_update_keyword(self, content=None, value=None, display_index=None, orcid=None, put_code=None,
                                  visibility=None, *args, **kwargs):
         """Create or update Keyword record of a user."""
-        rec = Keyword()       # noqa: F405
+        rec = v3.KeywordV30()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
@@ -1343,12 +1347,12 @@ class MemberAPIMixin:
         if content:
             rec.content = content
         if visibility:
-            rec.visibility = visibility
+            rec.visibility = visibility.replace('_', '-').lower()
         if display_index:
             rec.display_index = display_index
 
         try:
-            api_call = self.edit_keyword if put_code else self.create_keyword
+            api_call = self.edit_keywordv3 if put_code else self.create_keywordv3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code
@@ -1366,7 +1370,8 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
+                    resp, "data") and json.loads(resp.data).get("visibility") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1440,16 +1445,16 @@ class MemberAPIMixin:
             "SER": "view_servicesv3",
             "QUA": "view_qualificationsv3",
             "POS": "view_invited_positionsv3",
-            "ADR": "view_addresses",
+            "ADR": "view_addressesv3",
             "DST": "view_distinctionsv3",
             "EDU": "view_educationsv3",
             "EMP": "view_employmentsv3",
-            "EXR": "view_external_identifiers",
+            "EXR": "view_external_identifiersv3",
             "FUN": "view_fundingsv3",
-            "KWR": "view_keywords",
-            "ONR": "view_other_names",
+            "KWR": "view_keywordsv3",
+            "ONR": "view_other_namesv3",
             "PRR": "view_peer_reviewsv3",
-            "RUR": "view_researcher_urls",
+            "RUR": "view_researcher_urlsv3",
             "WOR": "view_worksv3"
         }[section_type]
         return getattr(self, method_name)(self.user.orcid, _preload_content=False)
@@ -1462,15 +1467,15 @@ class MemberAPIMixin:
             "QUA": "delete_qualificationv3",
             "POS": "delete_invited_positionv3",
             "DST": "delete_distinctionv3",
-            "ADR": "delete_address",
+            "ADR": "delete_addressv3",
             "EDU": "delete_educationv3",
             "EMP": "delete_employmentv3",
-            "EXR": "delete_external_identifier",
+            "EXR": "delete_external_identifierv3",
             "FUN": "delete_fundingv3",
-            "KWR": "delete_keyword",
-            "ONR": "delete_other_name",
+            "KWR": "delete_keywordv3",
+            "ONR": "delete_other_namev3",
             "PRR": "delete_peer_reviewv3",
-            "RUR": "delete_researcher_url",
+            "RUR": "delete_researcher_urlv3",
             "WOR": "delete_workv3"
         }[section_type]
         return getattr(self, method_name)(self.user.orcid, put_code)

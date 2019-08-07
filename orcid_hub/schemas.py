@@ -8,6 +8,10 @@ affiliation_record = {
         "id": {"type": "integer", "format": "int64"},
         "put-code": {"type": ["string", "null", "integer"]},
         "local-id": {"type": ["string", "null"]},
+        "external-id-type": {"type": ["string", "null"]},
+        "external-id-value": {"type": ["string", "null"]},
+        "external-id-url": {"type": ["string", "null"]},
+        "external-id-relationship": {"type": ["string", "null"]},
         "is-active": {"type": "boolean"},
         "email": {"type": ["string", "null"]},
         "first-name": {"type": ["string", "null"]},
@@ -33,7 +37,7 @@ affiliation_record = {
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
         }
     },
-    "required": ["email", "first-name", "last-name", "affiliation-type"]
+    "required": ["email", "affiliation-type"]
 }
 
 affiliation_task = {
@@ -51,7 +55,6 @@ affiliation_task = {
             "items": affiliation_record
         },
     },
-    "required": ["records"]
 }
 
 hub_user = {

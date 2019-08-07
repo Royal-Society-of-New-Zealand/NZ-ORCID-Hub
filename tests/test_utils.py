@@ -639,11 +639,11 @@ def test_create_or_update_peer_review(app, mocker):
 def test_create_or_update_property_record(app, mocker):
     """Test create or update researcher keyword, researcher url, other name and country"""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
-    mocker.patch("orcid_api.MemberAPIV20Api.create_keyword", create_or_update_fund_mock)
-    mocker.patch("orcid_api.MemberAPIV20Api.create_researcher_url", create_or_update_fund_mock)
-    mocker.patch("orcid_api.MemberAPIV20Api.create_other_name", create_or_update_fund_mock)
-    mocker.patch("orcid_api.MemberAPIV20Api.create_address", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_keywordv3", create_or_update_fund_mock)
+    mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_researcher_urlv3", create_or_update_fund_mock)
+    mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_other_namev3", create_or_update_fund_mock)
+    mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_addressv3", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
     org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
@@ -734,8 +734,8 @@ def test_create_or_update_property_record(app, mocker):
 def test_process_other_id_records(app, mocker):
     """Test create or update researcher other id."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
-    mocker.patch("orcid_api.MemberAPIV20Api.create_external_identifier", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_external_identifierv3", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile())
     org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",

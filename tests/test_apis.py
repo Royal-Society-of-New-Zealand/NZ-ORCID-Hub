@@ -12,8 +12,8 @@ import pytest
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
-from orcid_hub.models import (AffiliationRecord, Client, OrcidToken, Organisation, Task, TaskType,
-                              Token, User, UserInvitation)
+from orcid_hub.models import (AffiliationRecord, AsyncOrcidResponse, Client, OrcidToken,
+                              Organisation, Task, TaskType, Token, User, UserInvitation)
 
 from unittest.mock import patch, MagicMock
 from tests import utils
@@ -34,6 +34,7 @@ def test_plural():
 
 def test_get_oauth_access_token(client):
     """Test the acquisition of OAuth access token."""
+    Token.update(expires=datetime(2017, 1, 1, 0, 0)).execute()
     resp = client.post(
             "/oauth/token",
             data=dict(
@@ -42,7 +43,7 @@ def test_get_oauth_access_token(client):
                 client_secret="CLIENT_SECRET"))
     assert resp.status_code == 200
     c = Client.get(client_id="CLIENT_ID")
-    token = Token.get(client=c)
+    token = Token.select().where(Token.client == c, Token.access_token != "TEST").first()
     assert resp.json["access_token"] == token.access_token
     assert resp.json["expires_in"] == client.application.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
     assert resp.json["token_type"] == token.token_type
@@ -80,31 +81,62 @@ def test_get_oauth_access_token(client):
     assert resp.json["error"] == "unsupported_grant_type"
 
 
-# def test_revoke_access_token(client):
-#     """Test the acquisition of OAuth access token."""
-#     resp = client.get(
-#             "/oauth/token",
-#             method="POST",
-#             data=dict(
-#                 grant_type="client_credentials",
-#                 client_id="CLIENT_ID",
-#                 client_secret="CLIENT_SECRET"))
-#         resp = ctx.app.full_dispatch_request()
-#         assert resp.status_code == 200
-#         data = json.loads(resp.data)
-#         client = Client.get(client_id="CLIENT_ID")
-#         token = Token.get(client=client)
-#         assert data["access_token"] == token.access_token
+def test_multiple_access_token(client):
+    """Test the acquisition of OAuth access token."""
+    resp = client.post(
+            "/oauth/token",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    c = Client.get(client_id="CLIENT_ID")
+    token = Token.get(client=c)
+    assert data["access_token"] != token.access_token
+    assert Token.select().count() == 2
 
-#     resp = client.get(
-#             "/oauth/token",
-#             data=dict(
-#                 grant_type="client_credentials",
-#                 client_id="CLIENT_ID",
-#                 client_secret="CLIENT_SECRET"))
-#         resp = ctx.app.full_dispatch_request()
-#         assert resp.status_code == 200
-#         data = json.loads(resp.data)
+    resp = client.post(
+            "/oauth/token",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert Token.select().count() == 3
+
+    token = Token.get(access_token=data["access_token"])
+    token.expires = datetime(555, 5, 5)
+    token.save()
+
+    resp = client.post(
+            "/oauth/token",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    assert Token.select().count() == 3
+    assert not Token.select().where(Token.access_token == token.access_token).exists()
+
+    # Multiple clients and multiple access tokens:
+    for o in Organisation.select():
+        u = o.users.first()
+        if u:
+            c = Client.create(org=o, user=u, client_id=u.name, client_secret=u.name)
+            resp = client.post(
+                    "/oauth/token",
+                    data=dict(
+                        grant_type="client_credentials",
+                        client_id=c.client_id,
+                        client_secret=c.client_secret))
+            assert resp.status_code == 200
+            assert "access_token" in resp.json
+            t = Token.select().where(Token.access_token == resp.json["access_token"]).first()
+            assert t is not None
+            assert t.user == u
+            assert t.client == c
 
 
 def test_me(client):
@@ -670,6 +702,21 @@ def test_affiliation_api(client, mocker):
     assert tasks[0]["id"] == task_id
 
     resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=ACTIVE", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 0
+
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=RESET", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 0
+
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=INACTIVE", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 1
+
+    resp = client.get(
         "/api/v1/tasks?type=AFFILIATION&page=1&page_size=20",
         headers=dict(authorization=f"Bearer {access_token}"))
     tasks = json.loads(resp.data)
@@ -909,12 +956,27 @@ records:
     assert Task.get(task_id).status == "ACTIVE"
     assert task.records.where(task.record_model.is_active).count() == 3
 
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=ACTIVE", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 1
+
     resp = client.put(
         f"/api/v1/tasks/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
         content_type="application/json",
         data="""{"status": "RESET"}""")
     assert Task.get(task_id).status == "RESET"
+
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=ACTIVE", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 0
+
+    resp = client.get(
+        "/api/v1/tasks?type=AFFILIATION&status=RESET", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert len(tasks) == 1
 
     resp = client.put(
         f"/api/v1/tasks/{task_id}",
@@ -1020,6 +1082,13 @@ something fishy is going here...
     assert "something fishy is going here..." in resp.json["message"]
     exception.assert_called()
     capture_event.assert_called()
+
+    # attempt to use ID:0
+    resp = client.put(
+        f"/api/v1/tasks/0",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "ACTIVE"}""")
 
 
 def test_funding_api(client):
@@ -1300,6 +1369,20 @@ def test_proxy_get_profile(client):
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
         assert resp.json == {"data": "TEST"}
 
+        # Asynchronous call:
+        resp = client.get(
+            f"/orcid/api/v2.23/{orcid_id}?async=true",
+            headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.status_code == 201
+        args, kwargs = mocksend.call_args
+        assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}"
+        assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
+        assert "job-id" in resp.json
+        assert AsyncOrcidResponse.select().exists()
+        ar = AsyncOrcidResponse.get()
+        assert ar.status_code == 200
+        assert ar.body is not None
+
     with patch("orcid_hub.apis.requests.Session.send") as mocksend:
         mockresp = MagicMock(status_code=201)
         mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
@@ -1427,15 +1510,15 @@ def test_property_api(client, mocker):
                        data=open(os.path.join(data_path, "properties.json")).read())
     assert resp.status_code == 200
     assert Task.select().count() == 5
-
     user = User.get(orcid="0000-0000-0000-00X3")
     OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
-    get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=utils.get_profile(user=user))
+    get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record",
+                               return_value=utils.get_profile(user=user))
     send_email = mocker.patch("orcid_hub.utils.send_email")
-    create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_researcher_url")
-    create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_other_name")
-    create_or_update_address = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_address")
-    create_or_update_keyword = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_keyword")
+    create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_researcher_url")
+    create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_other_name")
+    create_or_update_address = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_address")
+    create_or_update_keyword = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_keyword")
     for r in records:
         del(r["id"])
         r["is-active"] = True
