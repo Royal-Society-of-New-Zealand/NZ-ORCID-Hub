@@ -3838,8 +3838,8 @@ class AsyncOrcidResponse(BaseModel):
     """Asynchronouly invoked ORCID API calls."""
 
     job_id = UUIDField(primary_key=True)
-    enqueued_at = DateTimeField(default=datetime.utcnow, null=True)
-    executed_at = DateTimeField(default=datetime.utcnow, null=True)
+    enqueued_at = DateTimeField(default=datetime.utcnow)
+    executed_at = DateTimeField(null=True)
     method = CharField(max_length=10)
     url = CharField(max_length=200)
     status_code = SmallIntegerField(null=True)

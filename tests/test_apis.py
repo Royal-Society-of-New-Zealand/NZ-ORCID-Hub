@@ -7,6 +7,7 @@ import yaml
 from datetime import datetime
 from io import BytesIO
 import os
+from uuid import uuid4
 
 import pytest
 
@@ -1346,9 +1347,7 @@ def test_proxy_get_profile(client):
     orcid_id = "0000-0000-0000-00X3"
 
     with patch("orcid_hub.apis.requests.Session.send") as mocksend:
-        mockresp = MagicMock(status_code=200)
-        mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
-        mockresp.raw.headers = {
+        headers = {
             "Server": "TEST123",
             "Content-Type": "application/json;charset=UTF-8",
             "Transfer-Encoding": "chunked",
@@ -1358,6 +1357,12 @@ def test_proxy_get_profile(client):
             "Pragma": "no-cache",
             "Expires": "0",
         }
+        mockresp = MagicMock(status_code=200,
+                             headers=headers,
+                             json={"data": "TEST"},
+                             text='{"data": "TEST"}')
+        mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
+        mockresp.raw.headers = headers
         mocksend.return_value = mockresp
         resp = client.get(
             f"/orcid/api/v2.23/{orcid_id}",
@@ -1373,7 +1378,7 @@ def test_proxy_get_profile(client):
         resp = client.get(
             f"/orcid/api/v2.23/{orcid_id}?async=true",
             headers=dict(authorization=f"Bearer {token.access_token}"))
-        assert resp.status_code == 201
+        assert resp.status_code == 202
         args, kwargs = mocksend.call_args
         assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}"
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
@@ -1383,20 +1388,38 @@ def test_proxy_get_profile(client):
         assert ar.status_code == 200
         assert ar.body is not None
 
+        job_id = str(ar.job_id)
+        assert resp.json["job-id"] == job_id
+        assert resp.json["response-url"].endswith(job_id)
+        assert resp.headers["ORCIDHub-AsyncOperation-Response"].endswith(job_id)
+        assert resp.headers["ORCIDHub-AsyncOperation-Response"] == resp.json["response-url"]
+
+        resp = client.get(resp.json["response-url"],
+                          headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.headers["ORCIDHub-Async-Method"] == "GET"
+        assert resp.headers["ORCIDHub-Async-URL"].endswith(orcid_id)
+
+        # Incorrect request
+        resp = client.get(f"/api/v1/response/{uuid4()}",
+                          headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.status_code == 404
+
+        ar.executed_at = None
+        ar.save()
+        resp = client.get(f"/api/v1/response/{ar.job_id}",
+                          headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.status_code == 204
+
+        ar.executed_at = datetime.utcnow()
+        ar.save()
+        resp = client.get(f"/api/v1/response/{ar.job_id}",
+                          headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.status_code == 200
+
     with patch("orcid_hub.apis.requests.Session.send") as mocksend:
-        mockresp = MagicMock(status_code=201)
+        mockresp = MagicMock(status_code=201, headers=headers, json={"data": "TEST"})
         mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
-        mockresp.raw.headers = {
-            "Server": "TEST123",
-            "Content-Type": "application/json;charset=UTF-8",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
-            "Pragma": "no-cache",
-            "Loction": "TEST-LOCATION",
-            "Expires": "0",
-        }
+        mockresp.raw.headers = headers
         mocksend.return_value = mockresp
         resp = client.post(
             f"/orcid/api/v2.23/{orcid_id}/SOMETHING-MORE",

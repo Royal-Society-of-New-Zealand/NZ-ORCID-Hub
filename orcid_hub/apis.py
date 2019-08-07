@@ -3,9 +3,10 @@
 import re
 from datetime import datetime
 from urllib.parse import unquote, urlencode
-from uuid import UUID
+from uuid import uuid4, UUID
 
 import dateutil.parser
+import json
 import jsonschema
 import requests
 import validators
@@ -2646,6 +2647,14 @@ def get_spec(app):
             "enum": ["t", "f", "yes", "no", "ture", "false"],
             "description": "The indicator for asynchronous invokation.",
         },
+        "jobIdParam": {
+            "in": "path",
+            "name": "job_id",
+            "required": True,
+            "type": "string",
+            "description": "The asynchroniously submitted task ID.",
+            "format": r"^[0-9a-fA-F]{8}\-?[0-9a-fA-F]{4}\-?[0-9a-fA-F]{4}\-?[0-9a-fA-F]{4}\-?[0-9a-fA-F]{12}$",
+        },
     }
     # Common responses:
     swag["responses"] = {
@@ -2662,17 +2671,31 @@ def get_spec(app):
                 "schema": {"$ref": "#/definitions/Error"}
             },
     }
-    swag["definitions"]["Error"] = {
-        "properties": {
-            "error": {
-                "type": "string",
-                "description": "Error type/name."
-            },
-            "message": {
-                "type": "string",
-                "description": "Error details explaining message."
-            },
-        }
+    swag["definitions"] = {
+        "Error": {
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "description": "Error type/name."
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Error details explaining message."
+                },
+            }
+        },
+        "AsyncResponse": {
+            "properties": {
+                "job-id": {
+                    "type": "string",
+                    "description": "The job ID of the submitted request."
+                },
+                "response-url": {
+                    "type": "string",
+                    "description": "The URL the response will be available at."
+                },
+            }
+        },
     }
     # Webhooks:
     put_responses = {
@@ -2742,6 +2765,38 @@ def get_spec(app):
         }
     }
     # Proxy:
+    swag["paths"]["/orcid/api/response/{job_id}"] = {
+        "parameters": [
+            swag["parameters"]["jobIdParam"],
+        ],
+        "get": {
+            "tags": ["orcid-proxy"],
+            "produces": [
+                "application/vnd.orcid+xml; qs=5", "application/orcid+xml; qs=3",
+                "application/xml", "application/vnd.orcid+json; qs=4",
+                "application/orcid+json; qs=2", "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "Successful operation",
+                    "schema": {
+                        "type": "object"
+                    }
+                },
+                "204": {
+                    "description": "The response is not yet ready",
+                },
+                "404": {
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
+                },
+                "415": {
+                    "description": "Missing or invalid job ID.",
+                    "schema": {"$ref": "#/definitions/Error"}
+                },
+            },
+        },
+    }
     swag["paths"]["/orcid/api/{version}/{orcid}"] = {
         "parameters": [
             swag["parameters"]["versionParam"],
@@ -2757,6 +2812,12 @@ def get_spec(app):
             ],
             "responses": {
                 "200": {
+                    "description": "Successful operation",
+                    "schema": {
+                        "type": "object"
+                    }
+                },
+                "202": {
                     "description": "Successful operation",
                     "schema": {
                         "type": "object"
@@ -2996,8 +3057,20 @@ def orcid_proxy(version, orcid, rest=None):
         url += '/' + rest
 
     if request.args.get("async") in ['1', "true", "TRUE", 'y', "yes", "YES", 't', 'T']:
-        job = exeute_orcid_call_async.queue(request.method, url, data=request.data, headers=headers)
-        return jsonify({"job-id": str(job.id)}), 201
+        job_id = uuid4()
+        AsyncOrcidResponse.create(job_id=job_id,
+                                  method=request.method,
+                                  url=url)
+        job = exeute_orcid_call_async.queue(request.method,
+                                            url,
+                                            data=request.data,
+                                            headers=headers,
+                                            job_id=str(job_id))
+        resp_url = url_for("orcid_proxy_response", job_id=str(job.id))
+        resp = jsonify({"job-id": str(job.id), "response-url": resp_url})
+        resp.status_code = 202
+        resp.headers["ORCIDHub-AsyncOperation-Response"] = resp_url
+        return resp
 
     proxy_req = requests.Request(
         request.method, url, data=request.stream, headers=headers).prepare()
@@ -3019,19 +3092,39 @@ def orcid_proxy(version, orcid, rest=None):
     return proxy_resp
 
 
+@app.route("/api/v1/response/<uuid:job_id>")
+@oauth.require_oauth()
+def orcid_proxy_response(job_id):
+    """Handle proxied request..."""
+    try:
+        resp = AsyncOrcidResponse.get(job_id=job_id)
+    except ValueError as ex:
+        return jsonify({"error": str(ex), f"message": "Invalid job ID: {job_id}"}), 415
+    except AsyncOrcidResponse.DoesNotExist:
+        return jsonify({"message": "The responses desn't exist"}), 404
+
+    if not resp.executed_at:
+        return jsonify({"message": f"The job (ID: {job_id}) hasn't been finised yet."}), 204
+
+    headers = json.loads(resp.headers)
+    headers["ORCIDHub-Async-URL"] = resp.url
+    headers["ORCIDHub-Async-Method"] = resp.method
+    headers["ORCIDHub-Async-SubmittedAt"] = resp.enqueued_at
+    return Response(resp.body, headers=headers, status=resp.status_code)
+
+
 @rq.job(timeout=300)
 def exeute_orcid_call_async(method, url, data, headers):
     """Execute asynchrouniously ORCID API request."""
     job = get_current_job()
-    ar = AsyncOrcidResponse.create(job_id=job.id,
-                                   enqueued_at=job.enqueued_at,
-                                   method=method,
-                                   url=url)
+    ar = AsyncOrcidResponse.get(job_id=job.id)
     proxy_req = requests.Request(method, url, data=data, headers=headers).prepare()
     session = requests.Session()
     resp = session.send(proxy_req)
 
     ar.status_code = resp.status_code
+    ar.headers = json.dumps(dict(resp.headers))
+    ar.executed_at = datetime.utcnow()
     ar.body = resp.text
     ar.save()
 
