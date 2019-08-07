@@ -57,7 +57,6 @@ def test_webhook_registration(client):
 
     resp = test_client.post(
         "/oauth/token",
-        method="POST",
         data=dict(
             grant_type="client_credentials",
             client_id=client.client_id,
@@ -66,9 +65,8 @@ def test_webhook_registration(client):
 
     assert resp.status_code == 200
     data = json.loads(resp.data)
-    token = Token.get(user=user, _scopes="/webhook")
     client = Client.get(client_id="CLIENT_ID")
-    token = Token.get(client=client)
+    token = Token.select().where(Token.user == user, Token._scopes == "/webhook").first()
     assert data["access_token"] == token.access_token
     assert data["expires_in"] == test_client.application.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
     assert data["token_type"] == token.token_type
