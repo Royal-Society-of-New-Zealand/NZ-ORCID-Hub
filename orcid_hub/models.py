@@ -1138,7 +1138,7 @@ class Task(AuditedModel):
     @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
-        return 0 if self.records is None else self.records.count()
+        return 0 if self.records is None or not self.task_type else self.records.count()
 
     @property
     def record_model(self):
@@ -3658,7 +3658,7 @@ class ResourceRecord(RecordModel):
 
     is_active = BooleanField(
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
-    task = ForeignKeyField(Task, backref="affiliation_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="resource_records", on_delete="CASCADE")
     local_id = CharField(
         max_length=100,
         null=True,
