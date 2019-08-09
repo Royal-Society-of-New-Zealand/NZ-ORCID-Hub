@@ -1662,7 +1662,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
             "start_date:year": "1990",
             "end_date:year": "2024",
             "city": "Auckland City",
-            "state": "Auckland",
+            "region": "Auckland",
             "country": "NZ",
         })
 
@@ -2822,7 +2822,7 @@ def test_reset_all(client):
         role="Test",
         department="Test",
         city="Test",
-        state="Test",
+        region="Test",
         country="NZ",
         disambiguated_id="Test",
         disambiguation_source="Test")

@@ -528,7 +528,7 @@ def send_user_invitation(inviter,
                          department=None,
                          organisation=None,
                          city=None,
-                         state=None,
+                         region=None,
                          country=None,
                          course_or_role=None,
                          start_date=None,
@@ -640,7 +640,7 @@ def send_user_invitation(inviter,
             department=department,
             organisation=organisation,
             city=city,
-            state=state,
+            region=region,
             country=country,
             course_or_role=course_or_role,
             start_date=start_date,
@@ -936,7 +936,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     and r.get("role-title") == record.role
                     and get_val(r, "organization", "name") == record.organisation
                     and get_val(r, "organization", "address", "city") == record.city
-                    and get_val(r, "organization", "address", "region") == record.state
+                    and get_val(r, "organization", "address", "region") == record.region
                     and get_val(r, "organization", "address", "country") == record.country
                     and get_val(r, "organization", "disambiguated-organization",
                                 "disambiguated-organization-identifier") == record.disambiguated_id
@@ -1062,7 +1062,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                                   orcid=user.orcid,
                                   organisation=org.name,
                                   city=org.city,
-                                  state=org.state,
+                                  region=org.region,
                                   country=org.country,
                                   start_date=task_by_user.record.start_date,
                                   end_date=task_by_user.record.end_date,

@@ -306,7 +306,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=pr.convening_org_city or self.org.city,
             country=pr.convening_org_country or self.org.country,
-            region=pr.convening_org_region or self.org.state)
+            region=pr.convening_org_region or self.org.region)
 
         disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=pr.convening_org_disambiguated_identifier or self.org.disambiguated_id,   # noqa: E501
@@ -546,7 +546,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=fr.city or self.org.city,
             country=fr.country or self.org.country,
-            region=fr.region or self.org.state)
+            region=fr.region or self.org.region)
 
         disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=fr.disambiguated_id or self.org.disambiguated_id,
@@ -632,7 +632,7 @@ class MemberAPIMixin:
     def create_or_update_individual_funding(self, funding_title=None, funding_translated_title=None,
                                             translated_title_language=None, funding_type=None, funding_subtype=None,
                                             funding_description=None, total_funding_amount=None,
-                                            total_funding_amount_currency=None, org_name=None, city=None, state=None,
+                                            total_funding_amount_currency=None, org_name=None, city=None, region=None,
                                             country=None, start_date=None, end_date=None, disambiguated_id=None,
                                             disambiguation_source=None, grant_data_list=None, put_code=None,
                                             url=None, visibility=None, *args, **kwargs):
@@ -665,7 +665,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
-            region=state or self.org.state)
+            region=region or self.org.region)
 
         disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
@@ -737,7 +737,7 @@ class MemberAPIMixin:
             return (put_code, orcid, created)
 
     def create_or_update_individual_peer_review(self, org_name=None, disambiguated_id=None, disambiguation_source=None,
-                                                city=None, state=None, country=None, reviewer_role=None,
+                                                city=None, region=None, country=None, reviewer_role=None,
                                                 review_url=None, review_type=None, review_group_id=None,
                                                 subject_external_identifier_type=None,
                                                 subject_external_identifier_value=None,
@@ -802,7 +802,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
-            region=state or self.org.state)
+            region=region or self.org.region)
 
         disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
@@ -977,7 +977,6 @@ class MemberAPIMixin:
             # NB! affiliation_record has 'organisation' field for organisation name
             organisation=None,
             city=None,
-            state=None,
             region=None,
             country=None,
             disambiguated_id=None,
@@ -1004,12 +1003,10 @@ class MemberAPIMixin:
             department = None
         if not role:
             role = None
-        if not state:
-            state = None
         if not region:
             region = None
-        if not self.org.state:
-            self.org.state = None
+        if not self.org.region:
+            self.org.region = None
 
         if affiliation is None:
             app.logger.warning("Missing affiliation value.")
@@ -1023,7 +1020,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
-            region=state or region or self.org.state)
+            region=region or self.org.region)
 
         if disambiguation_source:
             disambiguation_source = disambiguation_source.upper()

@@ -21,6 +21,7 @@ affiliation_record = {
         "department": {"type": ["string", "null"]},
         "city": {"type": ["string", "null"]},
         "state": {"type": ["string", "null"]},
+        "region": {"type": ["string", "null"]},
         "country": {"type": ["string", "null"]},
         "disambiguated-id": {"type": ["string", "null"]},
         "disambiguated-source": {"type": ["string", "null"]},

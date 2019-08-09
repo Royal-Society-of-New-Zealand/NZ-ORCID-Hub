@@ -193,7 +193,7 @@ class AppModelView(ModelView):
     """ModelView customization."""
 
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
-    column_editable_list = ["name", "is_active", "email", "role", "city", "state", "value", "url", "display_index"]
+    column_editable_list = ["name", "is_active", "email", "role", "city", "region", "value", "url", "display_index"]
     roles_required = Role.SUPERUSER
     export_types = [
         "csv",
@@ -801,8 +801,8 @@ class RecordModelView(AppModelView):
                 form.org_name.data = org.name
             if hasattr(form, "city"):
                 form.city.data = org.city
-            if hasattr(form, "state"):
-                form.state.data = org.state
+            if hasattr(form, "region"):
+                form.region.data = org.region
             if hasattr(form, "country"):
                 form.country.data = org.country
             if hasattr(form, "disambiguated_id"):
@@ -1507,7 +1507,7 @@ class AffiliationRecordAdmin(RecordModelView):
         "email",
         "role",
         "department",
-        "state",
+        "region",
     )
     column_export_exclude_list = (
         "task",
@@ -1740,7 +1740,7 @@ class ViewMembersAdmin(AppModelView):
             titles = [
                 csv_encode(c) for c in [
                     "Put Code", "First Name", "Last Name", "Email", "ORCID iD", "Affiliation Type",
-                    "Role", "Department", "Start Date", "End Date", "City", "State", "Country",
+                    "Role", "Department", "Start Date", "End Date", "City", "Region", "Country",
                     "Disambiguated Id", "Disambiguation Source"
                 ]
             ]
@@ -2161,7 +2161,7 @@ def edit_record(user_id, section_type, put_code=None):
                             disambiguation_source=_data.get("convening-organization", "disambiguated-organization",
                                                             "disambiguation-source"),
                             city=_data.get("convening-organization", "address", "city"),
-                            state=_data.get("convening-organization", "address", "region"),
+                            region=_data.get("convening-organization", "address", "region"),
                             country=_data.get("convening-organization", "address", "country"),
                             reviewer_role=(_data.get("reviewer-role", default='') or '').replace('-', '_').upper(),
                             review_url=_data.get("review-url", "value"),
@@ -2209,7 +2209,7 @@ def edit_record(user_id, section_type, put_code=None):
                         disambiguation_source=_data.get("organization", "disambiguated-organization",
                                                         "disambiguation-source"),
                         city=_data.get("organization", "address", "city"),
-                        state=_data.get("organization", "address", "region"),
+                        region=_data.get("organization", "address", "region"),
                         country=_data.get("organization", "address", "country"),
                         department=_data.get("department-name"),
                         role=_data.get("role-title"),
@@ -2793,7 +2793,7 @@ def register_org(org_name,
                  last_name=None,
                  orcid_id=None,
                  city=None,
-                 state=None,
+                 region=None,
                  country=None,
                  course_or_role=None,
                  disambiguated_id=None,
@@ -2811,7 +2811,7 @@ def register_org(org_name,
         except Organisation.DoesNotExist:
             org = Organisation(name=org_name)
             if via_orcid:
-                org.state = state
+                org.region = region
                 org.city = city
                 org.country = country
                 org.disambiguated_id = disambiguated_id
@@ -3004,7 +3004,7 @@ def invite_user():
         form.disambiguated_id.data = org.disambiguated_id
         form.disambiguation_source.data = org.disambiguation_source
         form.city.data = org.city
-        form.state.data = org.state
+        form.region.data = org.region
         form.country.data = org.country
 
     while form.validate_on_submit():

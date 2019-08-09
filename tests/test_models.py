@@ -94,7 +94,7 @@ def models(testdb):
         role="Test_%d" % i,
         department="Test_%d" % i,
         city="Test_%d" % i,
-        state="Test_%d" % i,
+        region="Test_%d" % i,
         country="Test_%d" % i,
         disambiguated_id="Test_%d" % i,
         disambiguation_source="Test_%d" % i) for i in range(10))).execute()

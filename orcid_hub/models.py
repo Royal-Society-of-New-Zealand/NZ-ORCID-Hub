@@ -613,7 +613,7 @@ class Organisation(AuditedModel):
         orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
     city = CharField(null=True)
-    state = CharField(null=True, verbose_name="State/Region", max_length=100)
+    region = CharField(null=True, verbose_name="State/Region", max_length=100)
     country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     disambiguated_id = CharField(null=True)
     disambiguation_source = CharField(null=True, choices=disambiguation_source_choices)
@@ -1308,7 +1308,7 @@ class Task(AuditedModel):
                         organisation=val(row, 3),
                         department=val(row, 4),
                         city=val(row, 5),
-                        state=val(row, 6),
+                        region=val(row, 6),
                         role=val(row, 7),
                         start_date=PartialDate.create(val(row, 8)),
                         end_date=PartialDate.create(val(row, 9)),
@@ -1446,7 +1446,7 @@ class UserInvitation(AuditedModel):
     department = TextField(verbose_name="Campus/Department", null=True)
     organisation = TextField(verbose_name="Organisation Name", null=True)
     city = TextField(verbose_name="City", null=True)
-    state = TextField(verbose_name="State", null=True)
+    region = TextField(verbose_name="State/Region", null=True)
     country = CharField(verbose_name="Country", max_length=2, null=True)
     course_or_role = TextField(verbose_name="Course or Job title", null=True)
     start_date = PartialDateField(verbose_name="Start date", null=True)
@@ -1504,7 +1504,7 @@ class RecordModel(BaseModel):
                 "name": self.org_name or org.name,
                 "address": {
                     "city": self.city or org.city,
-                    "region": self.region or org.state,
+                    "region": self.region or org.region,
                     "country": self.country or org.country,
                 },
             }
@@ -1590,7 +1590,7 @@ class AffiliationRecord(RecordModel):
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
     city = CharField(null=True, max_length=200)
-    state = CharField(null=True, verbose_name="State/Region", max_length=100)
+    region = CharField(null=True, verbose_name="State/Region", max_length=100)
     country = CharField(null=True, verbose_name="Country", max_length=2, choices=country_choices)
     disambiguated_id = CharField(
         null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
@@ -1614,7 +1614,7 @@ class AffiliationRecord(RecordModel):
         ("organisation", "organisation|^name"),
         ("department", "campus|department"),
         ("city", "city"),
-        ("state", "state|region"),
+        ("region", "state|region"),
         ("role", "course|title|role"),
         ("start_date", r"start\s*(date)?"),
         ("end_date", r"end\s*(date)?"),
@@ -1885,7 +1885,7 @@ class FundingRecord(RecordModel):
                         end_date=PartialDate.create(val(row, 9)),
                         org_name=val(row, 10) or org.name,
                         city=val(row, 11) or org.city,
-                        region=val(row, 12) or org.state,
+                        region=val(row, 12) or org.region,
                         country=country or org.country,
                         url=val(row, 28),
                         disambiguated_id=val(row, 14) or org.disambiguated_id,
@@ -3635,29 +3635,46 @@ class OtherIdRecord(ExternalIdModel):
         table_alias = "oir"
 
 
+class OrgRecord(RecordModel):
+    """Common organisation record part of the batch processing reocords."""
+
+    name = CharField(max_length=1000)
+    city = TextField(null=True)
+    region = TextField(verbose_name="State/Region", null=True)
+    country = CharField(max_length=2, null=True, choices=country_choices)
+    disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_source = TextField(
+        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "or"
+
+
 class ResourceRecord(RecordModel):
     """Research resource record."""
 
-    # Invitee:
-    email = CharField(max_length=80, null=True)
-    orcid = OrcidIdField(null=True)
-    first_name = CharField(null=True, max_length=120)
-    last_name = CharField(null=True, max_length=120)
-    put_code = IntegerField(null=True)
-    visibility = CharField(max_length=10, choices=visibility_choices)
+    display_index = IntegerField(null=True)
+    invitees = ManyToManyField(Invitee, backref="resources")
 
     # Resource
     title = CharField(max_length=1000)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
-
     url = CharField(max_length=200, null=True)
-    display_index = IntegerField(null=True)
+    host = ForeignKeyField(OrgRecord, null=True)
+    external_ids = ManyToManyField(ExternalId, backref="resources")
 
-    proposal_external_id = ForeignKeyField(ExternalId, null=True)
+    # Proposal
+    proposal_title = CharField(max_length=1000)
+    proposal_start_date = PartialDateField(null=True)
+    proposal_end_date = PartialDateField(null=True)
+    proposal_url = CharField(max_length=200, null=True)
+    porposal_host = ForeignKeyField(OrgRecord, null=True)
+    proposal_external_ids = ManyToManyField(ExternalId, backref="resource_proposals")
 
     is_active = BooleanField(
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
+
     task = ForeignKeyField(Task, backref="resource_records", on_delete="CASCADE")
     local_id = CharField(
         max_length=100,
@@ -3666,26 +3683,244 @@ class ResourceRecord(RecordModel):
         help_text="Record identifier used in the data source system.")
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
-    organisation = CharField(null=True, index=True, max_length=200)
-    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
-    role = CharField(null=True, verbose_name="Role/Course", max_length=100)
-    department = CharField(null=True, max_length=200)
-    city = CharField(null=True, max_length=200)
-    state = CharField(null=True, verbose_name="State/Region", max_length=100)
-    country = CharField(null=True, verbose_name="Country", max_length=2, choices=country_choices)
 
-    disambiguated_id = CharField(
-        null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
-    disambiguation_source = CharField(
-        null=True,
-        max_length=100,
-        verbose_name="Disambiguation Source",
-        choices=disambiguation_source_choices)
     delete_record = BooleanField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
 
     class Meta:  # noqa: D101,D106
         table_alias = "rr"
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if filename is None:
+            filename = datetime.utcnow().isoformat(
+                timespec="seconds") + (".tsv" if '\t' in source else ".csv")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in [
+                r"identifier",
+                r"email",
+                r"orcid\s*id",
+                r"first\s*name",
+                r"last\s*name",
+                r"put\s*code",
+                r"visibility",
+
+                # 7
+                r"proposal\s*title",
+                r"proposal\s*start\s*date",
+                r"proposal\s*end\s*date",
+                r"proposal\s*url",
+
+                # 11
+                r"proposal\s*external\s*id\s*type",
+                r"proposal\s*external\s*id\s*value",
+                r"proposal\s*external\s*id\s*url",
+                r"proposal\s*external\s*id\s*relationship",
+
+                r"proposal\s*host\s*name",
+                r"proposal\s*host\s*city",
+                r"proposal\s*host\s*(region|state)",
+                r"proposal\s*host\s*country",
+                r"proposal\s*host\s*disambiguated\s*id",
+                r"proposal\s*host\s*disambiguation\s*source",
+
+                r"resource\s*name",
+                r"resource\s*type",
+
+                r"resource\s*external\s*id\s*type",
+                r"resource\s*external\s*id\s*value",
+                r"resource\s*external\s*id\s*url",
+                r"resource\s*external\s*id\s*relationship",
+
+                r"resource\s*host\s*name",
+                r"resource\s*host\s*city",
+                r"resource\s*host\s*(region|state)",
+                r"resource\s*host\s*country",
+                r"resource\s*host\s*disambiguated\s*id",
+                r"resource\s*host\s*disambiguation\s*source",
+            ]
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        rows = []
+        cached_row = []
+        for row_no, row in enumerate(reader):
+            # skip empty lines:
+            if len([item for item in row if item and item.strip()]) == 0:
+                continue
+            if len(row) == 1 and row[0].strip() == '':
+                continue
+
+            orcid, email = val(row, 15), normalize_email(val(row, 16))
+            if orcid:
+                orcid = validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+            visibility = val(row, 22)
+            if visibility:
+                visibility = visibility.upper()
+
+            invitee = dict(
+                identifier=val(row, 25),
+                email=email,
+                first_name=val(row, 23),
+                last_name=val(row, 24),
+                orcid=orcid,
+                put_code=val(row, 21),
+                visibility=visibility,
+            )
+
+            title = val(row, 0)
+            external_id_type = val(row, 17, "").lower()
+            external_id_value = val(row, 18)
+            external_id_relationship = val(row, 20, "").upper()
+
+            if external_id_type not in EXTERNAL_ID_TYPES:
+                raise ModelException(
+                    f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
+                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+
+            if not external_id_value:
+                raise ModelException(
+                    f"Invalid External Id Value or Work Id: {external_id_value}, #{row_no+2}: {row}.")
+
+            if not title:
+                raise ModelException(
+                    f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            if external_id_relationship not in RELATIONSHIPS:
+                raise ModelException(
+                    f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
+                    f"{RELATIONSHIPS}, #{row_no+2}: {row}.")
+
+            if cached_row and title.lower() == val(cached_row, 0).lower() and \
+                    external_id_type.lower() == val(cached_row, 17).lower() and \
+                    external_id_value.lower() == val(cached_row, 18).lower() and \
+                    external_id_relationship.lower() == val(cached_row, 20).lower():
+                row = cached_row
+            else:
+                cached_row = row
+
+            work_type = val(row, 5)
+            if not work_type:
+                raise ModelException(
+                    f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            # The uploaded country must be from ISO 3166-1 alpha-2
+            country = val(row, 13)
+            if country:
+                try:
+                    country = countries.lookup(country).alpha_2
+                except Exception:
+                    raise ModelException(
+                        f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                        f"#{row_no+2}: {row}. Header: {header}")
+
+            publication_date = val(row, 9)
+            citation_type = val(row, 7)
+            if citation_type:
+                citation_type = citation_type.upper()
+
+            if publication_date:
+                publication_date = PartialDate.create(publication_date)
+            rows.append(
+                dict(
+                    work=dict(
+                        title=title,
+                        subtitle=val(row, 1),
+                        translated_title=val(row, 2),
+                        translated_title_language_code=val(row, 3),
+                        journal_title=val(row, 4),
+                        type=work_type,
+                        short_description=val(row, 6),
+                        citation_type=citation_type,
+                        citation_value=val(row, 8),
+                        publication_date=publication_date,
+                        publication_media_type=val(row, 10),
+                        url=val(row, 11),
+                        language_code=val(row, 12),
+                        country=country,
+                        is_active=False,
+                    ),
+                    invitee=invitee,
+                    external_id=dict(
+                        type=external_id_type,
+                        value=external_id_value,
+                        url=val(row, 19),
+                        relationship=external_id_relationship)))
+
+        with db.atomic() as transaction:
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
+                for work, records in groupby(rows, key=lambda row: row["work"].items()):
+                    records = list(records)
+
+                    wr = cls(task=task, **dict(work))
+                    validator = ModelValidator(wr)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    wr.save()
+
+                    for external_id in set(
+                            tuple(r["external_id"].items()) for r in records
+                            if r["external_id"]["type"] and r["external_id"]["value"]):
+                        ei = WorkExternalId(record=wr, **dict(external_id))
+                        ei.save()
+
+                    for invitee in set(
+                            tuple(r["invitee"].items()) for r in records
+                            if r["invitee"]["email"]):
+                        rec = WorkInvitee(record=wr, **dict(invitee))
+                        validator = ModelValidator(rec)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid invitee record: {validator.errors}")
+                        rec.save()
+
+                return task
+
+            except Exception:
+                transaction.rollback()
+                app.logger.exception("Failed to load work file.")
+                raise
+
+
+ResourceRecordExternalId = RecordModel.external_ids.get_through_model()
 
 
 # class ResoureceExternalId(BaseModel):

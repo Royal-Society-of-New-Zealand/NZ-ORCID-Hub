@@ -866,7 +866,7 @@ class AffiliationListAPI(TaskResource):
                 type: string
               city:
                 type: string
-              state:
+              region:
                 type: string
               country:
                 type: string
@@ -1757,7 +1757,7 @@ class PropertyListAPI(TaskResource):
                 type: string
               city:
                 type: string
-              state:
+              region:
                 type: string
               country:
                 type: string

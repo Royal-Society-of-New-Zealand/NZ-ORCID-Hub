@@ -233,7 +233,7 @@ class FundingForm(FlaskForm):
     total_funding_amount_currency = CurrencySelectField("Currency")
     org_name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
-    state = StringField("State/region", filters=[lambda x: x or None])
+    region = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
@@ -260,7 +260,7 @@ class PeerReviewForm(FlaskForm):
         validators=[optional()],
         choices=EMPTY_CHOICES + models.disambiguation_source_choices)
     city = StringField("City", [validators.required()])
-    state = StringField("State/region", filters=[lambda x: x or None])
+    region = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
     reviewer_role = SelectField(
         choices=reviewer_role_choices,
@@ -356,7 +356,7 @@ class RecordForm(CommonFieldsForm):
 
     org_name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
-    state = StringField("State/region", filters=[lambda x: x or None])
+    region = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
     department = StringField("Department", filters=[lambda x: x or None])
     role = StringField("Role/title", filters=[lambda x: x or None])
@@ -510,7 +510,7 @@ class OrgRegistrationForm(FlaskForm):
         "City", validators=[
             RequiredIf("via_orcid"),
         ])
-    state = StringField("State/Region")
+    region = StringField("State/Region")
     country = CountrySelectField(
         "Country", default=DEFAULT_COUNTRY, validators=[
             RequiredIf("via_orcid"),
@@ -568,7 +568,7 @@ class UserInvitationForm(FlaskForm):
     department = StringField("Campus/Department")
     organisation = StringField("Organisation Name")
     city = StringField("City", [validators.required()])
-    state = StringField("State/Region")
+    region = StringField("State/Region")
     country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
     course_or_role = StringField("Course or Job title")
     start_date = PartialDateField("Start date")
