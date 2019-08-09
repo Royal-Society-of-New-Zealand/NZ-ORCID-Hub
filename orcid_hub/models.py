@@ -1236,6 +1236,7 @@ class Task(AuditedModel):
         with db.atomic() as transaction:
             try:
                 task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
+                is_enqueue = False
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
@@ -1305,6 +1306,8 @@ class Task(AuditedModel):
                         visibility = visibility.upper()
 
                     is_active = val(row, 25, '').lower() in ['y', "yes", "1", "true"]
+                    if is_active:
+                        is_enqueue = is_active
 
                     af = AffiliationRecord(
                         task=task,
@@ -1354,6 +1357,9 @@ class Task(AuditedModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid record: {validator.errors}")
                         ae.save()
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
             except Exception:
                 transaction.rollback()
                 app.logger.exception("Failed to load affiliation file.")
@@ -1659,6 +1665,7 @@ class AffiliationRecord(RecordModel):
                 elif override:
                     AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
                 record_fields = AffiliationRecord._meta.fields.keys()
+                is_enqueue = False
                 for r in data.get("records"):
                     if "id" in r and not override:
                         rec = AffiliationRecord.get(int(r["id"]))
@@ -1668,6 +1675,8 @@ class AffiliationRecord(RecordModel):
                         if k == "id" or k.startswith(("external", "status", "processed")):
                             continue
                         k = k.replace('-', '_')
+                        if k == "is_active" and v:
+                            is_enqueue = v
                         if k in ["visibility", "disambiguation_source"] and v:
                             v = v.upper()
                         if k in record_fields and rec.__data__.get(k) != v:
@@ -1685,7 +1694,9 @@ class AffiliationRecord(RecordModel):
                             if not ModelValidator(ext_id).validate():
                                 raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
                             ext_id.save()
-
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
             except:
                 transaction.rollback()
                 app.logger.exception("Failed to load affiliation record task file.")
