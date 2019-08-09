@@ -1206,7 +1206,8 @@ class Task(AuditedModel):
                        r"disambiguat.*source", r"put|code", "orcid.*", "local.*|.*identifier",
                        "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", r"(display)?.*index",
                        r"(external)?\s*id(entifier)?\s+type$", r"(external)?\s*id(entifier)?\s*(value)?$",
-                       r"(external)?\s*id(entifier)?\s*url", r"(external)?\s*id(entifier)?\s*rel(ationship)?", ]
+                       r"(external)?\s*id(entifier)?\s*url", r"(external)?\s*id(entifier)?\s*rel(ationship)?",
+                       r"(is)?\s*active$", ]
         ]
 
         def index(rex):
@@ -1303,6 +1304,8 @@ class Task(AuditedModel):
                     if visibility:
                         visibility = visibility.upper()
 
+                    is_active = val(row, 25, '').lower() in ['y', "yes", "1", "true"]
+
                     af = AffiliationRecord(
                         task=task,
                         first_name=first_name,
@@ -1325,7 +1328,8 @@ class Task(AuditedModel):
                         delete_record=delete_record,
                         url=val(row, 19),
                         display_index=val(row, 20),
-                        visibility=visibility,)
+                        visibility=visibility,
+                        is_active=is_active)
                     validator = ModelValidator(af)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
@@ -1661,7 +1665,7 @@ class AffiliationRecord(RecordModel):
                     else:
                         rec = AffiliationRecord(task=task)
                     for k, v in r.items():
-                        if k == "id" or k.startswith("external"):
+                        if k == "id" or k.startswith(("external", "status", "processed")):
                             continue
                         k = k.replace('-', '_')
                         if k in ["visibility", "disambiguation_source"] and v:

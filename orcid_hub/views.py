@@ -1511,7 +1511,6 @@ class AffiliationRecordAdmin(RecordModelView):
     )
     column_export_exclude_list = (
         "task",
-        "is_active",
     )
     form_widget_args = {"task": {"readonly": True}}
 
