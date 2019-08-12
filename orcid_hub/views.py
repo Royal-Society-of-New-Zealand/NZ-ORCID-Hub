@@ -1017,7 +1017,7 @@ class CompositeRecordModelView(RecordModelView):
                                     ['invitees', 'review_group_id', 'review_url', 'reviewer_role', 'review_type',
                                      'review_completion_date', 'subject_external_identifier', 'subject_container_name',
                                      'subject_type', 'subject_name', 'subject_url', 'convening_organization',
-                                     'review_identifiers']]
+                                     'review_identifiers', 'is_active']]
         elif self.model == FundingRecord:
             self._export_columns = [(v, v.replace('_', '-')) for v in
                                     ['invitees', 'title', 'type', 'organization_defined_type', 'short_description',
@@ -1027,7 +1027,7 @@ class CompositeRecordModelView(RecordModelView):
             self._export_columns = [(v, v.replace('_', '-')) for v in
                                     ['invitees', 'title', 'journal_title', 'short_description', 'citation', 'type',
                                      'publication_date', 'url', 'language_code', 'country', 'contributors',
-                                     'external_ids']]
+                                     'external_ids', 'is_active']]
         ds = tablib.Dataset(headers=[c[1] for c in self._export_columns])
 
         count, data = self._export_data()
@@ -1347,6 +1347,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "external_id_url",
         "external_id_relationship",
         "status",
+        "is_active"
     ]
 
     def get_record_list(self, page, sort_column, sort_desc, search, filters, execute=True, page_size=None):
@@ -1450,6 +1451,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         "peer_review_id",
         "external_id_url",
         "external_id_relationship",
+        "is_active"
     ]
 
     def get_record_list(self,
