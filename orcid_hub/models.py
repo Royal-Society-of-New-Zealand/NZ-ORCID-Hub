@@ -1819,6 +1819,7 @@ class FundingRecord(RecordModel):
 
         rows = []
         cached_row = []
+        is_enqueue = False
         for row_no, row in enumerate(reader):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
@@ -1841,6 +1842,10 @@ class FundingRecord(RecordModel):
                 put_code=val(row, 23),
                 visibility=val(row, 24),
             )
+
+            is_active = val(row, 16, '').lower() in ['y', "yes", "1", "true"]
+            if is_active:
+                is_enqueue = is_active
 
             title = val(row, 0)
             external_id_type = val(row, 19, "").lower()
@@ -1906,6 +1911,7 @@ class FundingRecord(RecordModel):
                         region=val(row, 12) or org.state,
                         country=country or org.country,
                         url=val(row, 28),
+                        is_active=is_active,
                         disambiguated_id=val(row, 14) or org.disambiguated_id,
                         disambiguation_source=val(row, 15) or org.disambiguation_source),
                     invitee=invitee,
@@ -1941,7 +1947,9 @@ class FundingRecord(RecordModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
                         rec.save()
-
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
 
             except Exception:
@@ -1975,6 +1983,7 @@ class FundingRecord(RecordModel):
                 else:
                     FundingRecord.delete().where(FundingRecord.task == task).execute()
 
+                is_enqueue = False
                 for r in records:
 
                     title = r.get("title", "title", "value")
@@ -1997,6 +2006,9 @@ class FundingRecord(RecordModel):
                                              "disambiguated-organization-identifier")
                     disambiguation_source = r.get("organization", "disambiguated-organization",
                                                   "disambiguation-source")
+                    is_active = r.get("is-active").lower() in ['y', "yes", "1", "true"] if r.get("is-active") else False
+                    if is_active:
+                        is_enqueue = is_active
 
                     record = cls.create(
                         task=task,
@@ -2013,6 +2025,7 @@ class FundingRecord(RecordModel):
                         region=region,
                         country=country,
                         url=url,
+                        is_active=is_active,
                         disambiguated_id=disambiguated_id,
                         disambiguation_source=disambiguation_source,
                         start_date=start_date,
@@ -2072,6 +2085,9 @@ class FundingRecord(RecordModel):
                                 relationship=relationship)
                     else:
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
 
             except Exception:

@@ -628,7 +628,6 @@ class RecordModelView(AppModelView):
     ]
     column_export_exclude_list = (
         "task",
-        "is_active",
     )
     can_edit = True
     can_create = False
@@ -986,7 +985,6 @@ class CompositeRecordModelView(RecordModelView):
 
     column_export_exclude_list = (
         "task",
-        "is_active",
         "status",
         "processed_at",
         "created_at",
@@ -1024,7 +1022,7 @@ class CompositeRecordModelView(RecordModelView):
             self._export_columns = [(v, v.replace('_', '-')) for v in
                                     ['invitees', 'title', 'type', 'organization_defined_type', 'short_description',
                                      'amount', 'url', 'start_date', 'end_date', 'organization', 'contributors',
-                                     'external_ids']]
+                                     'external_ids', 'is_active']]
         elif self.model == WorkRecord:
             self._export_columns = [(v, v.replace('_', '-')) for v in
                                     ['invitees', 'title', 'journal_title', 'short_description', 'citation', 'type',
@@ -1273,7 +1271,8 @@ class FundingRecordAdmin(CompositeRecordModelView):
         "external_id_type",
         "external_id_url",
         "external_id_relationship",
-        "status",)
+        "status",
+        "is_active")
 
     def get_record_list(self, page, sort_column, sort_desc, search, filters, execute=True, page_size=None):
         """Return records and realated to the record data."""
