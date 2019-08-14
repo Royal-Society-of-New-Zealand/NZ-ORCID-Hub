@@ -93,6 +93,8 @@ mapping:
                 type: str
             currency-code:
                 type: str
+    is-active:
+        type: str
     url:
         type: map
         mapping:
