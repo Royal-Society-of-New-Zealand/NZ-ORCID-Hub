@@ -230,7 +230,9 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
 
             return cls(*[int(v) for v in value0.split('-')])
 
-        return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
+        return cls(
+            **{k: int(v.get("value")) if v and v.get("value") else None
+               for k, v in value.items()})
 
     def as_datetime(self):
         """Get 'datetime' data representation."""
