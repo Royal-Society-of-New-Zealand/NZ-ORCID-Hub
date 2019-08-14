@@ -1139,8 +1139,9 @@ class CompositeRecordModelView(RecordModelView):
                 vals.append(amount_dict)
             elif c[0] == "citation":
                 citation_dict = dict()
-                citation_dict['citation-type'] = self.get_export_value(row, 'citation_type')
-                citation_dict['citation-value'] = csv_encode(self.get_export_value(row, 'citation_value'))
+                if self.get_export_value(row, 'citation_type'):
+                    citation_dict['citation-type'] = self.get_export_value(row, 'citation_type')
+                    citation_dict['citation-value'] = csv_encode(self.get_export_value(row, 'citation_value'))
                 vals.append(citation_dict)
             elif c[0] == "contributors":
                 contributors_list = []
@@ -1333,7 +1334,6 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "citation_value",
         "type",
         "publication_date",
-        "publication_media_type",
         "url",
         "language_code",
         "country",
@@ -2147,10 +2147,7 @@ def edit_record(user_id, section_type, put_code=None):
                                     citation=_data.get("citation", "citation-value"),
                                     url=_data.get("url", "value"),
                                     language_code=_data.get("language-code"),
-                                    # Removing key 'media-type' from the publication_date dict.
-                                    publication_date=PartialDate.create(
-                                        {date_key: _data.get("publication-date")[date_key] for date_key in
-                                         ('day', 'month', 'year')}) if _data.get("publication-date") else None,
+                                    publication_date=PartialDate.create(_data.get("publication-date")),
                                     country=_data.get("country", "value"),
                                     visibility=(_data.get("visibility", default='') or '').upper())
                     else:

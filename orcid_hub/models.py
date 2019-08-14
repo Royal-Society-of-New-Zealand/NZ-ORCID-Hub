@@ -2949,7 +2949,6 @@ class WorkRecord(RecordModel):
     citation_value = CharField(null=True, max_length=32767)
     type = CharField(null=True, max_length=255, choices=work_type_choices)
     publication_date = PartialDateField(null=True)
-    publication_media_type = CharField(null=True, max_length=255)
     url = CharField(null=True, max_length=255)
     language_code = CharField(null=True, max_length=10, choices=language_choices)
     country = CharField(null=True, max_length=255, choices=country_choices)
@@ -3132,7 +3131,6 @@ class WorkRecord(RecordModel):
                         citation_type=citation_type,
                         citation_value=val(row, 8),
                         publication_date=publication_date,
-                        publication_media_type=val(row, 10),
                         url=val(row, 11),
                         language_code=val(row, 12),
                         country=country,
@@ -3223,7 +3221,6 @@ class WorkRecord(RecordModel):
                         citation_type = citation_type.strip().upper()
                     citation_value = r.get("citation", "citation-value")
                     rec_type = r.get("type")
-                    publication_media_type = r.get("publication-date", "media-type")
                     url = r.get("url", "value")
                     language_code = r.get("language-code")
                     country = r.get("country", "value")
@@ -3231,10 +3228,7 @@ class WorkRecord(RecordModel):
                     if is_active:
                         is_enqueue = is_active
 
-                    # Removing key 'media-type' from the publication_date dict. and only considering year, day & month
-                    publication_date = PartialDate.create(
-                        {date_key: r.get("publication-date")[date_key] for date_key in
-                         ('day', 'month', 'year')}) if r.get("publication-date") else None
+                    publication_date = PartialDate.create(r.get("publication-date"))
 
                     record = WorkRecord.create(
                         task=task,
@@ -3248,7 +3242,6 @@ class WorkRecord(RecordModel):
                         citation_value=citation_value,
                         type=rec_type,
                         publication_date=publication_date,
-                        publication_media_type=publication_media_type,
                         url=url,
                         is_active=is_active,
                         language_code=language_code,
@@ -3336,8 +3329,6 @@ class WorkRecord(RecordModel):
         d["short-description"] = self.short_description
         if self.publication_date:
             pd = self.publication_date.as_orcid_dict()
-            if self.publication_media_type:
-                pd["media-type"] = self.publication_media_type
             d["publication-date"] = pd
         if self.url:
             d["url"] = self.url
