@@ -2644,7 +2644,7 @@ def get_spec(app):
             "name": "async",
             "required": False,
             "type": "string",
-            "enum": ["t", "f", "yes", "no", "ture", "false"],
+            "enum": ["t", "f", "yes", "no", "true", "false"],
             "description": "The indicator for asynchronous invokation.",
         },
         "jobIdParam": {
@@ -2765,7 +2765,7 @@ def get_spec(app):
         }
     }
     # Proxy:
-    swag["paths"]["/orcid/api/response/{job_id}"] = {
+    swag["paths"]["/orcid/response/{job_id}"] = {
         "parameters": [
             swag["parameters"]["jobIdParam"],
         ],
@@ -3092,7 +3092,7 @@ def orcid_proxy(version, orcid, rest=None):
     return proxy_resp
 
 
-@app.route("/api/v1/response/<uuid:job_id>")
+@app.route("/orcid/response/<uuid:job_id>")
 @oauth.require_oauth()
 def orcid_proxy_response(job_id):
     """Handle proxied request..."""
