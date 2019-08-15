@@ -1400,19 +1400,19 @@ def test_proxy_get_profile(client):
         assert resp.headers["ORCIDHub-Async-URL"].endswith(orcid_id)
 
         # Incorrect request
-        resp = client.get(f"/api/v1/response/{uuid4()}",
+        resp = client.get(f"/orcid/response/{uuid4()}",
                           headers=dict(authorization=f"Bearer {token.access_token}"))
         assert resp.status_code == 404
 
         ar.executed_at = None
         ar.save()
-        resp = client.get(f"/api/v1/response/{ar.job_id}",
+        resp = client.get(f"/orcid/response/{ar.job_id}",
                           headers=dict(authorization=f"Bearer {token.access_token}"))
         assert resp.status_code == 204
 
         ar.executed_at = datetime.utcnow()
         ar.save()
-        resp = client.get(f"/api/v1/response/{ar.job_id}",
+        resp = client.get(f"/orcid/response/{ar.job_id}",
                           headers=dict(authorization=f"Bearer {token.access_token}"))
         assert resp.status_code == 200
 
