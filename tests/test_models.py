@@ -448,6 +448,33 @@ def test_partial_date():
         }
     }
     assert pd.year == 2003 and pd.month == 7 and pd.day == 31
+
+    pd = PartialDate.create({
+        "year": {
+            "value": "2003"
+        },
+        "month": {
+            "value": "11"
+        },
+        "day": {
+            "value": None
+        }
+    })
+    assert pd.year == 2003 and pd.month == 11 and pd.day is None
+
+    pd = PartialDate.create({
+        "year": {
+            "value": "2003"
+        },
+        "month": {
+            "value": None
+        },
+        "day": {
+            "value": None
+        }
+    })
+    assert pd.year == 2003 and pd.month is None and pd.day is None
+
     assert PartialDate().as_orcid_dict() is None
     assert PartialDate.create(None) is None
     assert PartialDate.create({}) is None

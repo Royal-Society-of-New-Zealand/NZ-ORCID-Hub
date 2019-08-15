@@ -628,7 +628,6 @@ class RecordModelView(AppModelView):
     ]
     column_export_exclude_list = (
         "task",
-        "is_active",
     )
     can_edit = True
     can_create = False
@@ -986,7 +985,6 @@ class CompositeRecordModelView(RecordModelView):
 
     column_export_exclude_list = (
         "task",
-        "is_active",
         "status",
         "processed_at",
         "created_at",
@@ -1019,17 +1017,17 @@ class CompositeRecordModelView(RecordModelView):
                                     ['invitees', 'review_group_id', 'review_url', 'reviewer_role', 'review_type',
                                      'review_completion_date', 'subject_external_identifier', 'subject_container_name',
                                      'subject_type', 'subject_name', 'subject_url', 'convening_organization',
-                                     'review_identifiers']]
+                                     'review_identifiers', 'is_active']]
         elif self.model == FundingRecord:
             self._export_columns = [(v, v.replace('_', '-')) for v in
                                     ['invitees', 'title', 'type', 'organization_defined_type', 'short_description',
                                      'amount', 'url', 'start_date', 'end_date', 'organization', 'contributors',
-                                     'external_ids']]
+                                     'external_ids', 'is_active']]
         elif self.model == WorkRecord:
             self._export_columns = [(v, v.replace('_', '-')) for v in
                                     ['invitees', 'title', 'journal_title', 'short_description', 'citation', 'type',
                                      'publication_date', 'url', 'language_code', 'country', 'contributors',
-                                     'external_ids']]
+                                     'external_ids', 'is_active']]
         ds = tablib.Dataset(headers=[c[1] for c in self._export_columns])
 
         count, data = self._export_data()
@@ -1141,8 +1139,9 @@ class CompositeRecordModelView(RecordModelView):
                 vals.append(amount_dict)
             elif c[0] == "citation":
                 citation_dict = dict()
-                citation_dict['citation-type'] = self.get_export_value(row, 'citation_type')
-                citation_dict['citation-value'] = csv_encode(self.get_export_value(row, 'citation_value'))
+                if self.get_export_value(row, 'citation_type'):
+                    citation_dict['citation-type'] = self.get_export_value(row, 'citation_type')
+                    citation_dict['citation-value'] = csv_encode(self.get_export_value(row, 'citation_value'))
                 vals.append(citation_dict)
             elif c[0] == "contributors":
                 contributors_list = []
@@ -1273,7 +1272,8 @@ class FundingRecordAdmin(CompositeRecordModelView):
         "external_id_type",
         "external_id_url",
         "external_id_relationship",
-        "status",)
+        "status",
+        "is_active")
 
     def get_record_list(self, page, sort_column, sort_desc, search, filters, execute=True, page_size=None):
         """Return records and realated to the record data."""
@@ -1334,7 +1334,6 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "citation_value",
         "type",
         "publication_date",
-        "publication_media_type",
         "url",
         "language_code",
         "country",
@@ -1348,6 +1347,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "external_id_url",
         "external_id_relationship",
         "status",
+        "is_active"
     ]
 
     def get_record_list(self, page, sort_column, sort_desc, search, filters, execute=True, page_size=None):
@@ -1451,6 +1451,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         "peer_review_id",
         "external_id_url",
         "external_id_relationship",
+        "is_active"
     ]
 
     def get_record_list(self,
@@ -1511,7 +1512,6 @@ class AffiliationRecordAdmin(RecordModelView):
     )
     column_export_exclude_list = (
         "task",
-        "is_active",
     )
     form_widget_args = {"task": {"readonly": True}}
 
@@ -2147,10 +2147,7 @@ def edit_record(user_id, section_type, put_code=None):
                                     citation=_data.get("citation", "citation-value"),
                                     url=_data.get("url", "value"),
                                     language_code=_data.get("language-code"),
-                                    # Removing key 'media-type' from the publication_date dict.
-                                    publication_date=PartialDate.create(
-                                        {date_key: _data.get("publication-date")[date_key] for date_key in
-                                         ('day', 'month', 'year')}) if _data.get("publication-date") else None,
+                                    publication_date=PartialDate.create(_data.get("publication-date")),
                                     country=_data.get("country", "value"),
                                     visibility=(_data.get("visibility", default='') or '').upper())
                     else:

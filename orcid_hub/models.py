@@ -230,7 +230,9 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
 
             return cls(*[int(v) for v in value0.split('-')])
 
-        return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
+        return cls(
+            **{k: int(v.get("value")) if v and v.get("value") else None
+               for k, v in value.items()})
 
     def as_datetime(self):
         """Get 'datetime' data representation."""
@@ -1203,7 +1205,8 @@ class Task(AuditedModel):
                        r"disambiguat.*source", r"put|code", "orcid.*", "local.*|.*identifier",
                        "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", r"(display)?.*index",
                        r"(external)?\s*id(entifier)?\s+type$", r"(external)?\s*id(entifier)?\s*(value)?$",
-                       r"(external)?\s*id(entifier)?\s*url", r"(external)?\s*id(entifier)?\s*rel(ationship)?", ]
+                       r"(external)?\s*id(entifier)?\s*url", r"(external)?\s*id(entifier)?\s*rel(ationship)?",
+                       r"(is)?\s*active$", ]
         ]
 
         def index(rex):
@@ -1232,6 +1235,7 @@ class Task(AuditedModel):
         with db.atomic() as transaction:
             try:
                 task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
+                is_enqueue = False
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
@@ -1300,6 +1304,10 @@ class Task(AuditedModel):
                     if visibility:
                         visibility = visibility.upper()
 
+                    is_active = val(row, 25, '').lower() in ['y', "yes", "1", "true"]
+                    if is_active:
+                        is_enqueue = is_active
+
                     af = AffiliationRecord(
                         task=task,
                         first_name=first_name,
@@ -1322,7 +1330,8 @@ class Task(AuditedModel):
                         delete_record=delete_record,
                         url=val(row, 19),
                         display_index=val(row, 20),
-                        visibility=visibility,)
+                        visibility=visibility,
+                        is_active=is_active)
                     validator = ModelValidator(af)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
@@ -1347,6 +1356,9 @@ class Task(AuditedModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid record: {validator.errors}")
                         ae.save()
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
             except Exception:
                 transaction.rollback()
                 app.logger.exception("Failed to load affiliation file.")
@@ -1652,15 +1664,18 @@ class AffiliationRecord(RecordModel):
                 elif override:
                     AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
                 record_fields = AffiliationRecord._meta.fields.keys()
+                is_enqueue = False
                 for r in data.get("records"):
                     if "id" in r and not override:
                         rec = AffiliationRecord.get(int(r["id"]))
                     else:
                         rec = AffiliationRecord(task=task)
                     for k, v in r.items():
-                        if k == "id" or k.startswith("external"):
+                        if k == "id" or k.startswith(("external", "status", "processed")):
                             continue
                         k = k.replace('-', '_')
+                        if k == "is_active" and v:
+                            is_enqueue = v
                         if k in ["visibility", "disambiguation_source"] and v:
                             v = v.upper()
                         if k in record_fields and rec.__data__.get(k) != v:
@@ -1678,7 +1693,9 @@ class AffiliationRecord(RecordModel):
                             if not ModelValidator(ext_id).validate():
                                 raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
                             ext_id.save()
-
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
             except:
                 transaction.rollback()
                 app.logger.exception("Failed to load affiliation record task file.")
@@ -1801,6 +1818,7 @@ class FundingRecord(RecordModel):
 
         rows = []
         cached_row = []
+        is_enqueue = False
         for row_no, row in enumerate(reader):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
@@ -1855,6 +1873,10 @@ class FundingRecord(RecordModel):
             else:
                 cached_row = row
 
+            is_active = val(row, 16, '').lower() in ['y', "yes", "1", "true"]
+            if is_active:
+                is_enqueue = is_active
+
             funding_type = val(row, 3)
             if not funding_type:
                 raise ModelException(
@@ -1888,6 +1910,7 @@ class FundingRecord(RecordModel):
                         region=val(row, 12) or org.region,
                         country=country or org.country,
                         url=val(row, 28),
+                        is_active=is_active,
                         disambiguated_id=val(row, 14) or org.disambiguated_id,
                         disambiguation_source=val(row, 15) or org.disambiguation_source),
                     invitee=invitee,
@@ -1923,7 +1946,9 @@ class FundingRecord(RecordModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
                         rec.save()
-
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
 
             except Exception:
@@ -1957,6 +1982,7 @@ class FundingRecord(RecordModel):
                 else:
                     FundingRecord.delete().where(FundingRecord.task == task).execute()
 
+                is_enqueue = False
                 for r in records:
 
                     title = r.get("title", "title", "value")
@@ -1979,6 +2005,9 @@ class FundingRecord(RecordModel):
                                              "disambiguated-organization-identifier")
                     disambiguation_source = r.get("organization", "disambiguated-organization",
                                                   "disambiguation-source")
+                    is_active = r.get("is-active").lower() in ['y', "yes", "1", "true"] if r.get("is-active") else False
+                    if is_active:
+                        is_enqueue = is_active
 
                     record = cls.create(
                         task=task,
@@ -1995,6 +2024,7 @@ class FundingRecord(RecordModel):
                         region=region,
                         country=country,
                         url=url,
+                        is_active=is_active,
                         disambiguated_id=disambiguated_id,
                         disambiguation_source=disambiguation_source,
                         start_date=start_date,
@@ -2054,6 +2084,9 @@ class FundingRecord(RecordModel):
                                 relationship=relationship)
                     else:
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
 
             except Exception:
@@ -2260,6 +2293,7 @@ class PeerReviewRecord(RecordModel):
 
         rows = []
         cached_row = []
+        is_enqueue = False
         for row_no, row in enumerate(reader):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
@@ -2318,6 +2352,10 @@ class PeerReviewRecord(RecordModel):
             else:
                 cached_row = row
 
+            is_active = val(row, 33, '').lower() in ['y', "yes", "1", "true"]
+            if is_active:
+                is_enqueue = is_active
+
             convening_org_name = val(row, 16)
             convening_org_city = val(row, 17)
             convening_org_country = val(row, 19)
@@ -2365,6 +2403,7 @@ class PeerReviewRecord(RecordModel):
                         convening_org_country=convening_org_country,
                         convening_org_disambiguated_identifier=val(row, 20),
                         convening_org_disambiguation_source=val(row, 21),
+                        is_active=is_active
                     ),
                     invitee=invitee,
                     external_id=dict(
@@ -2396,7 +2435,9 @@ class PeerReviewRecord(RecordModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
                         rec.save()
-
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
 
             except Exception:
@@ -2436,6 +2477,7 @@ class PeerReviewRecord(RecordModel):
                 else:
                     task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
 
+                is_enqueue = False
                 for data in data_list:
 
                     review_group_id = data.get("review-group-id")
@@ -2472,6 +2514,10 @@ class PeerReviewRecord(RecordModel):
                     convening_org_disambiguation_source = data.get("convening-organization",
                                                                    "disambiguated-organization",
                                                                    "disambiguation-source")
+                    is_active = data.get("is-active").lower() in ['y', "yes", "1", "true"] if data.get(
+                        "is-active") else False
+                    if is_active:
+                        is_enqueue = is_active
 
                     record = cls.create(
                         task=task,
@@ -2496,7 +2542,8 @@ class PeerReviewRecord(RecordModel):
                         convening_org_region=convening_org_region,
                         convening_org_country=convening_org_country,
                         convening_org_disambiguated_identifier=convening_org_disambiguated_identifier,
-                        convening_org_disambiguation_source=convening_org_disambiguation_source)
+                        convening_org_disambiguation_source=convening_org_disambiguation_source,
+                        is_active=is_active)
 
                     invitee_list = data.get("invitees")
                     if invitee_list:
@@ -2542,6 +2589,9 @@ class PeerReviewRecord(RecordModel):
                     else:
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
 
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
             except Exception:
                 transaction.rollback()
@@ -2693,6 +2743,7 @@ class PropertyRecord(RecordModel):
         with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.PROPERTY)
+                is_enqueue = False
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
@@ -2717,6 +2768,8 @@ class PropertyRecord(RecordModel):
                     last_name = val(row, 5)
                     property_type = val(row, 9) or file_property_type
                     is_active = val(row, 10, '').lower() in ['y', "yes", "1", "true"]
+                    if is_active:
+                        is_enqueue = is_active
 
                     if property_type:
                         property_type = property_type.strip().upper()
@@ -2762,6 +2815,9 @@ class PropertyRecord(RecordModel):
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     rr.save()
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
             except Exception:
                 transaction.rollback()
                 app.logger.exception("Failed to load Researcher Url Record file.")
@@ -2808,6 +2864,7 @@ class PropertyRecord(RecordModel):
                 else:
                     cls.delete().where(cls.task_id == task.id).execute()
 
+                is_enqueue = False
                 for r in records:
 
                     value = r.get("value") or r.get(
@@ -2823,6 +2880,8 @@ class PropertyRecord(RecordModel):
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
                     is_active = bool(r.get("is-active"))
+                    if is_active:
+                        is_enqueue = is_active
 
                     if not property_type or property_type not in PROPERTY_TYPES:
                         raise ModelException("Missing or incorrect property type. "
@@ -2855,6 +2914,9 @@ class PropertyRecord(RecordModel):
                         visibility=visibility,
                         put_code=put_code)
 
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
 
             except Exception:
@@ -2886,7 +2948,6 @@ class WorkRecord(RecordModel):
     citation_value = CharField(null=True, max_length=32767)
     type = CharField(null=True, max_length=255, choices=work_type_choices)
     publication_date = PartialDateField(null=True)
-    publication_media_type = CharField(null=True, max_length=255)
     url = CharField(null=True, max_length=255)
     language_code = CharField(null=True, max_length=10, choices=language_choices)
     country = CharField(null=True, max_length=255, choices=country_choices)
@@ -2970,6 +3031,7 @@ class WorkRecord(RecordModel):
 
         rows = []
         cached_row = []
+        is_enqueue = False
         for row_no, row in enumerate(reader):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
@@ -3029,6 +3091,10 @@ class WorkRecord(RecordModel):
             else:
                 cached_row = row
 
+            is_active = val(row, 14, '').lower() in ['y', "yes", "1", "true"]
+            if is_active:
+                is_enqueue = is_active
+
             work_type = val(row, 5)
             if not work_type:
                 raise ModelException(
@@ -3064,11 +3130,10 @@ class WorkRecord(RecordModel):
                         citation_type=citation_type,
                         citation_value=val(row, 8),
                         publication_date=publication_date,
-                        publication_media_type=val(row, 10),
                         url=val(row, 11),
                         language_code=val(row, 12),
                         country=country,
-                        is_active=False,
+                        is_active=is_active,
                     ),
                     invitee=invitee,
                     external_id=dict(
@@ -3103,7 +3168,9 @@ class WorkRecord(RecordModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
                         rec.save()
-
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
 
             except Exception:
@@ -3139,6 +3206,7 @@ class WorkRecord(RecordModel):
                 if not task:
                     task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
 
+                is_enqueue = False
                 for r in data:
 
                     title = r.get("title", "title", "value")
@@ -3152,15 +3220,14 @@ class WorkRecord(RecordModel):
                         citation_type = citation_type.strip().upper()
                     citation_value = r.get("citation", "citation-value")
                     rec_type = r.get("type")
-                    publication_media_type = r.get("publication-date", "media-type")
                     url = r.get("url", "value")
                     language_code = r.get("language-code")
                     country = r.get("country", "value")
+                    is_active = r.get("is-active").lower() in ['y', "yes", "1", "true"] if r.get("is-active") else False
+                    if is_active:
+                        is_enqueue = is_active
 
-                    # Removing key 'media-type' from the publication_date dict. and only considering year, day & month
-                    publication_date = PartialDate.create(
-                        {date_key: r.get("publication-date")[date_key] for date_key in
-                         ('day', 'month', 'year')}) if r.get("publication-date") else None
+                    publication_date = PartialDate.create(r.get("publication-date"))
 
                     record = WorkRecord.create(
                         task=task,
@@ -3174,8 +3241,8 @@ class WorkRecord(RecordModel):
                         citation_value=citation_value,
                         type=rec_type,
                         publication_date=publication_date,
-                        publication_media_type=publication_media_type,
                         url=url,
+                        is_active=is_active,
                         language_code=language_code,
                         country=country)
 
@@ -3244,6 +3311,9 @@ class WorkRecord(RecordModel):
                     else:
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
 
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
             except Exception:
                 transaction.rollback()
@@ -3258,8 +3328,6 @@ class WorkRecord(RecordModel):
         d["short-description"] = self.short_description
         if self.publication_date:
             pd = self.publication_date.as_orcid_dict()
-            if self.publication_media_type:
-                pd["media-type"] = self.publication_media_type
             d["publication-date"] = pd
         if self.url:
             d["url"] = self.url
@@ -3487,7 +3555,7 @@ class OtherIdRecord(ExternalIdModel):
                                             r"((external)?\s*id(entifier)?\s*url|.*url)$",
                                             r"((external)?\s*id(entifier)?\s*rel(ationship)?|.*relationship)$",
                                             "email", r"first\s*(name)?", r"(last|sur)\s*(name)?",
-                                            "orcid.*", r"put|code", r"(is)?\s*visib(bility|le)?")]
+                                            "orcid.*", r"put|code", r"(is)?\s*visib(bility|le)?", r"(is)?\s*active$")]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -3515,6 +3583,7 @@ class OtherIdRecord(ExternalIdModel):
         with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_ID)
+                is_enqueue = False
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
@@ -3540,6 +3609,9 @@ class OtherIdRecord(ExternalIdModel):
                     relationship = val(row, 4, "").upper()
                     first_name = val(row, 6)
                     last_name = val(row, 7)
+                    is_active = val(row, 11, '').lower() in ['y', "yes", "1", "true"]
+                    if is_active:
+                        is_enqueue = is_active
 
                     if rec_type not in EXTERNAL_ID_TYPES:
                         raise ModelException(
@@ -3567,11 +3639,15 @@ class OtherIdRecord(ExternalIdModel):
                         last_name=last_name,
                         orcid=orcid,
                         put_code=val(row, 9),
-                        visibility=val(row, 10))
+                        visibility=val(row, 10),
+                        is_active=is_active)
                     validator = ModelValidator(rr)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     rr.save()
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
             except Exception:
                 transaction.rollback()
                 app.logger.exception("Failed to load Other IDs Record file.")
@@ -3596,6 +3672,7 @@ class OtherIdRecord(ExternalIdModel):
                 if not task:
                     task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_ID)
 
+                is_enqueue = False
                 for r in records:
 
                     id_type = r.get("type") or r.get("external-id-type")
@@ -3609,6 +3686,9 @@ class OtherIdRecord(ExternalIdModel):
                     orcid = r.get_orcid("ORCID-iD") or r.get_orcid("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
+                    is_active = bool(r.get("is-active"))
+                    if is_active:
+                        is_enqueue = is_active
 
                     cls.create(
                         task=task,
@@ -3622,8 +3702,12 @@ class OtherIdRecord(ExternalIdModel):
                         last_name=last_name,
                         orcid=orcid,
                         visibility=visibility,
-                        put_code=put_code)
+                        put_code=put_code,
+                        is_active=is_active)
 
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
                 return task
 
             except Exception:

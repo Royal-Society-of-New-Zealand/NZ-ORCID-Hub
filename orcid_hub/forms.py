@@ -305,7 +305,7 @@ class WorkForm(FlaskForm):
     short_description = TextAreaField(description="Short Description")
     citation_type = SelectField(
         choices=EMPTY_CHOICES + models.citation_type_choices, description="Citation Type")
-    citation = StringField("Citation Value")
+    citation = TextAreaField("Citation Value")
     publication_date = PartialDateField("Publication date")
     url = StringField("Url")
     language_code = LanguageSelectField("Language used in this form")

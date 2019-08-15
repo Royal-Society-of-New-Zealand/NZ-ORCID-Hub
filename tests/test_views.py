@@ -3680,8 +3680,7 @@ def test_researcher_work(client, mocker):
     "publication-date": {
       "year": {"value": "2001"},
       "month": {"value": "1"},
-      "day": {"value": "12"},
-      "media-type": null
+      "day": {"value": "12"}
     },
     "external-ids": {
       "external-id": [{
