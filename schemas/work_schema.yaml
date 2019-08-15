@@ -32,6 +32,8 @@ mapping:
         mapping:
             value:
                 type: timestamp
+    is-active:
+        type: str
     source:
         type: map
         mapping:
@@ -116,8 +118,6 @@ mapping:
                 mapping:
                     value:
                         type: str
-            media-type:
-                type: str
     external-ids:
         type: map
         mapping:
