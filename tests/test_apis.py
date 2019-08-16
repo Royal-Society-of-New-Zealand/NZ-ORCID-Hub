@@ -14,7 +14,6 @@ from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
 from orcid_hub.models import (AffiliationRecord, AsyncOrcidResponse, Client, OrcidToken,
                               Organisation, Task, TaskType, Token, User, UserInvitation)
-
 from unittest.mock import patch, MagicMock
 from tests import utils
 
@@ -1528,7 +1527,7 @@ def test_property_api(client, mocker):
                        data=json.dumps(records))
     assert resp.status_code == 200
     assert Task.select().count() == 6
-    assert UserInvitation.select().count() == 10
+    assert UserInvitation.select().count() == 7
     get_profile.assert_called()
     send_email.assert_called()
     create_or_update_researcher_url.assert_called_once()
