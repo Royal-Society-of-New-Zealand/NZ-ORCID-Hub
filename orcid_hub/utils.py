@@ -12,7 +12,6 @@ from datetime import date, datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import quote, urlencode, urlparse
 
-import chardet
 import emails
 import flask
 import requests
@@ -31,7 +30,7 @@ from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate
                      FundingRecord, Log, OtherIdRecord, OrcidToken, Organisation, OrgInvitation,
                      PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      PropertyRecord, Role, Task, TaskType, User, UserInvitation, UserOrg,
-                     WorkInvitee, WorkRecord, get_val)
+                     WorkInvitee, WorkRecord, get_val, readup_file)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -82,17 +81,9 @@ def read_uploaded_file(form):
     """Read up the whole content and deconde it and return the whole content."""
     if "file_" not in request.files:
         return
-    raw = request.files[form.file_.name].read()
-    detected_encoding = chardet.detect(raw).get('encoding')
-    encoding_list = ["utf-8", "utf-8-sig", "utf-16", "latin-1"]
-    if detected_encoding:
-        encoding_list.insert(0, detected_encoding)
-
-    for encoding in encoding_list:
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
+    content = readup_file(request.files[form.file_.name])
+    if content:
+        return content
     raise ValueError("Unable to decode encoding.")
 
 

@@ -9,13 +9,15 @@ from peewee import Model, SqliteDatabase
 
 from orcid_hub import JSONEncoder
 from orcid_hub.models import (
-    Affiliation, AffiliationRecord, AffiliationExternalId, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
-    FundingContributor, FundingInvitee, FundingRecord, Log, ModelException, NestedDict, OrcidToken,
-    Organisation, OrgInfo, OrcidApiCall, PartialDate, PartialDateField, PropertyRecord, PeerReviewExternalId,
-    PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TaskTypeField,
-    TextField, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
-    WorkInvitee, WorkRecord, app, create_tables, drop_tables, load_yaml_json, validate_orcid_id)
+    Affiliation, AffiliationRecord, AffiliationExternalId, BaseModel, BooleanField, ExternalId,
+    File, ForeignKeyField, FundingContributor, FundingInvitee, FundingRecord, Log, ModelException,
+    NestedDict, OrcidToken, Organisation, OrgInfo, OrcidApiCall, PartialDate, PartialDateField,
+    PropertyRecord, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, ResourceRecord,
+    Role, Task, TaskType, TaskTypeField, TextField, User, UserInvitation, UserOrg,
+    UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord, app,
+    create_tables, drop_tables, load_yaml_json, validate_orcid_id)
 
+from utils import readup_test_data
 
 @pytest.fixture
 def models(testdb):
@@ -643,7 +645,7 @@ FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	Manager Specia
 
 def test_work_task(models):
     org = Organisation.select().first()
-    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "r").read()
+    raw_data0 = readup_test_data("example_works.json", "r")
     data0 = load_yaml_json("test0001.json", raw_data0)
     assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
     data0 = load_yaml_json(None, source=raw_data0, content_type="json")
@@ -736,7 +738,7 @@ def test_base_model_to_dict():
 
 def test_other_names(models):
     org = Organisation.select().first()
-    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "othernames.json"), "r").read()
+    raw_data0 = readup_test_data("othernames.json", "r")
     data0 = load_yaml_json("othernames000.json", raw_data0)
     assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
     data0 = load_yaml_json(None, source=raw_data0, content_type="json")
@@ -751,8 +753,8 @@ def test_other_names(models):
 
 
 def test_researcher_urls(models):
-    org = Organisation.select().first()
-    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "researchurls.json"), "r").read()
+    org = Organisation.get()
+    raw_data0 = readup_test_data("researchurls.json", "r")
     data0 = load_yaml_json("researchurls.json", raw_data0)
     assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
     task0 = PropertyRecord.load_from_json(filename="researchurls000.json", source=raw_data0, org=org, file_property_type="URL")
@@ -760,3 +762,10 @@ def test_researcher_urls(models):
     raw_data = json.dumps(data, cls=JSONEncoder)
     task = PropertyRecord.load_from_json(filename="researchurls001.json", source=raw_data, org=org, file_property_type="URL")
     assert len(data0) == len(task.to_dict()["records"])
+
+
+def test_load_resources_from_csv(models):
+    org = Organisation.get()
+    raw_data = readup_test_data("resources.tsv")
+    ResourceRecord.load_from_csv(raw_data, filename="resources.tsv", org=org)
+    pass

@@ -3042,7 +3042,6 @@ def exeute_orcid_call_async(method, url, data, headers):
 def register_webhook(orcid, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
     login_user(request.oauth.user)
-
     try:
         validate_orcid_id(orcid)
     except Exception as ex:

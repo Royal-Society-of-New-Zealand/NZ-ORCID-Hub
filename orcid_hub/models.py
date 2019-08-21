@@ -20,6 +20,7 @@ from io import StringIO
 from itertools import groupby, zip_longest
 from urllib.parse import urlencode
 
+import chardet
 import validators
 import yaml
 from flask_login import UserMixin, current_user
@@ -284,6 +285,9 @@ class PartialDateField(Field):
 
     def db_value(self, value):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
+        if isinstance(value, str):
+            value = PartialDate.create(value)
+
         if value is None or not value.year:
             return None
 
@@ -332,6 +336,7 @@ class TaskType(IntEnum):
     PEER_REVIEW = 3
     OTHER_ID = 5
     PROPERTY = 8
+    RESOURCE = 9
     SYNC = 11
 
     def __eq__(self, other):
@@ -1168,6 +1173,15 @@ class Task(AuditedModel):
     def error_count(self):
         """Get error count encountered during processing batch task."""
         return self.records.where(self.record_model.status ** "%error%").count()
+
+    @property
+    def is_ready(self):
+        """Indicate that the task is 'ready to go':
+            - the task is "ACTIVE"
+            or
+            - there is at least one activated record.
+        """
+        return self.state == "ACTIVE" or self.records.whhere(self.record_model.is_active).exists()
 
     # TODO: move this one to AffiliationRecord
     @classmethod
@@ -3391,10 +3405,10 @@ class Invitee(BaseModel):
     """Common model bits of the invitees records."""
 
     identifier = CharField(max_length=120, null=True)
-    email = CharField(max_length=120)
+    email = CharField(max_length=120, null=True)
+    orcid = OrcidIdField(null=True)
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
-    orcid = OrcidIdField(null=True)
     put_code = IntegerField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     status = TextField(null=True, help_text="Record processing status.")
@@ -3734,39 +3748,57 @@ class OrgRecord(RecordModel):
         table_alias = "or"
 
 
-class ResourceRecord(RecordModel):
+class ResourceRecord(RecordModel, Invitee):
     """Research resource record."""
 
     display_index = IntegerField(null=True)
-    invitees = ManyToManyField(Invitee, backref="resources")
+    task = ForeignKeyField(Task, backref="resource_records", on_delete="CASCADE")
 
     # Resource
-    title = CharField(max_length=1000)
+    name = CharField(max_length=1000)
+    type = CharField(max_length=1000, null=True)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
     url = CharField(max_length=200, null=True)
-    host = ForeignKeyField(OrgRecord, null=True)
-    external_ids = ManyToManyField(ExternalId, backref="resources")
+
+    host_name = CharField(max_length=1000)
+    host_city = TextField(null=True)
+    host_region = TextField(null=True)
+    host_country = CharField(max_length=2, null=True, choices=country_choices)
+    host_disambiguated_id = TextField(null=True)
+    host_disambiguation_source = TextField(null=True, choices=disambiguation_source_choices)
+
+    external_id_type = CharField(max_length=255, choices=external_id_type_choices)
+    external_id_value = CharField(max_length=255)
+    external_id_url = CharField(max_length=200, null=True)
+    external_id_relationship = CharField(null=True, max_length=255, choices=relationship_choices)
 
     # Proposal
     proposal_title = CharField(max_length=1000)
     proposal_start_date = PartialDateField(null=True)
     proposal_end_date = PartialDateField(null=True)
     proposal_url = CharField(max_length=200, null=True)
-    porposal_host = ForeignKeyField(OrgRecord, null=True)
-    proposal_external_ids = ManyToManyField(ExternalId, backref="resource_proposals")
+
+    proposal_host_name = CharField(max_length=1000)
+    proposal_host_city = TextField(null=True)
+    proposal_host_region = TextField(null=True)
+    proposal_host_country = CharField(max_length=2, null=True, choices=country_choices)
+    proposal_host_disambiguated_id = TextField(null=True)
+    proposal_host_disambiguation_source = TextField(null=True, choices=disambiguation_source_choices)
+
+    proposal_external_id_type = CharField(max_length=255, choices=external_id_type_choices)
+    proposal_external_id_value = CharField(max_length=255)
+    proposal_external_id_url = CharField(max_length=200, null=True)
+    proposal_external_id_relationship = CharField(null=True, max_length=255, choices=relationship_choices)
 
     is_active = BooleanField(
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
 
-    task = ForeignKeyField(Task, backref="resource_records", on_delete="CASCADE")
     local_id = CharField(
         max_length=100,
         null=True,
         verbose_name="Local ID",
         help_text="Record identifier used in the data source system.")
-    processed_at = DateTimeField(null=True)
-    status = TextField(null=True, help_text="Record processing status.")
 
     delete_record = BooleanField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
@@ -3777,6 +3809,8 @@ class ResourceRecord(RecordModel):
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source, newline='')
         if filename is None:
             filename = datetime.utcnow().isoformat(
                 timespec="seconds") + (".tsv" if '\t' in source else ".csv")
@@ -3792,60 +3826,57 @@ class ResourceRecord(RecordModel):
             raise ModelException("Expected CSV or TSV format file.")
 
         header_rexs = [
-            re.compile(ex, re.I) for ex in [
-                r"identifier",
-                r"email",
-                r"orcid\s*id",
-                r"first\s*name",
-                r"last\s*name",
-                r"put\s*code",
-                r"visibility",
+            (re.compile(ex, re.I), c) for (ex, c) in [
+                (r"identifier", "identifier"),
+                (r"email", "email"),
+                (r"orcid\s*id", "orcid_id"),
+                (r"first\s*name", "first_name"),
+                (r"last\s*name", "last_name"),
+                (r"put\s*code", "put_code"),
+                (r"visibility", "visibility"),
 
-                # 7
-                r"proposal\s*title",
-                r"proposal\s*start\s*date",
-                r"proposal\s*end\s*date",
-                r"proposal\s*url",
+                (r"proposal\s*title", "proposal_title"),
+                (r"proposal\s*start\s*date", "proposal_start_date"),
+                (r"proposal\s*end\s*date", "proposal_end_date"),
+                (r"proposal\s*url", "proposal_url"),
+                (r"proposal\s*external\s*id\s*type", "proposal_external_id_type"),
+                (r"proposal\s*external\s*id\s*value", "proposal_external_id_value"),
+                (r"proposal\s*external\s*id\s*url", "proposal_external_id_url"),
+                (r"proposal\s*external\s*id\s*relationship", "proposal_external_id_relationship"),
+                (r"proposal\s*host\s*name", "proposal_host_name"),
+                (r"proposal\s*host\s*city", "proposal_host_city"),
+                (r"proposal\s*host\s*region", "proposal_host_region"),
+                (r"proposal\s*host\s*country", "proposal_host_country"),
+                (r"proposal\s*host\s*disambiguation\s*id", "proposal_host_disambiguation_id"),
+                (r"proposal\s*host\s*disambiguation\s*source", "proposal_host_disambiguation_source"),
 
-                # 11
-                r"proposal\s*external\s*id\s*type",
-                r"proposal\s*external\s*id\s*value",
-                r"proposal\s*external\s*id\s*url",
-                r"proposal\s*external\s*id\s*relationship",
+                (r"resource\s*name", "name"),
+                (r"resource\s*type", "type"),
 
-                r"proposal\s*host\s*name",
-                r"proposal\s*host\s*city",
-                r"proposal\s*host\s*(region|state)",
-                r"proposal\s*host\s*country",
-                r"proposal\s*host\s*disambiguated\s*id",
-                r"proposal\s*host\s*disambiguation\s*source",
+                (r"(resource\s*)?external\s*id\s*type", "external_id_type"),
+                (r"(resource\s*)?external\s*id\s*value", "external_id_value"),
+                (r"(resource\s*)?external\s*id\s*url", "external_id_url"),
+                (r"(resource\s*)?external\s*id\s*relationship", "external_id_relationship"),
 
-                r"resource\s*name",
-                r"resource\s*type",
-
-                r"resource\s*external\s*id\s*type",
-                r"resource\s*external\s*id\s*value",
-                r"resource\s*external\s*id\s*url",
-                r"resource\s*external\s*id\s*relationship",
-
-                r"resource\s*host\s*name",
-                r"resource\s*host\s*city",
-                r"resource\s*host\s*(region|state)",
-                r"resource\s*host\s*country",
-                r"resource\s*host\s*disambiguated\s*id",
-                r"resource\s*host\s*disambiguation\s*source",
+                (r"(resource\s*)?host\s*name", "host_name"),
+                (r"(resource\s*)?host\s*city", "host_city"),
+                (r"(resource\s*)?host\s*region", "host_region"),
+                (r"(resource\s*)?host\s*country", "host_country"),
+                (r"(resource\s*)?host\s*disambiguation\s*id", "host_disambiguation_id"),
+                (r"(resource\s*)?host\s*disambiguation\s*source", "host_disambiguation_source"),
             ]
         ]
 
-        def index(rex):
+        def index(ex):
             """Return first header column index matching the given regex."""
             for i, column in enumerate(header):
-                if rex.match(column.strip()):
+                if ex.match(column.strip()):
                     return i
             else:
                 return None
 
-        idxs = [index(rex) for rex in header_rexs]
+        # model column -> file column map:
+        idxs = {column: index(ex) for ex, column in header_rexs}
 
         if all(idx is None for idx in idxs):
             raise ModelException(f"Failed to map fields based on the header of the file: {header}")
@@ -3853,81 +3884,14 @@ class ResourceRecord(RecordModel):
         if org is None:
             org = current_user.organisation if current_user else None
 
-        def val(row, i, default=None):
-            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+        def val(row, column, default=None):
+            idx = idxs.get(column)
+            if not idx or idx < 0 or idx >= len(row):
                 return default
-            else:
-                v = row[idxs[i]].strip()
-            return default if v == '' else v
+            return row[idx].strip() or default
 
-        rows = []
-        cached_row = []
-        for row_no, row in enumerate(reader):
-            # skip empty lines:
-            if len([item for item in row if item and item.strip()]) == 0:
-                continue
-            if len(row) == 1 and row[0].strip() == '':
-                continue
-
-            orcid, email = val(row, 15), normalize_email(val(row, 16))
-            if orcid:
-                orcid = validate_orcid_id(orcid)
-            if email and not validators.email(email):
-                raise ValueError(
-                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
-
-            visibility = val(row, 22)
-            if visibility:
-                visibility = visibility.upper()
-
-            invitee = dict(
-                identifier=val(row, 25),
-                email=email,
-                first_name=val(row, 23),
-                last_name=val(row, 24),
-                orcid=orcid,
-                put_code=val(row, 21),
-                visibility=visibility,
-            )
-
-            title = val(row, 0)
-            external_id_type = val(row, 17, "").lower()
-            external_id_value = val(row, 18)
-            external_id_relationship = val(row, 20, "").upper()
-
-            if external_id_type not in EXTERNAL_ID_TYPES:
-                raise ModelException(
-                    f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
-
-            if not external_id_value:
-                raise ModelException(
-                    f"Invalid External Id Value or Work Id: {external_id_value}, #{row_no+2}: {row}.")
-
-            if not title:
-                raise ModelException(
-                    f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
-
-            if external_id_relationship not in RELATIONSHIPS:
-                raise ModelException(
-                    f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
-                    f"{RELATIONSHIPS}, #{row_no+2}: {row}.")
-
-            if cached_row and title.lower() == val(cached_row, 0).lower() and \
-                    external_id_type.lower() == val(cached_row, 17).lower() and \
-                    external_id_value.lower() == val(cached_row, 18).lower() and \
-                    external_id_relationship.lower() == val(cached_row, 20).lower():
-                row = cached_row
-            else:
-                cached_row = row
-
-            work_type = val(row, 5)
-            if not work_type:
-                raise ModelException(
-                    f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}")
-
-            # The uploaded country must be from ISO 3166-1 alpha-2
-            country = val(row, 13)
+        def country_code(row, column):
+            country = val(row, column)
             if country:
                 try:
                     country = countries.lookup(country).alpha_2
@@ -3935,67 +3899,47 @@ class ResourceRecord(RecordModel):
                     raise ModelException(
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
-
-            publication_date = val(row, 9)
-            citation_type = val(row, 7)
-            if citation_type:
-                citation_type = citation_type.upper()
-
-            if publication_date:
-                publication_date = PartialDate.create(publication_date)
-            rows.append(
-                dict(
-                    work=dict(
-                        title=title,
-                        subtitle=val(row, 1),
-                        translated_title=val(row, 2),
-                        translated_title_language_code=val(row, 3),
-                        journal_title=val(row, 4),
-                        type=work_type,
-                        short_description=val(row, 6),
-                        citation_type=citation_type,
-                        citation_value=val(row, 8),
-                        publication_date=publication_date,
-                        publication_media_type=val(row, 10),
-                        url=val(row, 11),
-                        language_code=val(row, 12),
-                        country=country,
-                        is_active=False,
-                    ),
-                    invitee=invitee,
-                    external_id=dict(
-                        type=external_id_type,
-                        value=external_id_value,
-                        url=val(row, 19),
-                        relationship=external_id_relationship)))
+            return country
 
         with db.atomic() as transaction:
             try:
-                task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
-                for work, records in groupby(rows, key=lambda row: row["work"].items()):
-                    records = list(records)
+                task = Task.create(org=org, filename=filename, task_type=TaskType.RESOURCE)
+                for row_no, row in enumerate(reader):
+                    # skip empty lines:
+                    if len([item for item in row if item and item.strip()]) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
+                        continue
 
-                    wr = cls(task=task, **dict(work))
-                    validator = ModelValidator(wr)
-                    if not validator.validate():
-                        raise ModelException(f"Invalid record: {validator.errors}")
-                    wr.save()
+                    orcid, email = val(row, "orcid"), normalize_email(val(row, "email"))
+                    if orcid:
+                        orcid = validate_orcid_id(orcid)
+                    if email and not validators.email(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
-                    for external_id in set(
-                            tuple(r["external_id"].items()) for r in records
-                            if r["external_id"]["type"] and r["external_id"]["value"]):
-                        ei = WorkExternalId(record=wr, **dict(external_id))
-                        ei.save()
+                    visibility = val(row, "visibility")
+                    if visibility:
+                        visibility = visibility.upper()
 
-                    for invitee in set(
-                            tuple(r["invitee"].items()) for r in records
-                            if r["invitee"]["email"]):
-                        rec = WorkInvitee(record=wr, **dict(invitee))
-                        validator = ModelValidator(rec)
-                        if not validator.validate():
-                            raise ModelException(f"Invalid invitee record: {validator.errors}")
-                        rec.save()
+                    rec = cls.create(task=task,
+                                     visibility=visibility,
+                                     email=email,
+                                     orcid=orcid,
+                                     **{
+                                         c: v
+                                         for c, v in ((c, val(row, c)) for c in idxs
+                                                      if c not in ["email", "orcid", "visibility"])
+                                         if v
+                                     })
+                    validator = ModelValidator(rec)
+                    # TODO: removed the exclude paramtere after we sortout the
+                    # valid domain values.
+                    if not validator.validate(exclude=[cls.external_id_relationship, ]):
+                        raise ValueError(
+                            f"Invalid data in the row #{row_no+2}: {validator.errors}")
 
+                transaction.commit()
                 return task
 
             except Exception:
@@ -4003,18 +3947,10 @@ class ResourceRecord(RecordModel):
                 app.logger.exception("Failed to load work file.")
                 raise
 
+        if task.is_ready:
+            from .utils import enqueue_task_records
+            enqueue_task_records(task)
 
-ResourceRecordExternalId = RecordModel.external_ids.get_through_model()
-
-
-# class ResoureceExternalId(BaseModel):
-#     """Linkage between resoucrece and ExternalId."""
-
-#     external_id = ForeignKeyField(ExternalId, index=True, on_delete="CASCADE")
-#     resource = ForeignKeyField(Resource, index=True, on_delete="CASCADE")
-
-#     class Meta:  # noqa: D106
-#         table_alias = "rei"
 
 class Record(RecordModel):
     """ORCID message loaded from structured batch task file."""
@@ -4228,12 +4164,16 @@ DeferredForeignKey.resolve(User)
 def readup_file(input_file):
     """Read up the whole content and decode it and return the whole content."""
     raw = input_file.read()
-    for encoding in "utf-8-sig", "utf-8", "utf-16":
+    detected_encoding = chardet.detect(raw).get("encoding")
+    encoding_list = ["utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "latin-1"]
+    if detected_encoding:
+        encoding_list.insert(0, detected_encoding)
+
+    for encoding in encoding_list:
         try:
             return raw.decode(encoding)
         except UnicodeDecodeError:
             continue
-    return raw.decode("latin-1")
 
 
 def create_tables(safe=True, drop=False):
@@ -4282,6 +4222,7 @@ def create_tables(safe=True, drop=False):
             Record,
             Invitee,
             RecordInvitee,
+            ResourceRecord,
     ]:
 
         model.bind(db)

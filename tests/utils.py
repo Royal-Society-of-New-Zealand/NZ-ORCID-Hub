@@ -2,7 +2,10 @@
 """Helpers for testing."""
 
 import json
+import os
+
 from orcid_hub import orcid_client
+from orcid_hub.models import readup_file
 
 
 def get_profile(org=None, user=None):
@@ -424,3 +427,9 @@ def get_profile(org=None, user=None):
         "path": f"/{orcid}"
     }
     return json.loads(json.dumps(resp), object_pairs_hook=orcid_client.NestedDict)
+
+
+def readup_test_data(filename, mode="rb"):
+    """Readup the file with the test data."""
+    with open(os.path.join(os.path.dirname(__file__), "data", filename), mode) as f:
+        return readup_file(f)
