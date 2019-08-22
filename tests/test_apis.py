@@ -8,6 +8,7 @@ from datetime import datetime
 from io import BytesIO
 import os
 
+from flask_login import current_user
 import pytest
 
 from orcid_hub.apis import yamlfy
@@ -667,6 +668,7 @@ def test_affiliation_api(client, mocker):
     """Test affiliation API in various formats."""
     exception = mocker.patch.object(client.application.logger, "exception")
     capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+
     resp = client.post(
         "/oauth/token",
         content_type="application/x-www-form-urlencoded",
@@ -1088,6 +1090,40 @@ something fishy is going here...
         headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
         content_type="application/json",
         data="""{"status": "ACTIVE"}""")
+
+    # Test if a user from the same organisation can access the task submitted by another user
+    resp = client.post(
+        "/api/v1/affiliations/?filename=empty-task.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data="""{
+            "filename": "empty-task.json",
+            "task-type": "AFFILIATION",
+            "records": []
+        }""")
+    task_id = resp.json["id"]
+
+    # Change the technical contact
+    user = current_user
+    org = Client.get(client_id="TEST0-ID").org
+    user2 = org.users.where(User.id != org.tech_contact.id).first()
+    org.tech_contact = user2
+    org.save()
+
+    resp = client.post(
+        "/oauth/token",
+        content_type="application/x-www-form-urlencoded",
+        data=b"grant_type=client_credentials&client_id=TEST0-ID&client_secret=TEST0-SECRET")
+    data = json.loads(resp.data)
+
+    resp = client.get(
+        f"/api/v1/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"))
+    assert resp.status_code == 200
+    assert resp.json["filename"] == "empty-task.json"
+    assert resp.json["id"] == task_id
+    # and the user stays the same
+    assert user.id == current_user.id
 
 
 def test_funding_api(client):

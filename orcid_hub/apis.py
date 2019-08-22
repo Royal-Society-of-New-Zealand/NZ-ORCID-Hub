@@ -298,7 +298,7 @@ class TaskResource(AppResource):
                 task = Task.get(id=task)
             except Task.DoesNotExist:
                 return jsonify({"error": "The task doesn't exist."}), 404
-            if task.created_by_id != current_user.id:
+            if task.org != current_user.organisation:
                 return jsonify({"error": "Access denied."}), 403
         if request.method != "HEAD":
             if task.task_type in [
