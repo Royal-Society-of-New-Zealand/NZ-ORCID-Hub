@@ -556,6 +556,15 @@ def test_spec(client, url):
     assert resp.status_code == 200
 
 
+def test_spec_content(client):
+    """Test API specs."""
+    resp = client.get("/spec")
+    assert resp.status_code == 200
+    spec = resp.json
+    for m in ["AffiliationTask", "AffiliationTaskRecord", "Error", "FundTask"]:
+        assert m in spec["definitions"]
+
+
 def test_yaml_spec(client):
     """Test API specs (the default entry point with yaml content type)."""
     resp = client.get("/spec", headers={"Accept": "text/yaml"})
