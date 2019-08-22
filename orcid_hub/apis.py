@@ -14,7 +14,7 @@ import yaml
 from flask import (Response, abort, current_app, jsonify, make_response,
                    render_template, request, stream_with_context, url_for)
 from flask.views import MethodView
-from flask_login import current_user, login_user
+from flask_login import current_user
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 from rq import get_current_job
@@ -100,8 +100,6 @@ class AppResource(Resource):
 
     def handle_user(self, identifier=None):
         """Create, update or delete user account entry."""
-        login_user(request.oauth.user)
-
         if request.method != "DELETE":
             if self.is_yaml_request:
                 try:
@@ -294,7 +292,6 @@ class TaskResource(AppResource):
     def jsonify_task(self, task, include_records=True):
         """Create JSON response with the task payload."""
         if isinstance(task, int):
-            login_user(request.oauth.user)
             try:
                 task = Task.get(id=task)
             except Task.DoesNotExist:
@@ -316,7 +313,6 @@ class TaskResource(AppResource):
 
     def delete_task(self, task_id):
         """Delete the task."""
-        login_user(request.oauth.user)
         try:
             task = Task.get(id=task_id)
         except Task.DoesNotExist:
@@ -332,8 +328,6 @@ class TaskResource(AppResource):
 
     def handle_affiliation_task(self, task_id=None):
         """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
-        login_user(request.oauth.user)
-
         if self.is_yaml_request:
             try:
                 data = yaml.load(request.data)
@@ -381,7 +375,6 @@ class TaskResource(AppResource):
     def handle_task(self, task_id=None):
         """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
         try:
-            login_user(request.oauth.user)
             if task_id:
                 try:
                     task = Task.get(id=task_id)
@@ -520,7 +513,6 @@ class TaskList(TaskResource, AppResourceList):
           404:
             $ref: "#/responses/NotFound"
         """
-        login_user(request.oauth.user)
         query = Task.select().where(Task.org_id == current_user.organisation_id)
         task_type = request.args.get("type")
         status = request.args.get("status")
@@ -545,7 +537,6 @@ class TaskAPI(TaskList):
     def handle_task(self, task_id=None):
         """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
         try:
-            login_user(request.oauth.user)
             if self.is_yaml_request:
                 data = yaml.safe_load(request.data)
             else:
@@ -894,7 +885,6 @@ class AffiliationListAPI(TaskResource):
                 format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
                 description: "User ORCID ID"
         """
-        login_user(request.oauth.user)
         if request.content_type in ["text/csv", "text/tsv"]:
             task = Task.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             return self.jsonify_task(task)
@@ -1158,7 +1148,6 @@ class FundListAPI(TaskResource):
             id: FundTaskRecord
             type: object
         """
-        login_user(request.oauth.user)
         if request.content_type in ["text/csv", "text/tsv"]:
             task = FundingRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             return self.jsonify_task(task)
@@ -1345,7 +1334,6 @@ class WorkListAPI(TaskResource):
             id: WorkTaskRecord
             type: object
         """
-        login_user(request.oauth.user)
         if request.content_type in ["text/csv", "text/tsv"]:
             task = WorkRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             return self.jsonify_task(task)
@@ -1532,7 +1520,6 @@ class PeerReviewListAPI(TaskResource):
             id: PeerReviewTaskRecord
             type: object
         """
-        login_user(request.oauth.user)
         if request.content_type in ["text/csv", "text/tsv"]:
             task = PeerReviewRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             return self.jsonify_task(task)
@@ -1780,7 +1767,6 @@ class PropertyListAPI(TaskResource):
                 format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
                 description: "User ORCID ID"
         """
-        login_user(request.oauth.user)
         if request.content_type in ["text/csv", "text/tsv"]:
             task = PropertyRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             enqueue_task_records(task)
@@ -2045,7 +2031,6 @@ class UserListAPI(AppResourceList):
           422:
             description: "Unprocessable Entity"
         """
-        login_user(request.oauth.user)
         users = User.select().where(User.organisation == current_user.organisation)
         for a in ["from_date", "to_date"]:
             v = request.args.get(a)
@@ -3027,7 +3012,6 @@ def yamlfy(*args, **kwargs):
 @oauth.require_oauth()
 def orcid_proxy(version, orcid, rest=None):
     """Handle proxied request..."""
-    login_user(request.oauth.user)
     if not ORCID_API_VERSION_REGEX.match(version):
         return jsonify({
             "error": "Resource not found",
@@ -3134,8 +3118,6 @@ def exeute_orcid_call_async(method, url, data, headers):
 @oauth.require_oauth()
 def register_webhook(orcid, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
-    login_user(request.oauth.user)
-
     try:
         validate_orcid_id(orcid)
     except Exception as ex:
