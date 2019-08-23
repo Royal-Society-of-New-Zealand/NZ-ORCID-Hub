@@ -39,7 +39,6 @@ def save_grant(client_id, code, request, *args, **kwargs):  # noqa: D103 pragma:
 
 @oauth.tokengetter
 def load_token(access_token=None, refresh_token=None):  # noqa: D103
-
     return Token.select().where(
         Token.expires >= datetime.now(),
         (Token.access_token == access_token) if access_token is not None else

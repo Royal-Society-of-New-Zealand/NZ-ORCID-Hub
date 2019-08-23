@@ -7,14 +7,15 @@ import yaml
 from datetime import datetime
 from io import BytesIO
 import os
+from uuid import uuid4
 
+from flask_login import current_user
 import pytest
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
 from orcid_hub.models import (AffiliationRecord, AsyncOrcidResponse, Client, OrcidToken,
                               Organisation, Task, TaskType, Token, User, UserInvitation)
-
 from unittest.mock import patch, MagicMock
 from tests import utils
 
@@ -555,6 +556,15 @@ def test_spec(client, url):
     assert resp.status_code == 200
 
 
+def test_spec_content(client):
+    """Test API specs."""
+    resp = client.get("/spec")
+    assert resp.status_code == 200
+    spec = resp.json
+    for m in ["AffiliationTask", "AffiliationTaskRecord", "Error", "FundTask"]:
+        assert m in spec["definitions"]
+
+
 def test_yaml_spec(client):
     """Test API specs (the default entry point with yaml content type)."""
     resp = client.get("/spec", headers={"Accept": "text/yaml"})
@@ -668,6 +678,7 @@ def test_affiliation_api(client, mocker):
     """Test affiliation API in various formats."""
     exception = mocker.patch.object(client.application.logger, "exception")
     capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+
     resp = client.post(
         "/oauth/token",
         content_type="application/x-www-form-urlencoded",
@@ -1090,6 +1101,40 @@ something fishy is going here...
         content_type="application/json",
         data="""{"status": "ACTIVE"}""")
 
+    # Test if a user from the same organisation can access the task submitted by another user
+    resp = client.post(
+        "/api/v1/affiliations/?filename=empty-task.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data="""{
+            "filename": "empty-task.json",
+            "task-type": "AFFILIATION",
+            "records": []
+        }""")
+    task_id = resp.json["id"]
+
+    # Change the technical contact
+    user = current_user
+    org = Client.get(client_id="TEST0-ID").org
+    user2 = org.users.where(User.id != org.tech_contact.id).first()
+    org.tech_contact = user2
+    org.save()
+
+    resp = client.post(
+        "/oauth/token",
+        content_type="application/x-www-form-urlencoded",
+        data=b"grant_type=client_credentials&client_id=TEST0-ID&client_secret=TEST0-SECRET")
+    data = json.loads(resp.data)
+
+    resp = client.get(
+        f"/api/v1/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"))
+    assert resp.status_code == 200
+    assert resp.json["filename"] == "empty-task.json"
+    assert resp.json["id"] == task_id
+    # and the user stays the same
+    assert user.id == current_user.id
+
 
 def test_funding_api(client):
     """Test funding API in various formats."""
@@ -1346,9 +1391,7 @@ def test_proxy_get_profile(client):
     orcid_id = "0000-0000-0000-00X3"
 
     with patch("orcid_hub.apis.requests.Session.send") as mocksend:
-        mockresp = MagicMock(status_code=200)
-        mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
-        mockresp.raw.headers = {
+        headers = {
             "Server": "TEST123",
             "Content-Type": "application/json;charset=UTF-8",
             "Transfer-Encoding": "chunked",
@@ -1358,6 +1401,12 @@ def test_proxy_get_profile(client):
             "Pragma": "no-cache",
             "Expires": "0",
         }
+        mockresp = MagicMock(status_code=200,
+                             headers=headers,
+                             json={"data": "TEST"},
+                             text='{"data": "TEST"}')
+        mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
+        mockresp.raw.headers = headers
         mocksend.return_value = mockresp
         resp = client.get(
             f"/orcid/api/v2.23/{orcid_id}",
@@ -1373,7 +1422,7 @@ def test_proxy_get_profile(client):
         resp = client.get(
             f"/orcid/api/v2.23/{orcid_id}?async=true",
             headers=dict(authorization=f"Bearer {token.access_token}"))
-        assert resp.status_code == 201
+        assert resp.status_code == 202
         args, kwargs = mocksend.call_args
         assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}"
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
@@ -1383,20 +1432,38 @@ def test_proxy_get_profile(client):
         assert ar.status_code == 200
         assert ar.body is not None
 
+        job_id = str(ar.job_id)
+        assert resp.json["job-id"] == job_id
+        assert resp.json["response-url"].endswith(job_id)
+        assert resp.headers["ORCIDHub-AsyncOperation-Response"].endswith(job_id)
+        assert resp.headers["ORCIDHub-AsyncOperation-Response"] == resp.json["response-url"]
+
+        resp = client.get(resp.json["response-url"],
+                          headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.headers["ORCIDHub-Async-Method"] == "GET"
+        assert resp.headers["ORCIDHub-Async-URL"].endswith(orcid_id)
+
+        # Incorrect request
+        resp = client.get(f"/orcid/response/{uuid4()}",
+                          headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.status_code == 404
+
+        ar.executed_at = None
+        ar.save()
+        resp = client.get(f"/orcid/response/{ar.job_id}",
+                          headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.status_code == 204
+
+        ar.executed_at = datetime.utcnow()
+        ar.save()
+        resp = client.get(f"/orcid/response/{ar.job_id}",
+                          headers=dict(authorization=f"Bearer {token.access_token}"))
+        assert resp.status_code == 200
+
     with patch("orcid_hub.apis.requests.Session.send") as mocksend:
-        mockresp = MagicMock(status_code=201)
+        mockresp = MagicMock(status_code=201, headers=headers, json={"data": "TEST"})
         mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
-        mockresp.raw.headers = {
-            "Server": "TEST123",
-            "Content-Type": "application/json;charset=UTF-8",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
-            "Pragma": "no-cache",
-            "Loction": "TEST-LOCATION",
-            "Expires": "0",
-        }
+        mockresp.raw.headers = headers
         mocksend.return_value = mockresp
         resp = client.post(
             f"/orcid/api/v2.23/{orcid_id}/SOMETHING-MORE",
@@ -1528,7 +1595,7 @@ def test_property_api(client, mocker):
                        data=json.dumps(records))
     assert resp.status_code == 200
     assert Task.select().count() == 6
-    assert UserInvitation.select().count() == 10
+    assert UserInvitation.select().count() == 7
     get_profile.assert_called()
     send_email.assert_called()
     create_or_update_researcher_url.assert_called_once()

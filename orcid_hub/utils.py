@@ -1124,10 +1124,10 @@ def process_work_records(max_rows=20, record_id=None):
             t.id,
             t.org_id,
             t.record.id,
-            t.record.invitee.user,)):
+            (lambda r: r.user if r.user.id else None)(t.record.invitee),)):
         # If we have the token associated to the user then update the work record,
         # otherwise send him an invite
-        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+        if (user is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scopes.contains("/activities/update"))).exists()):  # noqa: E127, E129
 
@@ -1250,9 +1250,9 @@ def process_peer_review_records(max_rows=20, record_id=None):
             t.id,
             t.org_id,
             t.record.id,
-            t.record.invitee.user,)):
+            (lambda r: r.user if r.user.id else None)(t.record.invitee),)):
         """If we have the token associated to the user then update the peer record, otherwise send him an invite"""
-        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+        if (user is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scopes.contains("/activities/update"))).exists()):  # noqa: E127, E129
 
@@ -1376,9 +1376,9 @@ def process_funding_records(max_rows=20, record_id=None):
             t.id,
             t.org_id,
             t.record.id,
-            t.record.invitee.user,)):
+            (lambda r: r.user if r.user.id else None)(t.record.invitee),)):
         """If we have the token associated to the user then update the funding record, otherwise send him an invite"""
-        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+        if (user is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scopes.contains("/activities/update"))).exists()):  # noqa: E127, E129
 
@@ -1499,8 +1499,8 @@ def process_affiliation_records(max_rows=20, record_id=None):
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.record.user, )):
-        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (lambda r: r.user if r.user.id else None)(t.record))):
+        if (user is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scopes.contains("/activities/update"))).exists()):  # noqa: E127, E129
             # maps invitation attributes to affiliation type set:
@@ -1612,18 +1612,17 @@ def process_property_records(max_rows=20, record_id=None):
             tasks = tasks.where(PropertyRecord.id.in_(record_id))
         else:
             tasks = tasks.where(PropertyRecord.id == record_id)
-
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.record.user, )):
-        if (not user.id or not user.orcid or not OrcidToken.select().where(
+            (lambda r: r.user if r.user.id else None)(t.record),)):
+        if (not user or not user.orcid or not OrcidToken.select().where(
                 OrcidToken.user_id == user.id, OrcidToken.org_id == org_id,
                 OrcidToken.scopes.contains("/person/update")).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
                     lambda t: (t.created_by, t.org, t.record.email, t.record.first_name,
-                               t.record.last_name, t.record.user)):  # noqa: E501
+                               t.record.last_name, user)):  # noqa: E501
                 try:
                     send_user_invitation(*k, task_id=task_id)
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
@@ -1712,8 +1711,8 @@ def process_other_id_records(max_rows=20, record_id=None):
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.record.user, )):
-        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (lambda r: r.user if r.user.id else None)(t.record), )):
+        if (user is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scopes.contains("/person/update"))).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
@@ -1722,7 +1721,7 @@ def process_other_id_records(max_rows=20, record_id=None):
                                t.record.last_name)):  # noqa: E501
                 try:
                     email = k[2]
-                    send_user_invitation(*k, task_id=task_id)
+                    send_user_invitation(*k, task_id=task_id, invitation_template="email/property_invitation.html")
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
                     (OtherIdRecord.update(status=OtherIdRecord.status + "\n" + status).where(
                         OtherIdRecord.status.is_null(False), OtherIdRecord.email == email).execute())
@@ -1757,7 +1756,7 @@ def process_other_id_records(max_rows=20, record_id=None):
                     _external=True)
                 try:
                     send_email(
-                        "email/work_task_completed.html",
+                        "email/task_completed.html",
                         subject="Other ID Record Process Update",
                         recipient=(task.created_by.name, task.created_by.email),
                         error_count=error_count,
