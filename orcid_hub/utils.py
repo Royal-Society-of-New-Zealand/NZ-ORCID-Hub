@@ -650,13 +650,20 @@ def send_user_invitation(inviter,
             disambiguation_source=disambiguation_source,
             token=token)
 
+        status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
         if task_type == TaskType.AFFILIATION:
-            status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
             (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
-                AffiliationRecord.status.is_null(False),
+                AffiliationRecord.status.is_null(False), AffiliationRecord.task_id == task_id,
                 AffiliationRecord.email == email).execute())
             (AffiliationRecord.update(status=status).where(
-                AffiliationRecord.status.is_null(), AffiliationRecord.email == email).execute())
+                AffiliationRecord.task_id == task_id, AffiliationRecord.status.is_null(),
+                AffiliationRecord.email == email).execute())
+        elif task_type == TaskType.FUNDING:
+            task = Task.get(task_id)
+            for record in task.records.where(task.record_model.is_active):
+                invitee_class = record.invitees.model
+                invitee_class.update(status=status).where(invitee_class.record == record.id,
+                                                          invitee_class.email == email).execute()
         return ui
 
     except Exception as ex:
@@ -1401,24 +1408,16 @@ def process_funding_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                status = "The invitation sent at " + datetime.utcnow().isoformat(
-                    timespec="seconds")
                 try:
                     send_user_invitation(
                         *k,
                         task_id=task_id)
-
-                    (FundingInvitee.update(status=FundingInvitee.status + "\n" + status).where(
-                        FundingInvitee.status.is_null(False),
-                        FundingInvitee.email == email).execute())
-                    (FundingInvitee.update(status=status).where(
-                        FundingInvitee.status.is_null(),
-                        FundingInvitee.email == email).execute())
                 except Exception as ex:
                     (FundingInvitee.update(
                         processed_at=datetime.utcnow(),
                         status=f"Failed to send an invitation: {ex}.").where(
                             FundingInvitee.email == email,
+                            FundingInvitee.record_id == record_id,
                             FundingInvitee.processed_at.is_null())).execute()
         else:
             create_or_update_funding(user, org_id, tasks_by_user)
