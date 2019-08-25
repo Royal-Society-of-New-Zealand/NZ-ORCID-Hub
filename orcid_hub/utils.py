@@ -658,7 +658,7 @@ def send_user_invitation(inviter,
             (AffiliationRecord.update(status=status).where(
                 AffiliationRecord.task_id == task_id, AffiliationRecord.status.is_null(),
                 AffiliationRecord.email == email).execute())
-        elif task_type == TaskType.FUNDING:
+        elif task_type in [TaskType.FUNDING, TaskType.WORK, TaskType.PEER_REVIEW]:
             task = Task.get(task_id)
             for record in task.records.where(task.record_model.is_active):
                 invitee_class = record.invitees.model
@@ -1157,22 +1157,16 @@ def process_work_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                status = "The invitation sent at " + datetime.utcnow().isoformat(
-                    timespec="seconds")
                 try:
                     send_user_invitation(
                         *k,
                         task_id=task_id)
-
-                    (WorkInvitee.update(status=WorkInvitee.status + "\n" + status).where(
-                        WorkInvitee.status.is_null(False), WorkInvitee.email == email).execute())
-                    (WorkInvitee.update(status=status).where(
-                        WorkInvitee.status.is_null(), WorkInvitee.email == email).execute())
                 except Exception as ex:
                     (WorkInvitee.update(
                         processed_at=datetime.utcnow(),
                         status=f"Failed to send an invitation: {ex}.").where(
                             WorkInvitee.email == email,
+                            WorkInvitee.record_id == record_id,
                             WorkInvitee.processed_at.is_null())).execute()
         else:
             create_or_update_work(user, org_id, tasks_by_user)
@@ -1282,25 +1276,16 @@ def process_peer_review_records(max_rows=20, record_id=None):
                         t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
-                status = "The invitation sent at " + datetime.utcnow().isoformat(
-                    timespec="seconds")
                 try:
                     send_user_invitation(
                         *k,
                         task_id=task_id)
-
-                    (PeerReviewInvitee.update(
-                        status=PeerReviewInvitee.status + "\n" + status).where(
-                            PeerReviewInvitee.status.is_null(False),
-                            PeerReviewInvitee.email == email).execute())
-                    (PeerReviewInvitee.update(status=status).where(
-                        PeerReviewInvitee.status.is_null(),
-                        PeerReviewInvitee.email == email).execute())
                 except Exception as ex:
                     (PeerReviewInvitee.update(
                         processed_at=datetime.utcnow(),
                         status=f"Failed to send an invitation: {ex}.").where(
                             PeerReviewInvitee.email == email,
+                            PeerReviewInvitee.record_id == record_id,
                             PeerReviewInvitee.processed_at.is_null())).execute()
         else:
             create_or_update_peer_review(user, org_id, tasks_by_user)
@@ -1732,8 +1717,10 @@ def process_other_id_records(max_rows=20, record_id=None):
                     send_user_invitation(*k, task_id=task_id, invitation_template="email/property_invitation.html")
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
                     (OtherIdRecord.update(status=OtherIdRecord.status + "\n" + status).where(
-                        OtherIdRecord.status.is_null(False), OtherIdRecord.email == email).execute())
+                        OtherIdRecord.status.is_null(False), OtherIdRecord.task_id == task_id,
+                        OtherIdRecord.email == email).execute())
                     (OtherIdRecord.update(status=status).where(OtherIdRecord.status.is_null(),
+                                                               OtherIdRecord.task_id == task_id,
                                                                OtherIdRecord.email == email).execute())
                 except Exception as ex:
                     (OtherIdRecord.update(
