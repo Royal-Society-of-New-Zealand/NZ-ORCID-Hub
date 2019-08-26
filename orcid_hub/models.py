@@ -1184,202 +1184,6 @@ class Task(AuditedModel):
         return self.state == "ACTIVE" or self.records.whhere(self.record_model.is_active).exists()
 
     # TODO: move this one to AffiliationRecord
-    @classmethod
-    def load_from_csv(cls, source, filename=None, org=None):
-        """Load affiliation record data from CSV/TSV file or a string."""
-        if isinstance(source, str):
-            source = StringIO(source, newline='')
-        reader = csv.reader(source)
-        header = next(reader)
-        if filename is None:
-            if hasattr(source, "name"):
-                filename = source.name
-            else:
-                filename = datetime.utcnow().isoformat(timespec="seconds")
-
-        if len(header) == 1 and '\t' in header[0]:
-            source.seek(0)
-            reader = csv.reader(source, delimiter='\t')
-            header = next(reader)
-        if len(header) < 2:
-            raise ModelException("Expected CSV or TSV format file.")
-
-        if len(header) < 3:
-            raise ModelException(
-                "Wrong number of fields. Expected at least 4 fields "
-                "(first name, last name, email address or another unique identifier, student/staff). "
-                f"Read header: {header}")
-
-        header_rexs = [
-            re.compile(ex, re.I)
-            for ex in [r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
-                       "campus|department", "city", "state|region", "course|title|role",
-                       r"start\s*(date)?", r"end\s*(date)?",
-                       r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", "orcid.*", "local.*|.*identifier",
-                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", r"(display)?.*index",
-                       r"(external)?\s*id(entifier)?\s+type$", r"(external)?\s*id(entifier)?\s*(value)?$",
-                       r"(external)?\s*id(entifier)?\s*url", r"(external)?\s*id(entifier)?\s*rel(ationship)?",
-                       r"(is)?\s*active$", ]
-        ]
-
-        def index(rex):
-            """Return first header column index matching the given regex."""
-            for i, column in enumerate(header):
-                if column and rex.match(column.strip()):
-                    return i
-            else:
-                return None
-
-        idxs = [index(rex) for rex in header_rexs]
-
-        if all(idx is None for idx in idxs):
-            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
-
-        if org is None:
-            org = current_user.organisation if current_user else None
-
-        def val(row, i, default=None):
-            if idxs[i] is None or idxs[i] >= len(row):
-                return default
-            else:
-                v = row[idxs[i]].strip()
-                return default if v == '' else v
-
-        with db.atomic() as transaction:
-            try:
-                task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
-                is_enqueue = False
-                for row_no, row in enumerate(reader):
-                    # skip empty lines:
-                    if len([item for item in row if item and item.strip()]) == 0:
-                        continue
-                    if len(row) == 1 and row[0].strip() == '':
-                        continue
-
-                    put_code = val(row, 14)
-                    delete_record = val(row, 17)
-                    delete_record = delete_record and delete_record.lower() in [
-                        'y', "yes", "ok", "delete", '1'
-                    ]
-                    if delete_record:
-                        if not put_code:
-                            raise ModelException(
-                                f"Missing put-code. Cannot delete a record without put-code. "
-                                f"#{row_no+2}: {row}. Header: {header}")
-
-                    email = normalize_email(val(row, 2, ""))
-                    orcid = validate_orcid_id(val(row, 15))
-                    local_id = val(row, 16)
-
-                    if not email and not orcid and local_id and validators.email(local_id):
-                        # if email is missing and local ID is given as a valid email, use it:
-                        email = local_id
-
-                    # The uploaded country must be from ISO 3166-1 alpha-2
-                    country = val(row, 11)
-                    if country:
-                        try:
-                            country = countries.lookup(country).alpha_2
-                        except Exception:
-                            raise ModelException(
-                                f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                                f"#{row_no+2}: {row}. Header: {header}")
-
-                    if not delete_record and not (email or orcid):
-                        raise ModelException(
-                            f"Missing user identifier (email address or ORCID iD) in the row "
-                            f"#{row_no+2}: {row}. Header: {header}")
-
-                    if email and not validators.email(email):
-                        raise ValueError(
-                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
-
-                    affiliation_type = val(row, 10)
-                    if affiliation_type:
-                        affiliation_type = affiliation_type.lower()
-                    if not delete_record and (not affiliation_type
-                                              or affiliation_type.lower() not in AFFILIATION_TYPES):
-                        raise ValueError(
-                            f"Invalid affiliation type '{affiliation_type}' in the row #{row_no+2}: {row}. "
-                            f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}.")
-
-                    first_name = val(row, 0)
-                    last_name = val(row, 1)
-                    if not delete_record and not(first_name and last_name):
-                        raise ModelException(
-                            "Wrong number of fields. Expected at least 4 fields "
-                            "(first name, last name, email address or another unique identifier, "
-                            f"student/staff): {row}")
-                    disambiguation_source = val(row, 13)
-                    if disambiguation_source:
-                        disambiguation_source = disambiguation_source.upper()
-                    visibility = val(row, 18)
-                    if visibility:
-                        visibility = visibility.upper()
-
-                    is_active = val(row, 25, '').lower() in ['y', "yes", "1", "true"]
-                    if is_active:
-                        is_enqueue = is_active
-
-                    af = AffiliationRecord(
-                        task=task,
-                        first_name=first_name,
-                        last_name=last_name,
-                        email=email,
-                        organisation=val(row, 3),
-                        department=val(row, 4),
-                        city=val(row, 5),
-                        region=val(row, 6),
-                        role=val(row, 7),
-                        start_date=PartialDate.create(val(row, 8)),
-                        end_date=PartialDate.create(val(row, 9)),
-                        affiliation_type=affiliation_type,
-                        country=country,
-                        disambiguated_id=val(row, 12),
-                        disambiguation_source=disambiguation_source,
-                        put_code=put_code,
-                        orcid=orcid,
-                        local_id=local_id,
-                        delete_record=delete_record,
-                        url=val(row, 19),
-                        display_index=val(row, 20),
-                        visibility=visibility,
-                        is_active=is_active)
-                    validator = ModelValidator(af)
-                    if not validator.validate():
-                        raise ModelException(f"Invalid record: {validator.errors}")
-                    af.save()
-
-                    external_id_type = val(row, 21, "").lower()
-                    external_id_relationship = val(row, 24)
-                    if external_id_relationship:
-                        external_id_relationship = external_id_relationship.upper()
-                    external_id_value = val(row, 22)
-
-                    if external_id_type and external_id_value:
-
-                        ae = AffiliationExternalId(
-                            record=af,
-                            type=external_id_type,
-                            value=external_id_value,
-                            url=val(row, 23),
-                            relationship=external_id_relationship)
-
-                        validator = ModelValidator(ae)
-                        if not validator.validate():
-                            raise ModelException(f"Invalid record: {validator.errors}")
-                        ae.save()
-                if is_enqueue:
-                    from .utils import enqueue_task_records
-                    enqueue_task_records(task)
-            except Exception:
-                transaction.rollback()
-                app.logger.exception("Failed to load affiliation file.")
-                raise
-
-        return task
-
     def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True, only=None):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
@@ -1714,6 +1518,202 @@ class AffiliationRecord(RecordModel):
                 transaction.rollback()
                 app.logger.exception("Failed to load affiliation record task file.")
                 raise
+        return task
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load affiliation record data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source, newline='')
+        reader = csv.reader(source)
+        header = next(reader)
+        if filename is None:
+            if hasattr(source, "name"):
+                filename = source.name
+            else:
+                filename = datetime.utcnow().isoformat(timespec="seconds")
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        if len(header) < 3:
+            raise ModelException(
+                "Wrong number of fields. Expected at least 4 fields "
+                "(first name, last name, email address or another unique identifier, student/staff). "
+                f"Read header: {header}")
+
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in [r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
+                       "campus|department", "city", "state|region", "course|title|role",
+                       r"start\s*(date)?", r"end\s*(date)?",
+                       r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
+                       r"disambiguat.*source", r"put|code", "orcid.*", "local.*|.*identifier",
+                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", r"(display)?.*index",
+                       r"(external)?\s*id(entifier)?\s+type$", r"(external)?\s*id(entifier)?\s*(value)?$",
+                       r"(external)?\s*id(entifier)?\s*url", r"(external)?\s*id(entifier)?\s*rel(ationship)?",
+                       r"(is)?\s*active$", ]
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if column and rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+                return default if v == '' else v
+
+        with db.atomic() as transaction:
+            try:
+                task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
+                is_enqueue = False
+                for row_no, row in enumerate(reader):
+                    # skip empty lines:
+                    if len([item for item in row if item and item.strip()]) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
+                        continue
+
+                    put_code = val(row, 14)
+                    delete_record = val(row, 17)
+                    delete_record = delete_record and delete_record.lower() in [
+                        'y', "yes", "ok", "delete", '1'
+                    ]
+                    if delete_record:
+                        if not put_code:
+                            raise ModelException(
+                                f"Missing put-code. Cannot delete a record without put-code. "
+                                f"#{row_no+2}: {row}. Header: {header}")
+
+                    email = normalize_email(val(row, 2, ""))
+                    orcid = validate_orcid_id(val(row, 15))
+                    local_id = val(row, 16)
+
+                    if not email and not orcid and local_id and validators.email(local_id):
+                        # if email is missing and local ID is given as a valid email, use it:
+                        email = local_id
+
+                    # The uploaded country must be from ISO 3166-1 alpha-2
+                    country = val(row, 11)
+                    if country:
+                        try:
+                            country = countries.lookup(country).alpha_2
+                        except Exception:
+                            raise ModelException(
+                                f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                                f"#{row_no+2}: {row}. Header: {header}")
+
+                    if not delete_record and not (email or orcid):
+                        raise ModelException(
+                            f"Missing user identifier (email address or ORCID iD) in the row "
+                            f"#{row_no+2}: {row}. Header: {header}")
+
+                    if email and not validators.email(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+                    affiliation_type = val(row, 10)
+                    if affiliation_type:
+                        affiliation_type = affiliation_type.lower()
+                    if not delete_record and (not affiliation_type
+                                              or affiliation_type.lower() not in AFFILIATION_TYPES):
+                        raise ValueError(
+                            f"Invalid affiliation type '{affiliation_type}' in the row #{row_no+2}: {row}. "
+                            f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}.")
+
+                    first_name = val(row, 0)
+                    last_name = val(row, 1)
+                    if not delete_record and not(first_name and last_name):
+                        raise ModelException(
+                            "Wrong number of fields. Expected at least 4 fields "
+                            "(first name, last name, email address or another unique identifier, "
+                            f"student/staff): {row}")
+                    disambiguation_source = val(row, 13)
+                    if disambiguation_source:
+                        disambiguation_source = disambiguation_source.upper()
+                    visibility = val(row, 18)
+                    if visibility:
+                        visibility = visibility.upper()
+
+                    is_active = val(row, 25, '').lower() in ['y', "yes", "1", "true"]
+                    if is_active:
+                        is_enqueue = is_active
+
+                    af = AffiliationRecord(
+                        task=task,
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=email,
+                        organisation=val(row, 3),
+                        department=val(row, 4),
+                        city=val(row, 5),
+                        region=val(row, 6),
+                        role=val(row, 7),
+                        start_date=PartialDate.create(val(row, 8)),
+                        end_date=PartialDate.create(val(row, 9)),
+                        affiliation_type=affiliation_type,
+                        country=country,
+                        disambiguated_id=val(row, 12),
+                        disambiguation_source=disambiguation_source,
+                        put_code=put_code,
+                        orcid=orcid,
+                        local_id=local_id,
+                        delete_record=delete_record,
+                        url=val(row, 19),
+                        display_index=val(row, 20),
+                        visibility=visibility,
+                        is_active=is_active)
+                    validator = ModelValidator(af)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    af.save()
+
+                    external_id_type = val(row, 21, "").lower()
+                    external_id_relationship = val(row, 24)
+                    if external_id_relationship:
+                        external_id_relationship = external_id_relationship.upper()
+                    external_id_value = val(row, 22)
+
+                    if external_id_type and external_id_value:
+
+                        ae = AffiliationExternalId(
+                            record=af,
+                            type=external_id_type,
+                            value=external_id_value,
+                            url=val(row, 23),
+                            relationship=external_id_relationship)
+
+                        validator = ModelValidator(ae)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid record: {validator.errors}")
+                        ae.save()
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
+            except Exception:
+                transaction.rollback()
+                app.logger.exception("Failed to load affiliation file.")
+                raise
+
         return task
 
 

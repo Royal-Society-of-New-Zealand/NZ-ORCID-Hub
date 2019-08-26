@@ -227,7 +227,10 @@ class AppModelView(ModelView):
         "updated_at",
         "updated_by",
     )
-    form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
+    form_overrides = dict(start_date=PartialDateField,
+                          end_date=PartialDateField,
+                          proposal_start_date=PartialDateField,
+                          proposal_end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
     form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
     model_form_converter = AppCustomModelConverter
@@ -616,6 +619,8 @@ class RecordModelView(AppModelView):
     """Task record model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "record_list.html"
+
     column_exclude_list = (
         "task",
         "organisation",
@@ -1497,7 +1502,6 @@ class AffiliationRecordAdmin(RecordModelView):
     """Affiliation record model view."""
 
     can_create = True
-    list_template = "affiliation_record_list.html"
     column_exclude_list = (
         "task",
         "organisation",
@@ -1876,6 +1880,7 @@ admin.add_view(InviteeAdmin(PeerReviewInvitee))
 admin.add_view(RecordChildAdmin(PeerReviewExternalId))
 admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
 admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
+admin.add_view(RecordModelView(models.ResourceRecord))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -2599,31 +2604,37 @@ def load_org():
     return render_template("fileUpload.html", form=form, title="Organisation")
 
 
-@app.route("/load/researcher", methods=["GET", "POST"])
+@app.route("/load/task/<task_type>", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def load_researcher_affiliations():
+def load_task(task_type):
     """Preload organisation data."""
+    task_type = TaskType[task_type]
+    record_model = getattr(models, task_type.name.title().replace('_', '') + "Record")
     form = FileUploadForm(extensions=["csv", "tsv", "json", "yaml", "yml"])
     if form.validate_on_submit():
         try:
             filename = secure_filename(form.file_.data.filename)
             content_type = form.file_.data.content_type
             content = read_uploaded_file(form)
+
             if content_type in ["text/tab-separated-values", "text/csv"] or (
                     filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = Task.load_from_csv(content, filename=filename)
+                task = record_model.load_from_csv(content, filename=filename)
             else:
-                task = AffiliationRecord.load(content, filename=filename)
+                task = record_model.load(content, filename=filename)
+
             flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
+            return redirect(url_for(task_type.name.lower() + "record.index_view", task_id=task.id))
         except (
                 ValueError,
                 ModelException,
         ) as ex:
-            flash(f"Failed to load affiliation record file: {ex}", "danger")
-            app.logger.exception("Failed to load affiliation records.")
+            flash(f"Failed to load record file: {ex}", "danger")
+            app.logger.exception("Failed to load records.")
 
-    return render_template("fileUpload.html", form=form, title="Researcher Info Upload")
+    return render_template(
+            "fileUpload.html", form=form, task_type=task_type,
+            title=f"Researcher {task_type.name.title().replace('_', ' ')} Upload")
 
 
 @app.route("/load/researcher/funding", methods=["GET", "POST"])

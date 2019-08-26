@@ -886,7 +886,7 @@ class AffiliationListAPI(TaskResource):
                 description: "User ORCID ID"
         """
         if request.content_type in ["text/csv", "text/tsv"]:
-            task = Task.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            task = AffiliationRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             return self.jsonify_task(task)
         return self.handle_affiliation_task()
 
