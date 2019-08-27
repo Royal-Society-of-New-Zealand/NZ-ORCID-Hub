@@ -1362,13 +1362,31 @@ class RecordModel(BaseModel):
             d["end-date"] = self.end_date.as_orcid_dict()
         return d
 
+    def orcid_external_id(self, type=None, value=None, url=None, relationship=None):
+        """Get the object rendering into an ORCID API 3.x external-id."""
+        if (not type and not value) and (not self.external_id_type or not self.external_id_value):
+            return
+
+        ei = {
+            "external-id-type": type or self.external_id_type,
+            "external-id-value": value or self.external_id_value
+        }
+
+        if self.external_id_relationship:
+            ei["external-id-relationship"] = relationship or self.external_id_relationship
+
+        if self.external_id_url:
+            ei["external-id-url"] = {"value": url or self.external_id_url}
+
+        return ei
+
 
 class GroupIdRecord(RecordModel):
     """GroupID records."""
 
-    type_choices = [('publisher', 'publisher'), ('institution', 'institution'), ('journal', 'journal'),
-                    ('conference', 'conference'), ('newspaper', 'newspaper'), ('newsletter', 'newsletter'),
-                    ('magazine', 'magazine'), ('peer-review service', 'peer-review service')]
+    type_choices = [("publisher", "publisher"), ("institution", "institution"), ("journal", "journal"),
+                    ("conference", "conference"), ("newspaper", "newspaper"), ("newsletter", "newsletter"),
+                    ("magazine", "magazine"), ("peer-review service", "peer-review service")]
     type_choices.sort(key=lambda e: e[1])
     type_choices.insert(0, ("", ""))
     put_code = IntegerField(null=True)
@@ -3847,8 +3865,8 @@ class ResourceRecord(RecordModel, Invitee):
                 (r"proposal\s*host\s*city", "proposal_host_city"),
                 (r"proposal\s*host\s*region", "proposal_host_region"),
                 (r"proposal\s*host\s*country", "proposal_host_country"),
-                (r"proposal\s*host\s*disambiguation\s*id", "proposal_host_disambiguation_id"),
-                (r"proposal\s*host\s*disambiguation\s*source", "proposal_host_disambiguation_source"),
+                (r"proposal\s*host\s*disambiguat.*id", "proposal_host_disambiguated_id"),
+                (r"proposal\s*host\s*disambiguat.*source", "proposal_host_disambiguation_source"),
 
                 (r"resource\s*name", "name"),
                 (r"resource\s*type", "type"),
@@ -3862,8 +3880,8 @@ class ResourceRecord(RecordModel, Invitee):
                 (r"(resource\s*)?host\s*city", "host_city"),
                 (r"(resource\s*)?host\s*region", "host_region"),
                 (r"(resource\s*)?host\s*country", "host_country"),
-                (r"(resource\s*)?host\s*disambiguation\s*id", "host_disambiguation_id"),
-                (r"(resource\s*)?host\s*disambiguation\s*source", "host_disambiguation_source"),
+                (r"(resource\s*)?host\s*disambiguat.*id", "host_disambiguated_id"),
+                (r"(resource\s*)?host\s*disambiguat.*source", "host_disambiguation_source"),
             ]
         ]
 
@@ -3920,7 +3938,7 @@ class ResourceRecord(RecordModel, Invitee):
 
                     visibility = val(row, "visibility")
                     if visibility:
-                        visibility = visibility.upper()
+                        visibility = visibility.lower()
 
                     rec = cls.create(task=task,
                                      visibility=visibility,
@@ -3935,7 +3953,7 @@ class ResourceRecord(RecordModel, Invitee):
                     validator = ModelValidator(rec)
                     # TODO: removed the exclude paramtere after we sortout the
                     # valid domain values.
-                    if not validator.validate(exclude=[cls.external_id_relationship, ]):
+                    if not validator.validate(exclude=[cls.external_id_relationship, cls.visibility]):
                         raise ValueError(
                             f"Invalid data in the row #{row_no+2}: {validator.errors}")
 
@@ -3950,6 +3968,68 @@ class ResourceRecord(RecordModel, Invitee):
         if task.is_ready:
             from .utils import enqueue_task_records
             enqueue_task_records(task)
+
+    @property
+    def orcid_research_resource(self):
+        """Map the common record parts to dict representation of ORCID API V3.x research resource."""
+        d = {}
+        # resource-item
+        host_org = {"name": self.host_name}
+        if self.host_city or self.host_region or self.host_country:
+            host_org["address"] = {
+                    "city": self.host_city,
+                    "region": self.host_region,
+                    "country": self.host_country}
+        if self.host_disambiguated_id:
+            host_org["disambiguated-organization"] = {
+                    "disambiguated-organization-identifier": self.host_disambiguated_id,
+                    "disambiguation-source": self.host_disambiguation_source}
+        item = {
+            "resource-name": self.name,
+            "resource-type": self.type,
+            "hosts": {"organization": [host_org]},
+            "external-ids": {"external-id": [self.orcid_external_id()]},
+        }
+        if self.url:
+            item["url"] = dict(value=self.url)
+        d["resource-item"] = [item]
+
+        # proposal
+        host_org = {"name": self.proposal_host_name}
+        if self.proposal_host_city or self.proposal_host_region or self.proposal_host_country:
+            host_org["address"] = {
+                    "city": self.proposal_host_city,
+                    "region": self.proposal_host_region,
+                    "country": self.proposal_host_country}
+        if self.proposal_host_disambiguated_id:
+            host_org["disambiguated-organization"] = {
+                    "disambiguated-organization-identifier": self.proposal_host_disambiguated_id,
+                    "disambiguation-source": self.proposal_host_disambiguation_source}
+        d["proposal"] = {
+                "title": {"title": {"value": self.proposal_title}},
+                "hosts": {"organization": [host_org]},
+                "external-ids": {"external-id": [self.orcid_external_id(
+                    self.proposal_external_id_type,
+                    self.proposal_external_id_value,
+                    self.proposal_external_id_url,
+                    self.proposal_external_id_relationship)]},
+                "start-date": self.proposal_start_date.as_orcid_dict(),
+                "end-date": self.proposal_end_date.as_orcid_dict()}
+        if self.proposal_url:
+            d["proposal"]["url"] = dict(value=self.proposal_url)
+        if self.display_index:
+            d["display-index"] = self.display_index
+        if self.visibility:
+            d["visibility"] = self.visibility.lower()
+        if self.put_code:
+            d["put-code"] = self.put_code
+        return d
+
+    def to_export_dict(self):
+        """Map the funding record to dict for export into JSON/YAML."""
+        d = self.orcid_research_resource
+        d["invitee"] = Invitee.to_export_dict(self)
+        return d
 
 
 class Record(RecordModel):

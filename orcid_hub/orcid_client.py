@@ -171,6 +171,35 @@ class MemberAPIMixin:
 
         return json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
 
+    def get_resources(self):
+        """Fetch all research resources linked to the user profile."""
+        try:
+            resp, code, headers = self.api_client.call_api(
+                f"/{self.version}/{self.user.orcid}/research-resources",
+                "GET",
+                header_params={"Accept": self.content_type},
+                response_type=None,
+                auth_settings=["orcid_auth"],
+                _preload_content=False)
+        except (ApiException, v3.rest.ApiException) as ex:
+            if ex.status == 401:
+                orcid_token = self.get_token()
+                if orcid_token:
+                    orcid_token.delete_instance()
+                else:
+                    app.logger.exception("Exception occurred while retrieving ORCID Token")
+                    return None
+            app.logger.error(f"ApiException Occurred: {ex}")
+            return None
+
+        if code != 200:
+            app.logger.error(f"Failed to retrieve research resources. Code: {code}.")
+            app.logger.info(f"Headers: {headers}")
+            app.logger.info(f"Body: {resp.data.decode()}")
+            return None
+
+        return json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
+
     def is_emp_or_edu_record_present(self, affiliation_type):
         """Determine if there is already an affiliation record for the user.
 
