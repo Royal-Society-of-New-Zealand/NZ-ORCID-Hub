@@ -98,7 +98,10 @@ language_choices.sort(key=lambda e: e[1])
 currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
 external_id_type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in EXTERNAL_ID_TYPES]
-relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS]
+# TODO: reomove one of the list when data gets updated
+relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS] + [
+    (v.lower().replace('_', '-'), v.replace('_', ' ').title()) for v in RELATIONSHIPS
+]
 disambiguation_source_choices = [(v, v) for v in DISAMBIGUATION_SOURCES]
 property_type_choices = [(v, v) for v in PROPERTY_TYPES]
 
@@ -714,11 +717,11 @@ class User(AuditedModel, UserMixin):
     """
 
     name = CharField(max_length=64, null=True)
-    first_name = CharField(null=True, verbose_name="First Name")
-    last_name = CharField(null=True, verbose_name="Last Name")
+    first_name = CharField(null=True)
+    last_name = CharField(null=True)
     email = CharField(max_length=120, unique=True, null=True, verbose_name="Email Address")
     eppn = CharField(max_length=120, unique=True, null=True, verbose_name="EPPN")
-    orcid = OrcidIdField(null=True, verbose_name="ORCID iD", help_text="User's ORCID iD")
+    orcid = OrcidIdField(null=True, help_text="User's ORCID iD")
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
@@ -1270,12 +1273,12 @@ class UserInvitation(AuditedModel):
     email = CharField(
         index=True, null=True, max_length=80,
         help_text="The email address the invitation was sent to.")
-    first_name = TextField(null=True, verbose_name="First Name")
-    last_name = TextField(null=True, verbose_name="Last Name")
+    first_name = TextField(null=True)
+    last_name = TextField(null=True)
     orcid = OrcidIdField(null=True)
     department = TextField(verbose_name="Campus/Department", null=True)
     organisation = TextField(verbose_name="Organisation Name", null=True)
-    city = TextField(verbose_name="City", null=True)
+    city = TextField(null=True)
     region = TextField(verbose_name="State/Region", null=True)
     country = CharField(verbose_name="Country", max_length=2, null=True)
     course_or_role = TextField(verbose_name="Course or Job title", null=True)
@@ -1439,13 +1442,12 @@ class AffiliationRecord(RecordModel):
     end_date = PartialDateField(null=True)
     city = CharField(null=True, max_length=200)
     region = CharField(null=True, verbose_name="State/Region", max_length=100)
-    country = CharField(null=True, verbose_name="Country", max_length=2, choices=country_choices)
+    country = CharField(null=True, max_length=2, choices=country_choices)
     disambiguated_id = CharField(
         null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
     disambiguation_source = CharField(
         null=True,
         max_length=100,
-        verbose_name="Disambiguation Source",
         choices=disambiguation_source_choices)
     delete_record = BooleanField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
@@ -2195,9 +2197,7 @@ class PeerReviewRecord(RecordModel):
         help_text="Subject Name Translated Title")
     subject_url = CharField(
         null=True,
-        max_length=255,
-        verbose_name="Subject URL",
-        help_text="Subject URL")
+        max_length=255)
 
     convening_org_name = CharField(
         null=True, max_length=255, verbose_name="Name", help_text="Convening Organisation ")
@@ -3773,8 +3773,8 @@ class ResourceRecord(RecordModel, Invitee):
     task = ForeignKeyField(Task, backref="resource_records", on_delete="CASCADE")
 
     # Resource
-    name = CharField(max_length=1000)
-    type = CharField(max_length=1000, null=True)
+    name = CharField(verbose_name="Resource Name", max_length=1000)
+    type = CharField(verbose_name="Resource Type", max_length=1000, null=True)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
     url = CharField(max_length=200, null=True)
@@ -3847,7 +3847,7 @@ class ResourceRecord(RecordModel, Invitee):
             (re.compile(ex, re.I), c) for (ex, c) in [
                 (r"identifier", "identifier"),
                 (r"email", "email"),
-                (r"orcid\s*id", "orcid_id"),
+                (r"orcid\s*id", "orcid"),
                 (r"first\s*name", "first_name"),
                 (r"last\s*name", "last_name"),
                 (r"put\s*code", "put_code"),

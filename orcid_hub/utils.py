@@ -511,46 +511,43 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(org_id)
 
-    resources = None
-    token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
-                                                             OrcidToken.scopes.contains("/person/update")).first()
-    if token:
-        api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
-        profile_record = api.get_resources()
+    token = OrcidToken.select(OrcidToken.access_token).where(
+        OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
+        OrcidToken.scopes.contains("/activities/update")).first()
+    api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
+    resources = api.get_resources().get("group")
 
     if resources:
-        activities = profile_record.get("person")
 
-        other_id_records = [
-            r for r in (activities.get("external-identifiers").get("external-identifier")) if is_org_rec(org, r)
+        resources = [
+            r for r in resources if any(
+                rr.get("source", "source-client-id", "path") == org.orcid_client_id
+                for rr in r.get("research-resource-summary"))
         ]
+        taken_put_codes = {r.record.put_code for r in records if r.record.put_code}
 
-        taken_put_codes = {
-            r.record.put_code
-            for r in records if r.record.put_code
-        }
-
-        def match_put_code(records, record):
+        def match_record(records, record):
             """Match and assign put-code to the existing ORCID records."""
+            if record.put_code:
+                return record.put_code
+
             for r in records:
-                try:
-                    orcid, put_code = r.get('path').split("/")[-3::2]
-                except Exception:
-                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
-                    raise Exception("Failed to get ORCID iD/put-code from the response.")
-
-                if record.put_code:
-                    return
-
-                if put_code in taken_put_codes:
+                if all(eid.get("external-id-value") != record.proposal_external_id_value
+                        for eid in r.get("external-ids", "external-id")):
                     continue
+                for rr in r.get("research-resource-summary"):
 
-                # ORCID is not consistent with use of hiphens and underscores in external-id-value.
-                if (record.type and record.value and (r.get("external-id-type", default='') or '').replace(
-                    '-', '').replace('_', '').lower() == record.type.replace('-', '').replace('_', '').lower() and (
-                        r.get("external-id-value", default='') or '').lower() == record.value.lower()):
+                    put_code = rr.get("put-code")
+
+                    # if all(eid.get("external-id-value") != record.external_id_value
+                    #         for eid in rr.get("proposal", "external-ids", "external-id")):
+                    #     continue
+
+                    if put_code in taken_put_codes:
+                        continue
+
                     record.put_code = put_code
-                    record.orcid = orcid
+
                     if not record.visibility:
                         record.visibility = r.get("visibility")
                     if not record.display_index:
@@ -560,22 +557,25 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the other id record "
                         f"(ID: {record.id}, Task ID: {record.task_id})")
-                    break
 
-        for task_by_user in records:
+                    return put_code
+
+        for t in records:
             try:
-                rr = task_by_user.record
-                match_put_code(other_id_records, rr)
+                rr = t.record
+                put_code = match_record(resources, rr)
 
-                put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr.__data__)
-                if created:
-                    rr.add_status_line("Other ID record was created.")
+                if put_code:
+                    resp = api.put(f"research-resource/{put_code}", rr.orcid_research_resource)
                 else:
-                    rr.add_status_line("Other ID record was updated.")
-                rr.orcid = orcid
-                rr.put_code = put_code
-                if rr.visibility != visibility:
-                    rr.visibility = visibility
+                    resp = api.post("research-resource", rr.orcid_research_resource)
+
+                if resp.status == 201:
+                    rr.add_status_line("ORCID record was created.")
+                else:
+                    rr.add_status_line("ORCID record was updated.")
+                if not put_code:
+                    rr.put_code = resp.headers["Location"].split('/')[-1]
             except ApiException as ex:
                 if ex.status == 404:
                     rr.put_code = None
@@ -594,7 +594,6 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
         # TODO: Invitation resend in case user revokes organisation permissions
         app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
         return
-
 
 
 @rq.job(timeout=300)
@@ -1869,18 +1868,18 @@ def process_resource_records(max_rows=20, record_id=None):
     task_ids = set()
     tasks = (Task.select(
         Task, ResourceRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            PropertyRecord.processed_at.is_null(), PropertyRecord.is_active,
+            ResourceRecord.processed_at.is_null(), ResourceRecord.is_active,
             ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False))
              | ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null())
                 & UserInvitation.id.is_null()
-                & (PropertyRecord.status.is_null()
-                   | PropertyRecord.status.contains("sent").__invert__())))).join(
-                       PropertyRecord,
+                & (ResourceRecord.status.is_null()
+                   | ResourceRecord.status.contains("sent").__invert__())))).join(
+                       ResourceRecord,
                        on=(Task.id == ResourceRecord.task_id), attr="record").join(
                            User,
                            JOIN.LEFT_OUTER,
-                           on=((User.email == PropertyRecord.email)
-                               | ((User.orcid == PropertyRecord.orcid)
+                           on=((User.email == ResourceRecord.email)
+                               | ((User.orcid == ResourceRecord.orcid)
                                   & (User.organisation_id == Task.org_id)))).join(
                                    Organisation,
                                    JOIN.LEFT_OUTER,
@@ -1929,15 +1928,17 @@ def process_resource_records(max_rows=20, record_id=None):
         else:
             create_or_update_resources(user, org_id, tasks_by_user)
         task_ids.add(task_id)
+
     for task in Task.select().where(Task.id << task_ids):
         # The task is completed (all recores are processed):
-        if not (ResourceRecord.select().where(
-                ResourceRecord.task_id == task.id,
-                ResourceRecord.processed_at.is_null()).exists()):
+        rm = task.record_model
+        if not (rm.select().where(
+                rm.task_id == task.id,
+                rm.processed_at.is_null()).exists()):
             task.completed_at = datetime.utcnow()
             task.save()
-            error_count = ResourceRecord.select().where(
-                ResourceRecord.task_id == task.id, ResourceRecord.status**"%error%").count()
+            error_count = rm.select().where(
+                rm.task_id == task.id, rm.status**"%error%").count()
             row_count = task.record_count
 
             with app.app_context():

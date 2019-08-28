@@ -144,6 +144,7 @@ class MemberAPIMixin:
 
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
+        resp = self.get()
         try:
             resp, code, headers = self.api_client.call_api(
                 f"/{self.version}/{self.user.orcid}",
@@ -173,32 +174,13 @@ class MemberAPIMixin:
 
     def get_resources(self):
         """Fetch all research resources linked to the user profile."""
-        try:
-            resp, code, headers = self.api_client.call_api(
-                f"/{self.version}/{self.user.orcid}/research-resources",
-                "GET",
-                header_params={"Accept": self.content_type},
-                response_type=None,
-                auth_settings=["orcid_auth"],
-                _preload_content=False)
-        except (ApiException, v3.rest.ApiException) as ex:
-            if ex.status == 401:
-                orcid_token = self.get_token()
-                if orcid_token:
-                    orcid_token.delete_instance()
-                else:
-                    app.logger.exception("Exception occurred while retrieving ORCID Token")
-                    return None
-            app.logger.error(f"ApiException Occurred: {ex}")
-            return None
-
-        if code != 200:
-            app.logger.error(f"Failed to retrieve research resources. Code: {code}.")
-            app.logger.info(f"Headers: {headers}")
+        resp = self.get("research-resources")
+        if resp.status != 200:
+            app.logger.error(f"Failed to retrieve research resources. Code: {resp.status}.")
+            app.logger.info(f"Headers: {resp.headers}")
             app.logger.info(f"Body: {resp.data.decode()}")
             return None
-
-        return json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
+        return resp.json
 
     def is_emp_or_edu_record_present(self, affiliation_type):
         """Determine if there is already an affiliation record for the user.
@@ -1502,6 +1484,53 @@ class MemberAPIMixin:
         }[section_type]
         return getattr(self, method_name)(self.user.orcid, put_code)
 
+    def get(self, path=None):
+        """Execute 'GET' request."""
+        return self.execute("GET", path)
+
+    def post(self, path, body=None):
+        """Execute 'GET' request."""
+        return self.execute("POST", path, body)
+
+    def put(self, path, body=None):
+        """Execute 'PUT' request."""
+        return self.execute("PUT", path, body)
+
+    def delete(self, path):
+        """Execute 'DELETE' request."""
+        return self.execute("DELETE", path)
+
+    def execute(self, method, path, body=None):
+        """Execute the given request."""
+        headers = {"Accept": self.content_type}
+        if method != "GET":
+            headers["Content-Type"] = self.content_type
+        try:
+            url = f"/{self.version}/{self.user.orcid}"
+            if path:
+                url += '/' + path
+            resp, *_ = self.api_client.call_api(
+                url,
+                method,
+                header_params=headers,
+                response_type=self.content_type,
+                auth_settings=["orcid_auth"],
+                body=body,
+                _preload_content=False)
+        except (ApiException, v3.rest.ApiException) as ex:
+            if ex.status == 401:
+                orcid_token = self.get_token()
+                if orcid_token:
+                    orcid_token.delete_instance()
+                else:
+                    app.logger.exception("Exception occurred while retrieving ORCID Token")
+            else:
+                app.logger.error(f"ApiException Occurred: {ex}")
+
+        if resp.data:
+            resp.json = json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
+        return resp
+
 
 class MemberAPI(MemberAPIMixin, MemberAPIV20Api):
     """ORCID Mmeber API extension."""
@@ -1604,7 +1633,6 @@ class MemberAPIV3(MemberAPIMixin, v3.api.DevelopmentMemberAPIV30Api):
                 self.new_resoucre_item(**ri) for ri in items] if items else None
 
         try:
-
             api_call = self.update_research_resourcev3 if put_code else self.create_research_resourcev3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
