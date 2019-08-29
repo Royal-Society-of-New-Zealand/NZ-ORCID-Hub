@@ -369,3 +369,12 @@ table.permissions, table.permissions th, table.permissions td, table.users, tabl
 	border:1px solid #fadf98;
 }
 
+hr {
+  display: block;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  margin-left: auto;
+  margin-right: auto;
+  border-style: inset;
+  border-width: 1px;
+}

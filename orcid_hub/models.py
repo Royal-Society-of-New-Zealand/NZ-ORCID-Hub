@@ -3773,53 +3773,71 @@ class ResourceRecord(RecordModel, Invitee):
     task = ForeignKeyField(Task, backref="resource_records", on_delete="CASCADE")
 
     # Resource
-    name = CharField(verbose_name="Resource Name", max_length=1000)
-    type = CharField(verbose_name="Resource Type", max_length=1000, null=True)
+    name = CharField(max_length=1000)
+    type = CharField(max_length=1000, null=True)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
     url = CharField(max_length=200, null=True)
 
-    host_name = CharField(max_length=1000)
-    host_city = TextField(null=True)
-    host_region = TextField(null=True)
-    host_country = CharField(max_length=2, null=True, choices=country_choices)
-    host_disambiguated_id = TextField(null=True)
-    host_disambiguation_source = TextField(null=True, choices=disambiguation_source_choices)
+    host_name = CharField(max_length=1000, verbose_name="Name", help_text="Resource Host Name")
+    host_city = CharField(null=True, verbose_name="City", help_text="Resource Host City")
+    host_region = CharField(
+        max_length=300, null=True, verbose_name="Region", help_text="Resource Host Region")
+    host_country = CharField(
+        max_length=2, null=True, choices=country_choices,
+        verbose_name="Country", help_text="Resource Host Country")
+    host_disambiguated_id = CharField(
+        null=True, verbose_name="Disambiguated ID", help_text="Resource Host Disambiguated ID")
+    host_disambiguation_source = CharField(
+        null=True, choices=disambiguation_source_choices,
+        verbose_name="Disambiguation Source", help_text="Resource Host Disambiguation Source")
 
-    external_id_type = CharField(max_length=255, choices=external_id_type_choices)
-    external_id_value = CharField(max_length=255)
-    external_id_url = CharField(max_length=200, null=True)
-    external_id_relationship = CharField(null=True, max_length=255, choices=relationship_choices)
+    external_id_type = CharField(
+        max_length=255, choices=external_id_type_choices, verbose_name="Type", help_text="External ID Type")
+    external_id_value = CharField(max_length=255, verbose_name="Value", help_text="External ID Value")
+    external_id_url = CharField(max_length=200, null=True, verbose_name="URL", help_text="External ID URL")
+    external_id_relationship = CharField(
+        null=True, max_length=255, choices=relationship_choices,
+        verbose_name="Relationship", help_text="External ID Relationship")
 
     # Proposal
-    proposal_title = CharField(max_length=1000)
-    proposal_start_date = PartialDateField(null=True)
-    proposal_end_date = PartialDateField(null=True)
-    proposal_url = CharField(max_length=200, null=True)
-
-    proposal_host_name = CharField(max_length=1000)
-    proposal_host_city = TextField(null=True)
-    proposal_host_region = TextField(null=True)
-    proposal_host_country = CharField(max_length=2, null=True, choices=country_choices)
-    proposal_host_disambiguated_id = TextField(null=True)
-    proposal_host_disambiguation_source = TextField(null=True, choices=disambiguation_source_choices)
-
-    proposal_external_id_type = CharField(max_length=255, choices=external_id_type_choices)
-    proposal_external_id_value = CharField(max_length=255)
-    proposal_external_id_url = CharField(max_length=200, null=True)
-    proposal_external_id_relationship = CharField(null=True, max_length=255, choices=relationship_choices)
+    proposal_title = CharField(max_length=1000, verbose_name="Title", help_text="Proposal Title")
+    proposal_start_date = PartialDateField(
+        null=True, verbose_name="Start Date", help_text="Proposal Start Date")
+    proposal_end_date = PartialDateField(null=True, verbose_name="End Date", help_text="Proposal End Date")
+    proposal_url = CharField(max_length=200, null=True, verbose_name="URL", help_text="Proposal URL")
+    proposal_host_name = CharField(max_length=1000, verbose_name="Name", help_text="Proposal Host Name")
+    proposal_host_city = CharField(null=True, verbose_name="City", help_text="Proposal Host City")
+    proposal_host_region = CharField(
+        max_length=300, null=True, verbose_name="Region", help_text="Proposal Host Region")
+    proposal_host_country = CharField(
+        max_length=2, null=True, choices=country_choices,
+        verbose_name="City", help_text="Proposal Host City")
+    proposal_host_disambiguated_id = CharField(
+        null=True, verbose_name="Disambiguated ID", help_text="Proposal Host Disambiguated ID")
+    proposal_host_disambiguation_source = CharField(
+        null=True, choices=disambiguation_source_choices,
+        verbose_name="Disabmiguation Source", help_text="Propasal Host Disambiguation Source")
+    proposal_external_id_type = CharField(
+        max_length=255, choices=external_id_type_choices,
+        verbose_name="Type", help_text="Proposal Externa ID Type")
+    proposal_external_id_value = CharField(
+        max_length=255, verbose_name="Value", help_text="Proposal External ID Value")
+    proposal_external_id_url = CharField(
+        max_length=200, null=True, verbose_name="URL", help_text="Proposal External ID URL")
+    proposal_external_id_relationship = CharField(
+        null=True, max_length=255, choices=relationship_choices,
+        verbose_name="Relationship", help_text="Proposal External ID Relationship")
 
     is_active = BooleanField(
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
-
+    processed_at = DateTimeField(null=True)
     local_id = CharField(
-        max_length=100,
-        null=True,
-        verbose_name="Local ID",
+        max_length=100, null=True, verbose_name="Local ID",
         help_text="Record identifier used in the data source system.")
 
-    delete_record = BooleanField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
+    status = TextField(null=True, help_text="Record processing status.")
 
     class Meta:  # noqa: D101,D106
         table_alias = "rr"

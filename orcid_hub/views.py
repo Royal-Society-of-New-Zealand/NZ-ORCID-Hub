@@ -1856,6 +1856,78 @@ class GroupIdRecordAdmin(AppModelView):
         flash("%d Record was processed." % count)
 
 
+class ResourceRecordAdmin(RecordModelView):
+    """Researcher resource administration view."""
+
+    form_rules = [
+        # rules.Header("Record"),
+        "local_id",
+        "is_active",
+        "display_index",
+        "visibility",
+        "put_code",
+
+        rules.FieldSet([
+            "identifier",
+            "email",
+            "orcid",
+            "first_name",
+            "last_name"
+        ], "Invitee"),
+        rules.HTML("<hr>"),
+
+        rules.FieldSet([
+            "proposal_title",
+            "proposal_start_date",
+            "proposal_end_date",
+            "proposal_url",
+            rules.FieldSet([
+                "proposal_host_name",
+                "proposal_host_city",
+                "proposal_host_region",
+                "proposal_host_country",
+                "proposal_host_disambiguated_id",
+                "proposal_host_disambiguation_source",
+            ], "Host"),
+            rules.FieldSet([
+                "proposal_external_id_type",
+                "proposal_external_id_value",
+                "proposal_external_id_url",
+                "proposal_external_id_relationship",
+            ], "External ID")
+        ], "Proposal"),
+        rules.HTML("<hr>"),
+
+        rules.FieldSet([
+            "name",
+            "type",
+            "start_date",
+            "end_date",
+            "url",
+
+            rules.FieldSet([
+                "host_name",
+                "host_city",
+                "host_region",
+                "host_country",
+                "host_disambiguated_id",
+                "host_disambiguation_source",
+            ], "Host"),
+
+            rules.FieldSet([
+                "external_id_type",
+                "external_id_value",
+                "external_id_url",
+                "external_id_relationship",
+            ], "External ID")
+        ], "Resource"),
+    ]
+
+    def get_export_columns(self):
+        """Create a list of exported columns with lables."""
+        return [(c, self.model._meta.fields[c].help_text or n) for c, n in super().get_export_columns()]
+
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
@@ -1880,7 +1952,7 @@ admin.add_view(InviteeAdmin(PeerReviewInvitee))
 admin.add_view(RecordChildAdmin(PeerReviewExternalId))
 admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
 admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
-admin.add_view(RecordModelView(models.ResourceRecord))
+admin.add_view(ResourceRecordAdmin())
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
