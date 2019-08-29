@@ -25,10 +25,10 @@ from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingContributor,
                               FundingRecord, GroupIdRecord, OrcidToken, Organisation, OrgInfo,
-                              OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord,
-                              Role, Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
+                              OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord, Role,
+                              Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
                               UserOrgAffiliation, WorkRecord, create_tables)
-from tests.utils import get_profile
+from tests.utils import get_profile, get_resources, readup_test_data
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -3430,7 +3430,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
                 BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
 XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF
 XXX1701,00003,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor3@mailinator.com,Eve,Contributor 3,,,Y,grant_number,,SELF
-XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor4@mailinator.com,Felix,Contributor 4,,,Y,grant_number,,SELF"""  # noqa: E501
+XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor4@mailinator.com,Felix,Contributor 4,,,Y,grant_number,,SELF"""# noqa: E501
                 ),  # noqa: E501
                 "fundings_ex.csv",
             ),
@@ -4290,7 +4290,7 @@ def test_researcher_urls(client):
     """Test researcher url data management."""
     user = client.data["admin"]
     client.login(user, follow_redirects=True)
-    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "researchurls.json"), "rb").read()
+    raw_data0 = readup_test_data("researchurls.json")
     resp = client.post(
         "/load/researcher/urls",
         data={"file_": (BytesIO(raw_data0), "researcher_url_001.json")},
@@ -4463,3 +4463,51 @@ def test_remove_linkage(client, mocker):
     client.post("/remove/orcid/linkage")
     post.assert_called()
     assert not OrcidToken.select().where(OrcidToken.user_id == user.id).exists()
+
+
+def test_research_resources(client, mocker):
+    """Test researcher url data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    raw_data0 = readup_test_data("resources.tsv")
+    resp = client.post(
+        "/load/task/RESOURCE",
+        data={"file_": (BytesIO(raw_data0), "resources.tsv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"SYN-18-UOA-001" in resp.data
+    assert b"invitee1@mailinator.com" in resp.data
+    task = Task.get(filename="resources.tsv")
+    assert task.records.count() == 2
+
+    send = mocker.patch("emails.message.MessageSendMixin.send")
+
+    resp = client.post("/activate_all/?url=/resources", data=dict(task_id=task.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("/resources")
+
+    send.assert_called()
+    assert UserInvitation.select().count() == 2
+
+    raw_data0 = readup_test_data("resources.csv")
+    resp = client.post(
+        "/load/task/RESOURCE",
+        data={"file_": (BytesIO(raw_data0), "resources.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"SYN-18-UOA-001" in resp.data
+    assert b"SYN-18-UOA-999" in resp.data
+    assert b"researcher@test0.edu" in resp.data
+    task = Task.get(filename="resources.csv")
+    assert task.records.count() == 2
+
+    get_resources_mock = mocker.patch(
+        "orcid_hub.orcid_client.MemberAPIV3.get_resources",
+        return_value=get_resources(org=user.organisation, user=user))
+    execute = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.execute")
+
+    resp = client.post("/activate_all/?url=/resources", data=dict(task_id=task.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("/resources")
+    get_resources_mock.assert_called()
+    execute.assert_called()

@@ -713,4 +713,4 @@ def get_profile(org=None, user=None):
 def readup_test_data(filename, mode="rb"):
     """Readup the file with the test data."""
     with open(os.path.join(os.path.dirname(__file__), "data", filename), mode) as f:
-        return readup_file(f)
+        return f.read() if 'b' in mode else readup_file(f)
