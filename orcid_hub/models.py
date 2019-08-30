@@ -1608,7 +1608,7 @@ class AffiliationRecord(RecordModel):
     state = CharField(null=True, verbose_name="State/Region", max_length=100)
     country = CharField(null=True, verbose_name="Country", max_length=2, choices=country_choices)
     disambiguated_id = CharField(
-        null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
+        null=True, verbose_name="Disambiguated Organization Identifier")
     disambiguation_source = CharField(
         null=True,
         max_length=100,
@@ -1726,7 +1726,7 @@ class FundingRecord(RecordModel):
     city = CharField(null=True, max_length=255)
     region = CharField(null=True, max_length=255)
     country = CharField(null=True, max_length=255, choices=country_choices)
-    disambiguated_id = CharField(null=True, max_length=255)
+    disambiguated_id = CharField(null=True)
     disambiguation_source = CharField(
         null=True, max_length=255, choices=disambiguation_source_choices)
     is_active = BooleanField(
