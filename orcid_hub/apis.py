@@ -2656,31 +2656,29 @@ def get_spec(app):
                 "schema": {"$ref": "#/definitions/Error"}
             },
     }
-    swag["definitions"] = {
-        "Error": {
-            "properties": {
-                "error": {
-                    "type": "string",
-                    "description": "Error type/name."
-                },
-                "message": {
-                    "type": "string",
-                    "description": "Error details explaining message."
-                },
-            }
-        },
-        "AsyncResponse": {
-            "properties": {
-                "job-id": {
-                    "type": "string",
-                    "description": "The job ID of the submitted request."
-                },
-                "response-url": {
-                    "type": "string",
-                    "description": "The URL the response will be available at."
-                },
-            }
-        },
+    swag["definitions"]["Error"] = {
+        "properties": {
+            "error": {
+                "type": "string",
+                "description": "Error type/name."
+            },
+            "message": {
+                "type": "string",
+                "description": "Error details explaining message."
+            },
+        }
+    }
+    swag["definitions"]["AsyncResponse"] = {
+        "properties": {
+            "job-id": {
+                "type": "string",
+                "description": "The job ID of the submitted request."
+            },
+            "response-url": {
+                "type": "string",
+                "description": "The URL the response will be available at."
+            },
+        }
     }
     # Webhooks:
     put_responses = {
