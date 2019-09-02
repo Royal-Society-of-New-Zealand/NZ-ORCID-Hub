@@ -615,6 +615,7 @@ class TaskAdmin(AppModelView):
 class RecordModelView(AppModelView):
     """Task record model view."""
 
+    list_template = "affiliation_record_list.html"
     roles_required = Role.SUPERUSER | Role.ADMIN
     column_exclude_list = (
         "task",
@@ -1493,11 +1494,10 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
                 on=(PeerReviewInvitee.record_id == self.model.id)).objects()
 
 
-class AffiliationRecordAdmin(RecordModelView):
+class AffiliationRecordAdmin(CompositeRecordModelView):
     """Affiliation record model view."""
 
     can_create = True
-    list_template = "affiliation_record_list.html"
     column_exclude_list = (
         "task",
         "organisation",
@@ -1510,9 +1510,37 @@ class AffiliationRecordAdmin(RecordModelView):
         "department",
         "state",
     )
-    column_export_exclude_list = (
-        "task",
-    )
+    column_export_list = [
+        "is_active",
+        "put_code",
+        "local_id",
+        "processed_at",
+        "status",
+        "first_name",
+        "last_name",
+        "email",
+        "visibility",
+        "orcid",
+        "organisation",
+        "affiliation_type",
+        "role",
+        "department",
+        "start_date",
+        "end_date",
+        "city",
+        "state",
+        "country",
+        "disambiguated_id",
+        "disambiguation_source",
+        "delete_record",
+        "visibility",
+        "url",
+        "display_index",
+        "external_id_type",
+        "external_id_value",
+        "external_id_url",
+        "external_id_relationship",
+    ]
     form_widget_args = {"task": {"readonly": True}}
 
     def validate_form(self, form):
@@ -1552,9 +1580,40 @@ class AffiliationRecordAdmin(RecordModelView):
             "Content-Disposition"] = f"attachment;filename={secure_filename(self.get_export_name(export_type))}"
         return resp
 
+    def get_record_list(self,
+                        page,
+                        sort_column,
+                        sort_desc,
+                        search,
+                        filters,
+                        execute=True,
+                        page_size=None):
+        """Return records and realated to the record data."""
+        count, query = self.get_list(
+            0, sort_column, sort_desc, search, filters, page_size=page_size, execute=False)
 
-class ProfilePropertyRecordAdmin(AffiliationRecordAdmin):
+        ext_ids = [r.id for r in
+                   AffiliationExternalId.select(models.fn.min(AffiliationExternalId.id).alias("id")).join(
+                       AffiliationRecord).where(
+                       AffiliationRecord.task == self.current_task_id).group_by(AffiliationRecord.id).objects()]
+
+        return count, query.select(
+            self.model,
+            AffiliationExternalId.type.alias("external_id_type"),
+            AffiliationExternalId.value.alias("external_id_value"),
+            AffiliationExternalId.url.alias("external_id_url"),
+            AffiliationExternalId.relationship.alias("external_id_relationship"),
+        ).join(
+            AffiliationExternalId,
+            JOIN.LEFT_OUTER,
+            on=(AffiliationExternalId.record_id == self.model.id)).where(AffiliationExternalId.id << ext_ids).objects()
+
+
+class ProfilePropertyRecordAdmin(RecordModelView):
     """Researcher Url, Other Name, and Keyword record model view."""
+
+    can_create = True
+    form_widget_args = {"task": {"readonly": True}}
 
     def __init__(self, model_class, *args, **kwargs):
         """Set up model specific attributes."""
@@ -1563,6 +1622,43 @@ class ProfilePropertyRecordAdmin(AffiliationRecordAdmin):
             if f in model_class._meta.fields
         ]
         super().__init__(model_class, *args, **kwargs)
+
+    def validate_form(self, form):
+        """Validate the input."""
+        if request.method == "POST" and hasattr(form, "orcid") and hasattr(
+                form, "email") and hasattr(form, "put_code"):
+            if not (form.orcid.data or form.email.data or form.put_code.data):
+                flash(
+                    "Either <b>email</b>, <b>ORCID iD</b>, or <b>put-code</b> should be provided.",
+                    "danger")
+                return False
+        return super().validate_form(form)
+
+    @expose("/export/<export_type>/")
+    def export(self, export_type):
+        """Check the export type whether it is csv, tsv or other format."""
+        if export_type not in ["json", "yaml", "yml"]:
+            return super().export(export_type)
+        return_url = get_redirect_target() or self.get_url(".index_view")
+
+        task_id = self.current_task_id
+        if not task_id:
+            flash("Missing task ID.", "danger")
+            return redirect(return_url)
+
+        if not self.can_export or (export_type not in self.export_types):
+            flash("Permission denied.", "danger")
+            return redirect(return_url)
+
+        data = Task.get(int(task_id)).to_dict()
+        if export_type == "json":
+            resp = jsonify(data)
+        else:
+            resp = yamlfy(data)
+
+        resp.headers[
+            "Content-Disposition"] = f"attachment;filename={secure_filename(self.get_export_name(export_type))}"
+        return resp
 
 
 class ViewMembersAdmin(AppModelView):
