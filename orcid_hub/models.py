@@ -1186,7 +1186,6 @@ class Task(AuditedModel):
         """
         return self.state == "ACTIVE" or self.records.whhere(self.record_model.is_active).exists()
 
-    # TODO: move this one to AffiliationRecord
     def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True, only=None):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
@@ -1757,7 +1756,7 @@ class FundingRecord(RecordModel):
     city = CharField(null=True, max_length=255)
     region = CharField(null=True, max_length=255)
     country = CharField(null=True, max_length=255, choices=country_choices)
-    disambiguated_id = CharField(null=True, max_length=255)
+    disambiguated_id = CharField(null=True)
     disambiguation_source = CharField(
         null=True, max_length=255, choices=disambiguation_source_choices)
     is_active = BooleanField(
@@ -3526,6 +3525,24 @@ class ExternalId(ExternalIdModel):
 
     class Meta:  # noqa: D101,D106
         table_alias = "ei"
+
+
+class Resource(BaseModel):
+    """Research resource."""
+
+    title = CharField(max_length=1000)
+    display_index = IntegerField(null=True)
+    visibility = CharField(max_length=10, choices=visibility_choices)
+
+
+class ResoureceExternalId(BaseModel):
+    """Linkage between resoucrece and ExternalId."""
+
+    external_id = ForeignKeyField(ExternalId, index=True, on_delete="CASCADE")
+    resource = ForeignKeyField(Resource, index=True, on_delete="CASCADE")
+
+    class Meta:  # noqa: D106
+        table_alias = "rei"
 
 
 class AffiliationExternalId(ExternalIdModel):
