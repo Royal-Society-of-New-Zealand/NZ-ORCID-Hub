@@ -526,18 +526,34 @@ class OrcidTokenAdmin(AppModelView):
 class OrcidApiCallAmin(AppModelView):
     """ORCID API calls."""
 
-    column_editable_list = None
+    column_list = [
+        "method", "url", "query_params", "body", "status", "put_code", "response",
+        "response_time_ms"
+    ]
     column_default_sort = ("id", True)
     can_export = True
     can_edit = False
-    can_delete = True
+    can_delete = False
     can_create = False
+    can_view_details = True
     column_searchable_list = (
         "url",
         "body",
         "response",
         "user.name",
     )
+    column_formatters = AppModelView.column_formatters
+    column_formatters_detail = dict()
+
+    @staticmethod
+    def truncate_value(v, c, m, p):
+        """Truncate very long strings."""
+        value = getattr(m, p)
+        return value[:100] + " ..." if value and len(value) > 100 else value
+
+
+OrcidApiCallAmin.column_formatters.update(dict(
+    body=OrcidApiCallAmin.truncate_value, response=OrcidApiCallAmin.truncate_value))
 
 
 class UserInvitationAdmin(AppModelView):
