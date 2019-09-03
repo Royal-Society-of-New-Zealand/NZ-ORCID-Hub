@@ -526,10 +526,11 @@ class OrcidTokenAdmin(AppModelView):
 class OrcidApiCallAmin(AppModelView):
     """ORCID API calls."""
 
+    column_editable_list = None
     column_default_sort = ("id", True)
     can_export = True
     can_edit = False
-    can_delete = False
+    can_delete = True
     can_create = False
     column_searchable_list = (
         "url",

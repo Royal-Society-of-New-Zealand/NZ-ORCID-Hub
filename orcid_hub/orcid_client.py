@@ -69,6 +69,7 @@ class OrcidRESTClientObjectMixing:
             **kwargs)
         if res and oac:
             oac.status = res.status
+            breakpoint()
             oac.response_time_ms = round((time() - request_time) * 1000)
             if res.data:
                 oac.response = res.data
