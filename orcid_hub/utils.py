@@ -598,6 +598,7 @@ def send_user_invitation(inviter,
         user.roles |= Role.RESEARCHER
 
         token = new_invitation_token()
+
         with app.app_context():
             invitation_url = flask.url_for(
                 "orcid_login",
@@ -606,11 +607,11 @@ def send_user_invitation(inviter,
                 _scheme="http" if app.debug else "https")
             send_email(
                 invitation_template,
-                recipient=(user.organisation.name if user.organisation else org.name, user.email),
+                recipient=(org.name if org else user.organisation.name, user.email),
                 reply_to=(inviter.name, inviter.email),
                 cc_email=cc_email,
                 invitation_url=invitation_url,
-                org_name=user.organisation.name if user.organisation else org.name,
+                org_name=org.name if org else user.organisation.name,
                 org=org,
                 user=user)
 
