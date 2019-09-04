@@ -910,13 +910,14 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
         "employment", "education", "distinction", "membership", "service", "qualification",
         "invited-position"
     ]
+
     if profile_record:
 
         affiliations = {
             at: [
                 s.get(f"{at}-summary") for ag in profile_record.get(
                     "activities-summary", f"{at}s", "affiliation-group", default=[])
-                for s in ag.get("summaries", default=[])
+                for s in ag.get("summaries", default=[]) if is_org_rec(org, s.get(f"{at}-summary"))
             ]
             for at in orcid_affiliation_types
         }
@@ -963,8 +964,9 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
                 if ((r.get("start-date") is None and r.get("end-date") is None and r.get(
                     "department-name") is None and r.get("role-title") is None)
-                    or (r.get("start-date") == start_date and r.get("department-name") == record.department
-                        and r.get("role-title") == record.role)):
+                    or (record.department and record.role and r.get("start-date") == start_date
+                        and (r.get("department-name", default='') or '').lower() == record.department.lower()
+                        and (r.get("role-title", default='') or '').lower() == record.role.lower())):
                     record.visibility = r.get("visibility")
                     record.put_code = put_code
                     record.orcid = orcid
