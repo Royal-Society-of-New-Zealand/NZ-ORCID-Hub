@@ -1086,13 +1086,14 @@ class OrcidApiCall(BaseModel):
 
     called_at = DateTimeField(default=datetime.utcnow)
     user = ForeignKeyField(User, null=True, on_delete="SET NULL", backref="orcid_api_calls")
-    method = TextField()
-    url = TextField()
+    method = CharField(max_length=6)
+    url = CharField()
     query_params = TextField(null=True)
     body = TextField(null=True)
     put_code = IntegerField(null=True)
     response = TextField(null=True)
     response_time_ms = IntegerField(null=True)
+    status = IntegerField(null=True)
 
     class Meta:  # noqa: D101,D106
         table_alias = "oac"
@@ -3931,6 +3932,18 @@ class AsyncOrcidResponse(BaseModel):
     body = TextField(null=True)
 
 
+class MailLog(BaseModel):
+    """Email log - the log of email sent form the Hub."""
+
+    sent_at = DateTimeField(default=datetime.utcnow)
+    org = ForeignKeyField(Organisation, null=True)
+    recipient = CharField()
+    sender = CharField()
+    subject = CharField()
+    was_sent_successfully = BooleanField(null=True)
+    error = TextField(null=True)
+
+
 DeferredForeignKey.resolve(User)
 
 
@@ -3988,6 +4001,7 @@ def create_tables(safe=True, drop=False):
             Token,
             Delegate,
             AsyncOrcidResponse,
+            MailLog,
     ]:
 
         model.bind(db)

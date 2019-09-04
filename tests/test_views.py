@@ -23,6 +23,7 @@ from orcid_api_v3.rest import ApiException
 from orcid_hub import orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
+from orcid_hub import models
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingContributor,
                               FundingRecord, GroupIdRecord, OrcidToken, Organisation, OrgInfo,
                               OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord,
@@ -4463,3 +4464,28 @@ def test_remove_linkage(client, mocker):
     client.post("/remove/orcid/linkage")
     post.assert_called()
     assert not OrcidToken.select().where(OrcidToken.user_id == user.id).exists()
+
+
+def test_superuser_view_orcid_api_calls(client):
+    """Test if SUPERUSER can comfortably view API calls."""
+    u = User.get()
+    models.OrcidApiCall.insert_many([dict(
+        user=u,
+        method="GET",
+        url="/url",
+        body="BODY" * 100 * i + "BODY123" if i % 2 else "SHORT BODY",
+        put_code=1234 + i,
+        response="RESPONSE" * 100 * i + "RESP123",
+        response_time_ms=i,
+        status=200 + i) for i in range(1, 10)]).execute()
+
+    client.login_root()
+    resp = client.get("/admin/orcidapicall/")
+    assert resp.status_code == 200
+    assert b"BODY123" not in resp.data
+    assert b"RESP123" not in resp.data
+
+    resp = client.get("/admin/orcidapicall/details/?id=1&url=/admin/orcidapicall/")
+    assert resp.status_code == 200
+    assert b"BODY123" in resp.data
+    assert b"RESP123" in resp.data

@@ -46,14 +46,14 @@ from .forms import (AddressForm, ApplicationFrom, BitmapMultipleValueField, Cred
                     RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm,
                     validate_orcid_id_field)
 from .login_provider import roles_required
-from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId, CharField, Client, Delegate,
-                     ExternalId, FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
-                     Grant, GroupIdRecord, ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
-                     Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-                     Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
-                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
-                     db)
+from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId, CharField,
+                     Client, Delegate, ExternalId, FixedCharField, File, FundingContributor,
+                     FundingInvitee, FundingRecord, Grant, GroupIdRecord, ModelException,
+                     NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
+                     OrgInvitation, PartialDate, PropertyRecord, PeerReviewExternalId,
+                     PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TextField, Token,
+                     Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor,
+                     WorkExternalId, WorkInvitee, WorkRecord, db)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -375,6 +375,15 @@ class AuditLogModelView(AppModelView):
         super().__init__(model, *args, **kwargs)
 
 
+class MailLogAdmin(AppModelView):
+    """Mail Log model view."""
+
+    can_edit = False
+    can_delete = False
+    can_create = False
+    can_view_details = True
+
+
 class UserAdmin(AppModelView):
     """User model view."""
 
@@ -526,17 +535,34 @@ class OrcidTokenAdmin(AppModelView):
 class OrcidApiCallAmin(AppModelView):
     """ORCID API calls."""
 
+    column_list = [
+        "method", "url", "query_params", "body", "status", "put_code", "response",
+        "response_time_ms"
+    ]
     column_default_sort = ("id", True)
     can_export = True
     can_edit = False
     can_delete = False
     can_create = False
+    can_view_details = True
     column_searchable_list = (
         "url",
         "body",
         "response",
         "user.name",
     )
+    column_formatters = AppModelView.column_formatters
+    column_formatters_detail = dict()
+
+    @staticmethod
+    def truncate_value(v, c, m, p):
+        """Truncate very long strings."""
+        value = getattr(m, p)
+        return value[:100] + " ..." if value and len(value) > 100 else value
+
+
+OrcidApiCallAmin.column_formatters.update(dict(
+    body=OrcidApiCallAmin.truncate_value, response=OrcidApiCallAmin.truncate_value))
 
 
 class UserInvitationAdmin(AppModelView):
@@ -1955,6 +1981,7 @@ admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
 admin.add_view(UserInvitationAdmin())
 admin.add_view(OrgInvitationAdmin())
+admin.add_view(MailLogAdmin())
 
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
