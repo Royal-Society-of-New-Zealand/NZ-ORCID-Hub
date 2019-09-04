@@ -3932,6 +3932,18 @@ class AsyncOrcidResponse(BaseModel):
     body = TextField(null=True)
 
 
+class MailLog(BaseModel):
+    """Email log - the log of email sent form the Hub."""
+
+    sent_at = DateTimeField(default=datetime.utcnow)
+    org = ForeignKeyField(Organisation, null=True)
+    recipient = CharField()
+    sender = CharField()
+    subject = CharField()
+    was_sent_successfully = BooleanField(null=True)
+    error = TextField()
+
+
 DeferredForeignKey.resolve(User)
 
 
@@ -3989,6 +4001,7 @@ def create_tables(safe=True, drop=False):
             Token,
             Delegate,
             AsyncOrcidResponse,
+            MailLog,
     ]:
 
         model.bind(db)
