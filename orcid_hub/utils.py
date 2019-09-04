@@ -28,7 +28,7 @@ from yaml.representer import SafeRepresenter
 
 from . import app, db, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
-                     FundingRecord, Log, OtherIdRecord, OrcidToken, Organisation, OrgInvitation,
+                     FundingRecord, Log, MailLog, OtherIdRecord, OrcidToken, Organisation, OrgInvitation,
                      PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      PropertyRecord, Role, Task, TaskType, User, UserInvitation, UserOrg,
                      WorkInvitee, WorkRecord, get_val)
@@ -204,6 +204,13 @@ def send_email(template,
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
     resp = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    MailLog.create(
+            org=org,
+            recipient=recipient[1],
+            sender=sender[1],
+            subject=subject,
+            was_sent_successfully=resp.success,
+            error=resp.error)
     if not resp.success:
         raise Exception(f"Failed to email the message: {resp.error}. Please contact a Hub administrator!")
 
