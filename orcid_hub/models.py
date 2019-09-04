@@ -3941,7 +3941,7 @@ class MailLog(BaseModel):
     sender = CharField()
     subject = CharField()
     was_sent_successfully = BooleanField(null=True)
-    error = TextField()
+    error = TextField(null=True)
 
 
 DeferredForeignKey.resolve(User)
