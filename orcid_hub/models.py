@@ -1086,13 +1086,14 @@ class OrcidApiCall(BaseModel):
 
     called_at = DateTimeField(default=datetime.utcnow)
     user = ForeignKeyField(User, null=True, on_delete="SET NULL", backref="orcid_api_calls")
-    method = TextField()
-    url = TextField()
+    method = CharField(max_length=6)
+    url = CharField()
     query_params = TextField(null=True)
     body = TextField(null=True)
     put_code = IntegerField(null=True)
     response = TextField(null=True)
     response_time_ms = IntegerField(null=True)
+    status = IntegerField(null=True)
 
     class Meta:  # noqa: D101,D106
         table_alias = "oac"
