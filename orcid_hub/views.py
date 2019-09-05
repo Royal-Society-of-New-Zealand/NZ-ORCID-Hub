@@ -1535,6 +1535,7 @@ class AffiliationRecordAdmin(CompositeRecordModelView):
         "role",
         "department",
         "state",
+        "status",
     )
     column_export_list = [
         "is_active",
