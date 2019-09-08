@@ -1750,7 +1750,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
     for export_type in ["csv", "tsv", "yaml", "json"]:
         # Missing ID:
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}", follow_redirects=True)
-        assert b"error" in resp.data
+        assert b"Cannot invoke the task view without task ID" in resp.data
 
         # Non-existing task:
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id=9999999")
@@ -1760,7 +1760,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
         resp = client.get(
             f"/admin/affiliationrecord/export/{export_type}/?task_id=ERROR-9999999",
             follow_redirects=True)
-        assert b"error" in resp.data
+        assert b"Missing or incorrect task ID value" in resp.data
 
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
         ct = resp.headers["Content-Type"]
