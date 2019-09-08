@@ -709,7 +709,7 @@ class RecordModelView(AppModelView):
                 return False
 
         except Task.DoesNotExist:
-            flash("The task deesn't exist.", "danger")
+            flash("The task doesn't exist.", "danger")
             abort(404)
 
         except ValueError as ex:
