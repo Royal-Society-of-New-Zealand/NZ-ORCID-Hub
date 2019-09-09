@@ -3937,7 +3937,7 @@ class MailLog(BaseModel):
 
     sent_at = DateTimeField(default=datetime.utcnow)
     org = ForeignKeyField(Organisation, null=True)
-    recipient = CharField(null=True)
+    recipient = CharField()
     sender = CharField()
     subject = CharField()
     was_sent_successfully = BooleanField(null=True)
