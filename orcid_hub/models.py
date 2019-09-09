@@ -3933,11 +3933,11 @@ class AsyncOrcidResponse(BaseModel):
 
 
 class MailLog(BaseModel):
-    """Email log - the log of email sent form the Hub."""
+    """Email log - the log of email sent from the Hub."""
 
     sent_at = DateTimeField(default=datetime.utcnow)
     org = ForeignKeyField(Organisation, null=True)
-    recipient = CharField()
+    recipient = CharField(null=True)
     sender = CharField()
     subject = CharField()
     was_sent_successfully = BooleanField(null=True)

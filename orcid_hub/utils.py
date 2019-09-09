@@ -206,7 +206,7 @@ def send_email(template,
     resp = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
     MailLog.create(
             org=org,
-            recipient=recipient[1],
+            # recipient=recipient[1],
             sender=sender[1],
             subject=subject,
             was_sent_successfully=resp.success,
