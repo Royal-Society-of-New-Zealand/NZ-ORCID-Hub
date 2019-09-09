@@ -10,7 +10,7 @@
     :copyright: (c) 2017, 2018, 2019 Royal Society of New Zealand.
     :license: MIT, see LICENSE for more details.
 
-$Format:%ci$ ($Format:%h$)
+$Format:%CI$ ($Format:%H$)
 """
 
 import logging
