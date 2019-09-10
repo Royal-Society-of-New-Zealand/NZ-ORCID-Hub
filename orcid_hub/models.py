@@ -1372,9 +1372,9 @@ class Task(AuditedModel):
 
     def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True, only=None):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
-        # TODO: expand for the othe types of the tasks
+        # TODO: expand for the other types of the tasks
         task_dict = super().to_dict(
-            recurse=bool(False),
+            recurse=False,
             to_dashes=to_dashes,
             exclude=exclude,
             only=only or [
