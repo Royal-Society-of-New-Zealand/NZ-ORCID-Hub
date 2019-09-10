@@ -1747,14 +1747,14 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
                                             AffiliationRecord.processed_at.is_null()).count() == 7
 
     # Exporting:
-    for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:
+    for export_type in ["csv", "tsv", "yaml", "json"]:
         # Missing ID:
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}", follow_redirects=True)
         assert b"Cannot invoke the task view without task ID" in resp.data
 
         # Non-existing task:
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id=9999999")
-        assert b"The task deesn't exist." in resp.data
+        assert b"The task doesn't exist." in resp.data
 
         # Incorrect task ID:
         resp = client.get(
@@ -1764,16 +1764,17 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
 
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
         ct = resp.headers["Content-Type"]
-        assert (export_type in ct or (export_type == "xls" and "application/vnd.ms-excel" == ct)
+        assert (export_type in ct
                 or (export_type == "tsv" and "text/tab-separated-values" in ct)
-                or (export_type == "yaml" and "application/octet-stream" in ct)
-                or (export_type == "xlsx"
-                    and "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" == ct)
-                or (export_type == "ods" and "application/vnd.oasis.opendocument.spreadsheet" == ct))
+                or (export_type == "yaml" and "application/octet-stream" in ct))
         assert re.match(f"attachment;filename=affiliations_20.*\\.{export_type}",
                         resp.headers["Content-Disposition"])
-        if export_type not in ["xlsx", "ods"]:
-            assert b"researcher.010@mailinator.com" in resp.data
+        if export_type == "tsv":
+            assert b"External Id Value\tExternal Id Url\tExternal Id Relationship" in resp.data
+        elif export_type == "csv":
+            assert b"External Id Value,External Id Url,External Id Relationship" in resp.data
+        else:
+            assert b"researcher.990@mailinator.com" in resp.data
 
     # Retrieve a copy of the task and attempt to reupload it:
     for export_type in ["yaml", "json"]:
