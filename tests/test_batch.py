@@ -190,3 +190,39 @@ def test_enqueue_user_records(client, mocker):
              role=f"ROLE #{i}") for i in range(1, 100))
 
     utils.enqueue_user_records(user)
+
+
+def test_email_logging(client, mocker):
+    """Test if the log entry gets crated."""
+
+    org = Organisation.get()
+    client.application.config["SERVER_NAME"] = "ordidhub.org"
+    client.login_root()
+
+    with app.app_context():
+        send = mocker.patch("emails.message.Message.send",
+                            return_value=Mock(success=True, message="All Good!"))
+        utils.send_email("email/test.html",
+                        recipient="test@test.ac.nz",
+                        sender=("SENDER", "sender@test.ac.nz"),
+                        subject="TEST ABC 123")
+        send.assert_called()
+        assert MailLog.select().where(MailLog.was_sent_successfully).exists()
+
+
+        send = mocker.patch("emails.message.Message.send",
+                            return_value=Mock(success=False, message="ERROR!"))
+        with pytest.raises(Exception):
+            utils.send_email("email/test.html",
+                            recipient="test@test.ac.nz",
+                            sender=("SENDER", "sender@test.ac.nz"),
+                            subject="TEST ABC 123")
+        send.assert_called()
+        assert MailLog.select().where(MailLog.was_sent_successfully.NOT()).exists()
+
+        resp = client.get("/admin/maillog/")
+        assert resp.status_code == 200
+
+        for r in MailLog.select():
+            resp = client.get(f"/admin/maillog/details/?id={r.id}&url=%2Fadmin%2Fmaillog%2F")
+            assert resp.status_code == 200
