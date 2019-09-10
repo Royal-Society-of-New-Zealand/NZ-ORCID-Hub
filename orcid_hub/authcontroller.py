@@ -302,6 +302,11 @@ def handle_login():
             user.eppn = eppn
         if not user.orcid:
             user.orcid = orcid
+        elif orcid and orcid != user.orcid:
+            flash(
+                f"IdP has on the record a different ORCID iD {orcid} from the one in ORCID Hub DB: {user.orcid}",
+                "warning")
+
     else:
 
         if not (unscoped_affiliation & {"faculty", "staff", "student"}):

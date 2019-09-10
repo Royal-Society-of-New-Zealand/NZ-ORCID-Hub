@@ -74,14 +74,3 @@
   </span>
   {{ super() }}
 {% endblock %}
-{% block list_row_actions %}
-{{ super() }}
-{% if task.task_type == 4 %}
-<div class="list-buttons-column">
-    <a class="icon" href="{{ url_for('affiliationexternalid.index_view', record_id=row.id, url=request.url) }}"
-       title="Affiliation ExternalId">
-        <spam class="fa fa-external-link glyphicon glyphicon-users icon"></spam>
-    </a>
-</div>
-{% endif %}
-{% endblock %}

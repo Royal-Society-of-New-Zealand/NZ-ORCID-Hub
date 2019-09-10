@@ -20,14 +20,15 @@ from io import StringIO
 from itertools import groupby, zip_longest
 from urllib.parse import urlencode
 
+import chardet
 import validators
 import yaml
 from flask_login import UserMixin, current_user
 from peewee import JOIN, BlobField, SqliteDatabase
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCharField,
-                    ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    SmallIntegerField, TextField, fn)
+                    ForeignKeyField, IntegerField, ManyToManyField, Model, OperationalError,
+                    PostgresqlDatabase, SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
 # from playhouse.reflection import generate_models
 from playhouse.shortcuts import model_to_dict
@@ -97,7 +98,10 @@ language_choices.sort(key=lambda e: e[1])
 currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
 external_id_type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in EXTERNAL_ID_TYPES]
-relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS]
+# TODO: reomove one of the list when data gets updated
+relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS] + [
+    (v.lower().replace('_', '-'), v.replace('_', ' ').title()) for v in RELATIONSHIPS
+]
 disambiguation_source_choices = [(v, v) for v in DISAMBIGUATION_SOURCES]
 property_type_choices = [(v, v) for v in PROPERTY_TYPES]
 
@@ -284,6 +288,9 @@ class PartialDateField(Field):
 
     def db_value(self, value):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
+        if isinstance(value, str):
+            value = PartialDate.create(value)
+
         if value is None or not value.year:
             return None
 
@@ -332,6 +339,7 @@ class TaskType(IntEnum):
     PEER_REVIEW = 3
     OTHER_ID = 5
     PROPERTY = 8
+    RESOURCE = 9
     SYNC = 11
 
     def __eq__(self, other):
@@ -615,7 +623,7 @@ class Organisation(AuditedModel):
         orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
     city = CharField(null=True)
-    state = CharField(null=True, verbose_name="State/Region", max_length=100)
+    region = CharField(null=True, verbose_name="State/Region", max_length=100)
     country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     disambiguated_id = CharField(null=True)
     disambiguation_source = CharField(null=True, choices=disambiguation_source_choices)
@@ -709,11 +717,11 @@ class User(AuditedModel, UserMixin):
     """
 
     name = CharField(max_length=64, null=True)
-    first_name = CharField(null=True, verbose_name="First Name")
-    last_name = CharField(null=True, verbose_name="Last Name")
+    first_name = CharField(null=True)
+    last_name = CharField(null=True)
     email = CharField(max_length=120, unique=True, null=True, verbose_name="Email Address")
     eppn = CharField(max_length=120, unique=True, null=True, verbose_name="EPPN")
-    orcid = OrcidIdField(null=True, verbose_name="ORCID iD", help_text="User's ORCID iD")
+    orcid = OrcidIdField(null=True, help_text="User's ORCID iD")
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
@@ -1121,10 +1129,7 @@ class Task(AuditedModel):
         Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE", backref="tasks")
     completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
-    # created_by = ForeignKeyField(
-    #     User, on_delete="SET NULL", null=True, backref="created_tasks")
-    # updated_by = ForeignKeyField(
-    #     User, on_delete="SET NULL", null=True, backref="updated_tasks")
+    is_raw = BooleanField(null=True, default=False)
     task_type = TaskTypeField(
         default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
     expires_at = DateTimeField(null=True)
@@ -1144,7 +1149,7 @@ class Task(AuditedModel):
     @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
-        return 0 if self.records is None else self.records.count()
+        return 0 if self.records is None or not self.task_type else self.records.count()
 
     @property
     def record_model(self):
@@ -1173,7 +1178,368 @@ class Task(AuditedModel):
         """Get error count encountered during processing batch task."""
         return self.records.where(self.record_model.status ** "%error%").count()
 
-    # TODO: move this one to AffiliationRecord
+    @property
+    def is_ready(self):
+        """Indicate that the task is 'ready to go':
+            - the task is "ACTIVE"
+            or
+            - there is at least one activated record.
+        """
+        return self.state == "ACTIVE" or self.records.whhere(self.record_model.is_active).exists()
+
+    def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True, only=None):
+        """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
+        # TODO: expand for the othe types of the tasks
+        task_dict = super().to_dict(
+            recurse=bool(False),
+            to_dashes=to_dashes,
+            exclude=exclude,
+            only=only or [
+                Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at,
+                Task.status
+            ])
+        # TODO: refactor for funding task to get records here not in API or export
+        if include_records and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
+            task_dict["records"] = [
+                r.to_dict(
+                    to_dashes=to_dashes,
+                    recurse=recurse,
+                    exclude=[self.records.model._meta.fields["task"]]) for r in self.records
+            ]
+        return task_dict
+
+    def to_export_dict(self, include_records=True):
+        """Create a dictionary representation for export."""
+        if self.task_type == TaskType.AFFILIATION:
+            task_dict = self.to_dict(recurse=include_records, include_records=include_records)
+        else:
+            task_dict = self.to_dict(
+                recurse=False,
+                to_dashes=True,
+                include_records=False,
+                exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
+            task_dict["task-type"] = self.task_type.name
+            if include_records:
+                task_dict["records"] = [r.to_export_dict() for r in self.records]
+        return task_dict
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "t"
+
+
+class Log(BaseModel):
+    """Task log entries."""
+
+    created_at = DateTimeField(default=datetime.utcnow)
+    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    task = ForeignKeyField(
+        Task,
+        on_delete="CASCADE",
+        null=True,
+        index=True,
+        verbose_name="Task",
+        backref="log_entries")
+    message = TextField(null=True)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "l"
+
+    def save(self, *args, **kwargs):  # noqa: D102
+        if self.is_dirty():
+            if current_user and hasattr(current_user, "id"):
+                if hasattr(self, "created_by"):
+                    self.created_by_id = current_user.id
+        return super().save(*args, **kwargs)
+
+
+class UserInvitation(AuditedModel):
+    """Organisation invitation to on-board the Hub."""
+
+    invitee = ForeignKeyField(
+        User, on_delete="CASCADE", null=True, backref="received_user_invitations")
+    inviter = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, backref="sent_user_invitations")
+    org = ForeignKeyField(Organisation,
+                          on_delete="CASCADE",
+                          null=True,
+                          verbose_name="Organisation",
+                          backref="user_invitations")
+    task = ForeignKeyField(Task,
+                           on_delete="CASCADE",
+                           null=True,
+                           index=True,
+                           verbose_name="Task",
+                           backref="user_invitations")
+    email = CharField(
+        index=True, null=True, max_length=80,
+        help_text="The email address the invitation was sent to.")
+    first_name = TextField(null=True)
+    last_name = TextField(null=True)
+    orcid = OrcidIdField(null=True)
+    department = TextField(verbose_name="Campus/Department", null=True)
+    organisation = TextField(verbose_name="Organisation Name", null=True)
+    city = TextField(null=True)
+    region = TextField(verbose_name="State/Region", null=True)
+    country = CharField(verbose_name="Country", max_length=2, null=True)
+    course_or_role = TextField(verbose_name="Course or Job title", null=True)
+    start_date = PartialDateField(verbose_name="Start date", null=True)
+    end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
+    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True, default=Affiliation.NONE)
+    disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_source = TextField(
+        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
+    token = TextField(unique=True)
+    confirmed_at = DateTimeField(null=True)
+    is_person_update_invite = BooleanField(
+        default=False,
+        verbose_name="'Person/Update' Invitation",
+        help_text="Invitation to grant 'Person/Update' scope")
+
+    @property
+    def sent_at(self):
+        """Get the time the invitation was sent."""
+        return self.created_at
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "ui"
+
+
+class RecordModel(BaseModel):
+    """Common model bits of the task records."""
+
+    def key_name(self, name):
+        """Map key-name to a model class key name for export."""
+        return name
+
+    @classmethod
+    def get_field_regxes(cls):
+        """Return map of compiled field name regex to the model fields."""
+        return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
+
+    @property
+    def invitee_model(self):
+        """Get invitee model class."""
+        if hasattr(self, "invitees"):
+            return self.invitees.model
+
+    def to_export_dict(self):
+        """Map the common record parts to dict for export into JSON/YAML."""
+        org = self.task.org
+        d = {"type": self.type} if self.has_field("type") else {}
+        if hasattr(self, "org_name"):
+            d["organization"] = {
+                "disambiguated-organization": {
+                    "disambiguated-organization-identifier":
+                    self.disambiguated_id or org.disambiguated_id,
+                    "disambiguation-source":
+                    self.disambiguation_source or org.disambiguation_source,
+                },
+                "name": self.org_name or org.name,
+                "address": {
+                    "city": self.city or org.city,
+                    "region": self.region or org.region,
+                    "country": self.country or org.country,
+                },
+            }
+        if self.has_field("title"):
+            d["title"] = {
+                "title": {
+                    "value": self.title,
+                },
+                "translated-title": {
+                    "value": self.translated_title,
+                    "language-code": self.translated_title_language_code,
+                }
+            }
+        if hasattr(self, "invitees") and self.invitees:
+            d["invitees"] = [r.to_export_dict() for r in self.invitees]
+        if hasattr(self, "contributors") and self.contributors:
+            d["contributors"] = {"contributor": [r.to_export_dict() for r in self.contributors]}
+        if hasattr(self, "external_ids") and self.external_ids:
+            d[self.key_name("external-ids")] = {
+                "external-id": [r.to_export_dict() for r in self.external_ids]
+            }
+        if hasattr(self, "start_date") and self.start_date:
+            d["start-date"] = self.start_date.as_orcid_dict()
+        if hasattr(self, "end_date") and self.end_date:
+            d["end-date"] = self.end_date.as_orcid_dict()
+        return d
+
+    def orcid_external_id(self, type=None, value=None, url=None, relationship=None):
+        """Get the object rendering into an ORCID API 3.x external-id."""
+        if (not type and not value) and (not self.external_id_type or not self.external_id_value):
+            return
+
+        ei = {
+            "external-id-type": type or self.external_id_type,
+            "external-id-value": value or self.external_id_value
+        }
+
+        if self.external_id_relationship:
+            ei["external-id-relationship"] = relationship or self.external_id_relationship
+
+        if self.external_id_url:
+            ei["external-id-url"] = {"value": url or self.external_id_url}
+
+        return ei
+
+
+class GroupIdRecord(RecordModel):
+    """GroupID records."""
+
+    type_choices = [("publisher", "publisher"), ("institution", "institution"), ("journal", "journal"),
+                    ("conference", "conference"), ("newspaper", "newspaper"), ("newsletter", "newsletter"),
+                    ("magazine", "magazine"), ("peer-review service", "peer-review service")]
+    type_choices.sort(key=lambda e: e[1])
+    type_choices.insert(0, ("", ""))
+    put_code = IntegerField(null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    name = CharField(max_length=120,
+                     help_text="The name of the group. This can be the name of a journal (Journal of Criminal Justice),"
+                               " a publisher (Society of Criminal Justice), or non-specific description (Legal Journal)"
+                               " as required.")
+    group_id = CharField(max_length=120,
+                         help_text="The group's identifier, formatted as type:identifier, e.g. issn:12345678. "
+                                   "This can be as specific (e.g. the journal's ISSN) or vague as required. "
+                                   "Valid types include: issn, ringold, orcid-generated, fundref, publons.")
+    description = CharField(max_length=1000,
+                            help_text="A brief textual description of the group. "
+                                      "This can be as specific or vague as required.")
+    type = CharField(max_length=80, choices=type_choices,
+                     help_text="One of the specified types: publisher; institution; journal; conference; newspaper; "
+                               "newsletter; magazine; peer-review service.")
+    organisation = ForeignKeyField(
+        Organisation, backref="group_id_records", on_delete="CASCADE", null=True)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "gid"
+
+
+class AffiliationRecord(RecordModel):
+    """Affiliation record loaded from CSV file for batch processing."""
+
+    is_active = BooleanField(
+        default=False, help_text="The record is marked 'active' for batch processing", null=True)
+    task = ForeignKeyField(Task, backref="affiliation_records", on_delete="CASCADE")
+    put_code = IntegerField(null=True)
+    local_id = CharField(
+        max_length=100,
+        null=True,
+        verbose_name="Local ID",
+        help_text="Record identifier used in the data source system.")
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    first_name = CharField(null=True, max_length=120)
+    last_name = CharField(null=True, max_length=120)
+    email = CharField(max_length=80, null=True)
+    orcid = OrcidIdField(null=True)
+    organisation = CharField(null=True, index=True, max_length=200)
+    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
+    role = CharField(null=True, verbose_name="Role/Course", max_length=100)
+    department = CharField(null=True, max_length=200)
+    start_date = PartialDateField(null=True)
+    end_date = PartialDateField(null=True)
+    city = CharField(null=True, max_length=200)
+    region = CharField(null=True, verbose_name="State/Region", max_length=100)
+    country = CharField(null=True, max_length=2, choices=country_choices)
+    disambiguated_id = CharField(
+        null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
+    disambiguation_source = CharField(
+        null=True,
+        max_length=100,
+        choices=disambiguation_source_choices)
+    delete_record = BooleanField(null=True)
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
+    url = CharField(max_length=200, null=True)
+    display_index = CharField(max_length=100, null=True)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "ar"
+
+    _regex_field_map = [
+        ("first_name", r"first\s*(name)?"),
+        ("last_name", r"last\s*(name)?"),
+        ("email", "email"),
+        ("organisation", "organisation|^name"),
+        ("department", "campus|department"),
+        ("city", "city"),
+        ("region", "state|region"),
+        ("role", "course|title|role"),
+        ("start_date", r"start\s*(date)?"),
+        ("end_date", r"end\s*(date)?"),
+        ("affiliation_type", r"affiliation(s)?\s*(type)?|student|staff"),
+        ("country", "country"),
+        ("disambiguated_id", r"disambiguat.*id"),
+        ("disambiguation_source", r"disambiguat.*source"),
+        ("put_code", r"put|code"),
+        ("orcid", "orcid.*"),
+        ("local_id", "local.*|.*identifier"),
+    ]
+
+    @classmethod
+    def load(cls, data, task=None, task_id=None, filename=None, override=True,
+             skip_schema_validation=False, org=None):
+        """Load afffiliation record task form JSON/YAML. Data shoud be already deserialize."""
+        if isinstance(data, str):
+            data = json.loads(data) if filename.lower().endswith(".json") else yaml.load(data)
+        if org is None:
+            org = current_user.organisation if current_user else None
+        if not skip_schema_validation:
+            jsonschema.validate(data, schemas.affiliation_task)
+        if not task and task_id:
+            task = Task.select().where(Task.id == task_id).first()
+        if not task and "id" in data:
+            task_id = int(data["id"])
+            task = Task.select().where(Task.id == task_id).first()
+        with db.atomic() as transaction:
+            try:
+                if not task:
+                    filename = (filename or data.get("filename")
+                                or datetime.utcnow().isoformat(timespec="seconds"))
+                    task = Task.create(
+                            org=org, filename=filename, task_type=TaskType.AFFILIATION)
+                elif override:
+                    AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
+                record_fields = AffiliationRecord._meta.fields.keys()
+                is_enqueue = False
+                for r in data.get("records"):
+                    if "id" in r and not override:
+                        rec = AffiliationRecord.get(int(r["id"]))
+                    else:
+                        rec = AffiliationRecord(task=task)
+                    for k, v in r.items():
+                        if k == "id" or k.startswith(("external", "status", "processed")):
+                            continue
+                        k = k.replace('-', '_')
+                        if k == "is_active" and v:
+                            is_enqueue = v
+                        if k in ["visibility", "disambiguation_source"] and v:
+                            v = v.upper()
+                        if k in record_fields and rec.__data__.get(k) != v:
+                            rec.__data__[k] = PartialDate.create(v) if k.endswith("date") else v
+                            rec._dirty.add(k)
+                    if rec.is_dirty():
+                        validator = ModelValidator(rec)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid record: {validator.errors}")
+                        rec.save()
+                        ext_id_data = {k.replace('-', '_'): v for k, v in r.items() if k.startswith("external")}
+
+                        if ext_id_data.get("external_id_type") and ext_id_data.get("external_id_value"):
+                            ext_id = AffiliationExternalId.create(record=rec, **ext_id_data)
+                            if not ModelValidator(ext_id).validate():
+                                raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
+                            ext_id.save()
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
+            except:
+                transaction.rollback()
+                app.logger.exception("Failed to load affiliation record task file.")
+                raise
+        return task
+
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
@@ -1320,7 +1686,7 @@ class Task(AuditedModel):
                         organisation=val(row, 3),
                         department=val(row, 4),
                         city=val(row, 5),
-                        state=val(row, 6),
+                        region=val(row, 6),
                         role=val(row, 7),
                         start_date=PartialDate.create(val(row, 8)),
                         end_date=PartialDate.create(val(row, 9)),
@@ -1368,343 +1734,6 @@ class Task(AuditedModel):
                 app.logger.exception("Failed to load affiliation file.")
                 raise
 
-        return task
-
-    def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True, only=None):
-        """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
-        # TODO: expand for the othe types of the tasks
-        task_dict = super().to_dict(
-            recurse=bool(False),
-            to_dashes=to_dashes,
-            exclude=exclude,
-            only=only or [
-                Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at,
-                Task.status
-            ])
-        # TODO: refactor for funding task to get records here not in API or export
-        if include_records and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
-            task_dict["records"] = [
-                r.to_dict(
-                    to_dashes=to_dashes,
-                    recurse=recurse,
-                    exclude=[self.records.model._meta.fields["task"]]) for r in self.records
-            ]
-        return task_dict
-
-    def to_export_dict(self, include_records=True):
-        """Create a dictionary representation for export."""
-        if self.task_type == TaskType.AFFILIATION:
-            task_dict = self.to_dict(recurse=include_records, include_records=include_records)
-        else:
-            task_dict = self.to_dict(
-                recurse=False,
-                to_dashes=True,
-                include_records=False,
-                exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-            task_dict["task-type"] = self.task_type.name
-            if include_records:
-                task_dict["records"] = [r.to_export_dict() for r in self.records]
-        return task_dict
-
-    class Meta:  # noqa: D101,D106
-        table_alias = "t"
-
-
-class Log(BaseModel):
-    """Task log entries."""
-
-    created_at = DateTimeField(default=datetime.utcnow)
-    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
-    task = ForeignKeyField(
-        Task,
-        on_delete="CASCADE",
-        null=True,
-        index=True,
-        verbose_name="Task",
-        backref="log_entries")
-    message = TextField(null=True)
-
-    class Meta:  # noqa: D101,D106
-        table_alias = "l"
-
-    def save(self, *args, **kwargs):  # noqa: D102
-        if self.is_dirty():
-            if current_user and hasattr(current_user, "id"):
-                if hasattr(self, "created_by"):
-                    self.created_by_id = current_user.id
-        return super().save(*args, **kwargs)
-
-
-class UserInvitation(AuditedModel):
-    """Organisation invitation to on-board the Hub."""
-
-    invitee = ForeignKeyField(
-        User, on_delete="CASCADE", null=True, backref="received_user_invitations")
-    inviter = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, backref="sent_user_invitations")
-    org = ForeignKeyField(Organisation,
-                          on_delete="CASCADE",
-                          null=True,
-                          verbose_name="Organisation",
-                          backref="user_invitations")
-    task = ForeignKeyField(Task,
-                           on_delete="CASCADE",
-                           null=True,
-                           index=True,
-                           verbose_name="Task",
-                           backref="user_invitations")
-    email = CharField(
-        index=True, null=True, max_length=80,
-        help_text="The email address the invitation was sent to.")
-    first_name = TextField(null=True, verbose_name="First Name")
-    last_name = TextField(null=True, verbose_name="Last Name")
-    orcid = OrcidIdField(null=True)
-    department = TextField(verbose_name="Campus/Department", null=True)
-    organisation = TextField(verbose_name="Organisation Name", null=True)
-    city = TextField(verbose_name="City", null=True)
-    state = TextField(verbose_name="State", null=True)
-    country = CharField(verbose_name="Country", max_length=2, null=True)
-    course_or_role = TextField(verbose_name="Course or Job title", null=True)
-    start_date = PartialDateField(verbose_name="Start date", null=True)
-    end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
-    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True, default=Affiliation.NONE)
-    disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
-    disambiguation_source = TextField(
-        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
-    token = TextField(unique=True)
-    confirmed_at = DateTimeField(null=True)
-    is_person_update_invite = BooleanField(
-        default=False,
-        verbose_name="'Person/Update' Invitation",
-        help_text="Invitation to grant 'Person/Update' scope")
-
-    @property
-    def sent_at(self):
-        """Get the time the invitation was sent."""
-        return self.created_at
-
-    class Meta:  # noqa: D101,D106
-        table_alias = "ui"
-
-
-class RecordModel(BaseModel):
-    """Common model bits of the task records."""
-
-    def key_name(self, name):
-        """Map key-name to a model class key name for export."""
-        return name
-
-    @classmethod
-    def get_field_regxes(cls):
-        """Return map of compiled field name regex to the model fields."""
-        return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
-
-    @property
-    def invitee_model(self):
-        """Get invitee model class."""
-        if hasattr(self, "invitees"):
-            return self.invitees.model
-
-    def to_export_dict(self):
-        """Map the common record parts to dict for export into JSON/YAML."""
-        org = self.task.org
-        d = {"type": self.type} if self.has_field("type") else {}
-        if hasattr(self, "org_name"):
-            d["organization"] = {
-                "disambiguated-organization": {
-                    "disambiguated-organization-identifier":
-                    self.disambiguated_id or org.disambiguated_id,
-                    "disambiguation-source":
-                    self.disambiguation_source or org.disambiguation_source,
-                },
-                "name": self.org_name or org.name,
-                "address": {
-                    "city": self.city or org.city,
-                    "region": self.region or org.state,
-                    "country": self.country or org.country,
-                },
-            }
-        if self.has_field("title"):
-            d["title"] = {
-                "title": {
-                    "value": self.title,
-                },
-                "translated-title": {
-                    "value": self.translated_title,
-                    "language-code": self.translated_title_language_code,
-                }
-            }
-        if hasattr(self, "invitees") and self.invitees:
-            d["invitees"] = [r.to_export_dict() for r in self.invitees]
-        if hasattr(self, "contributors") and self.contributors:
-            d["contributors"] = {"contributor": [r.to_export_dict() for r in self.contributors]}
-        if hasattr(self, "external_ids") and self.external_ids:
-            d[self.key_name("external-ids")] = {
-                "external-id": [r.to_export_dict() for r in self.external_ids]
-            }
-        if hasattr(self, "start_date") and self.start_date:
-            d["start-date"] = self.start_date.as_orcid_dict()
-        if hasattr(self, "end_date") and self.end_date:
-            d["end-date"] = self.end_date.as_orcid_dict()
-        return d
-
-
-class GroupIdRecord(RecordModel):
-    """GroupID records."""
-
-    type_choices = [('publisher', 'publisher'), ('institution', 'institution'), ('journal', 'journal'),
-                    ('conference', 'conference'), ('newspaper', 'newspaper'), ('newsletter', 'newsletter'),
-                    ('magazine', 'magazine'), ('peer-review service', 'peer-review service')]
-    type_choices.sort(key=lambda e: e[1])
-    type_choices.insert(0, ("", ""))
-    put_code = IntegerField(null=True)
-    processed_at = DateTimeField(null=True)
-    status = TextField(null=True, help_text="Record processing status.")
-    name = CharField(max_length=120,
-                     help_text="The name of the group. This can be the name of a journal (Journal of Criminal Justice),"
-                               " a publisher (Society of Criminal Justice), or non-specific description (Legal Journal)"
-                               " as required.")
-    group_id = CharField(max_length=120,
-                         help_text="The group's identifier, formatted as type:identifier, e.g. issn:12345678. "
-                                   "This can be as specific (e.g. the journal's ISSN) or vague as required. "
-                                   "Valid types include: issn, ringold, orcid-generated, fundref, publons.")
-    description = CharField(max_length=1000,
-                            help_text="A brief textual description of the group. "
-                                      "This can be as specific or vague as required.")
-    type = CharField(max_length=80, choices=type_choices,
-                     help_text="One of the specified types: publisher; institution; journal; conference; newspaper; "
-                               "newsletter; magazine; peer-review service.")
-    organisation = ForeignKeyField(
-        Organisation, backref="group_id_records", on_delete="CASCADE", null=True)
-
-    class Meta:  # noqa: D101,D106
-        table_alias = "gid"
-
-
-class AffiliationRecord(RecordModel):
-    """Affiliation record loaded from CSV file for batch processing."""
-
-    is_active = BooleanField(
-        default=False, help_text="The record is marked 'active' for batch processing", null=True)
-    task = ForeignKeyField(Task, backref="affiliation_records", on_delete="CASCADE")
-    put_code = IntegerField(null=True)
-    local_id = CharField(
-        max_length=100,
-        null=True,
-        verbose_name="Local ID",
-        help_text="Record identifier used in the data source system.")
-    processed_at = DateTimeField(null=True)
-    status = TextField(null=True, help_text="Record processing status.")
-    first_name = CharField(null=True, max_length=120)
-    last_name = CharField(null=True, max_length=120)
-    email = CharField(max_length=80, null=True)
-    orcid = OrcidIdField(null=True)
-    organisation = CharField(null=True, index=True, max_length=200)
-    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
-    role = CharField(null=True, verbose_name="Role/Course", max_length=100)
-    department = CharField(null=True, max_length=200)
-    start_date = PartialDateField(null=True)
-    end_date = PartialDateField(null=True)
-    city = CharField(null=True, max_length=200)
-    state = CharField(null=True, verbose_name="State/Region", max_length=100)
-    country = CharField(null=True, verbose_name="Country", max_length=2, choices=country_choices)
-    disambiguated_id = CharField(
-        null=True, verbose_name="Disambiguated Organization Identifier")
-    disambiguation_source = CharField(
-        null=True,
-        max_length=100,
-        verbose_name="Disambiguation Source",
-        choices=disambiguation_source_choices)
-    delete_record = BooleanField(null=True)
-    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
-    url = CharField(max_length=200, null=True)
-    display_index = CharField(max_length=100, null=True)
-
-    class Meta:  # noqa: D101,D106
-        table_alias = "ar"
-
-    _regex_field_map = [
-        ("first_name", r"first\s*(name)?"),
-        ("last_name", r"last\s*(name)?"),
-        ("email", "email"),
-        ("organisation", "organisation|^name"),
-        ("department", "campus|department"),
-        ("city", "city"),
-        ("state", "state|region"),
-        ("role", "course|title|role"),
-        ("start_date", r"start\s*(date)?"),
-        ("end_date", r"end\s*(date)?"),
-        ("affiliation_type", r"affiliation(s)?\s*(type)?|student|staff"),
-        ("country", "country"),
-        ("disambiguated_id", r"disambiguat.*id"),
-        ("disambiguation_source", r"disambiguat.*source"),
-        ("put_code", r"put|code"),
-        ("orcid", "orcid.*"),
-        ("local_id", "local.*|.*identifier"),
-    ]
-
-    @classmethod
-    def load(cls, data, task=None, task_id=None, filename=None, override=True,
-             skip_schema_validation=False, org=None):
-        """Load afffiliation record task form JSON/YAML. Data shoud be already deserialize."""
-        if isinstance(data, str):
-            data = json.loads(data) if filename.lower().endswith(".json") else yaml.load(data)
-        if org is None:
-            org = current_user.organisation if current_user else None
-        if not skip_schema_validation:
-            jsonschema.validate(data, schemas.affiliation_task)
-        if not task and task_id:
-            task = Task.select().where(Task.id == task_id).first()
-        if not task and "id" in data:
-            task_id = int(data["id"])
-            task = Task.select().where(Task.id == task_id).first()
-        with db.atomic() as transaction:
-            try:
-                if not task:
-                    filename = (filename or data.get("filename")
-                                or datetime.utcnow().isoformat(timespec="seconds"))
-                    task = Task.create(
-                            org=org, filename=filename, task_type=TaskType.AFFILIATION)
-                elif override:
-                    AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
-                record_fields = AffiliationRecord._meta.fields.keys()
-                is_enqueue = False
-                for r in data.get("records"):
-                    if "id" in r and not override:
-                        rec = AffiliationRecord.get(int(r["id"]))
-                    else:
-                        rec = AffiliationRecord(task=task)
-                    for k, v in r.items():
-                        if k == "id" or k.startswith(("external", "status", "processed")):
-                            continue
-                        k = k.replace('-', '_')
-                        if k == "is_active" and v:
-                            is_enqueue = v
-                        if k in ["visibility", "disambiguation_source"] and v:
-                            v = v.upper()
-                        if k in record_fields and rec.__data__.get(k) != v:
-                            rec.__data__[k] = PartialDate.create(v) if k.endswith("date") else v
-                            rec._dirty.add(k)
-                    if rec.is_dirty():
-                        validator = ModelValidator(rec)
-                        if not validator.validate():
-                            raise ModelException(f"Invalid record: {validator.errors}")
-                        rec.save()
-                        ext_id_data = {k.replace('-', '_').replace('external_id_', ''): v for k, v in r.items() if
-                                       k.startswith("external")}
-
-                        if ext_id_data.get("type") and ext_id_data.get("value"):
-                            ext_id = AffiliationExternalId.create(record=rec, **ext_id_data)
-                            if not ModelValidator(ext_id).validate():
-                                raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
-                            ext_id.save()
-                if is_enqueue:
-                    from .utils import enqueue_task_records
-                    enqueue_task_records(task)
-            except:
-                transaction.rollback()
-                app.logger.exception("Failed to load affiliation record task file.")
-                raise
         return task
 
 
@@ -1912,7 +1941,7 @@ class FundingRecord(RecordModel):
                         end_date=PartialDate.create(val(row, 9)),
                         org_name=val(row, 10) or org.name,
                         city=val(row, 11) or org.city,
-                        region=val(row, 12) or org.state,
+                        region=val(row, 12) or org.region,
                         country=country or org.country,
                         url=val(row, 28),
                         is_active=is_active,
@@ -2168,9 +2197,7 @@ class PeerReviewRecord(RecordModel):
         help_text="Subject Name Translated Title")
     subject_url = CharField(
         null=True,
-        max_length=255,
-        verbose_name="Subject URL",
-        help_text="Subject URL")
+        max_length=255)
 
     convening_org_name = CharField(
         null=True, max_length=255, verbose_name="Name", help_text="Convening Organisation ")
@@ -3392,14 +3419,14 @@ class FundingContributor(ContributorModel):
         table_alias = "fc"
 
 
-class InviteeModel(BaseModel):
+class Invitee(BaseModel):
     """Common model bits of the invitees records."""
 
     identifier = CharField(max_length=120, null=True)
-    email = CharField(max_length=120)
+    email = CharField(max_length=120, null=True)
+    orcid = OrcidIdField(null=True)
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
-    orcid = OrcidIdField(null=True)
     put_code = IntegerField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     status = TextField(null=True, help_text="Record processing status.")
@@ -3417,8 +3444,11 @@ class InviteeModel(BaseModel):
             d["ORCID-iD"] = self.orcid
         return d
 
+    class Meta:  # noqa: D101,D106
+        table_alias = "i"
 
-class PeerReviewInvitee(InviteeModel):
+
+class PeerReviewInvitee(Invitee):
     """Researcher or Invitee - related to peer review."""
 
     record = ForeignKeyField(
@@ -3428,7 +3458,7 @@ class PeerReviewInvitee(InviteeModel):
         table_alias = "pi"
 
 
-class WorkInvitee(InviteeModel):
+class WorkInvitee(Invitee):
     """Researcher or Invitee - related to work."""
 
     record = ForeignKeyField(
@@ -3438,7 +3468,7 @@ class WorkInvitee(InviteeModel):
         table_alias = "wi"
 
 
-class FundingInvitee(InviteeModel):
+class FundingInvitee(Invitee):
     """Researcher or Invitee - related to funding."""
 
     record = ForeignKeyField(
@@ -3739,6 +3769,317 @@ class OtherIdRecord(ExternalIdModel):
         table_alias = "oir"
 
 
+class OrgRecord(RecordModel):
+    """Common organisation record part of the batch processing reocords."""
+
+    name = CharField(max_length=1000)
+    city = TextField(null=True)
+    region = TextField(verbose_name="State/Region", null=True)
+    country = CharField(max_length=2, null=True, choices=country_choices)
+    disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_source = TextField(
+        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "or"
+
+
+class ResourceRecord(RecordModel, Invitee):
+    """Research resource record."""
+
+    display_index = IntegerField(null=True)
+    task = ForeignKeyField(Task, backref="resource_records", on_delete="CASCADE")
+
+    # Resource
+    name = CharField(max_length=1000)
+    type = CharField(max_length=1000, null=True)
+    start_date = PartialDateField(null=True)
+    end_date = PartialDateField(null=True)
+    url = CharField(max_length=200, null=True)
+
+    host_name = CharField(max_length=1000, verbose_name="Name", help_text="Resource Host Name")
+    host_city = CharField(null=True, verbose_name="City", help_text="Resource Host City")
+    host_region = CharField(
+        max_length=300, null=True, verbose_name="Region", help_text="Resource Host Region")
+    host_country = CharField(
+        max_length=2, null=True, choices=country_choices,
+        verbose_name="Country", help_text="Resource Host Country")
+    host_disambiguated_id = CharField(
+        null=True, verbose_name="Disambiguated ID", help_text="Resource Host Disambiguated ID")
+    host_disambiguation_source = CharField(
+        null=True, choices=disambiguation_source_choices,
+        verbose_name="Disambiguation Source", help_text="Resource Host Disambiguation Source")
+
+    external_id_type = CharField(
+        max_length=255, choices=external_id_type_choices, verbose_name="Type", help_text="External ID Type")
+    external_id_value = CharField(max_length=255, verbose_name="Value", help_text="External ID Value")
+    external_id_url = CharField(max_length=200, null=True, verbose_name="URL", help_text="External ID URL")
+    external_id_relationship = CharField(
+        null=True, max_length=255, choices=relationship_choices,
+        verbose_name="Relationship", help_text="External ID Relationship")
+
+    # Proposal
+    proposal_title = CharField(max_length=1000, verbose_name="Title", help_text="Proposal Title")
+    proposal_start_date = PartialDateField(
+        null=True, verbose_name="Start Date", help_text="Proposal Start Date")
+    proposal_end_date = PartialDateField(null=True, verbose_name="End Date", help_text="Proposal End Date")
+    proposal_url = CharField(max_length=200, null=True, verbose_name="URL", help_text="Proposal URL")
+    proposal_host_name = CharField(max_length=1000, verbose_name="Name", help_text="Proposal Host Name")
+    proposal_host_city = CharField(null=True, verbose_name="City", help_text="Proposal Host City")
+    proposal_host_region = CharField(
+        max_length=300, null=True, verbose_name="Region", help_text="Proposal Host Region")
+    proposal_host_country = CharField(
+        max_length=2, null=True, choices=country_choices,
+        verbose_name="City", help_text="Proposal Host City")
+    proposal_host_disambiguated_id = CharField(
+        null=True, verbose_name="Disambiguated ID", help_text="Proposal Host Disambiguated ID")
+    proposal_host_disambiguation_source = CharField(
+        null=True, choices=disambiguation_source_choices,
+        verbose_name="Disabmiguation Source", help_text="Propasal Host Disambiguation Source")
+    proposal_external_id_type = CharField(
+        max_length=255, choices=external_id_type_choices,
+        verbose_name="Type", help_text="Proposal Externa ID Type")
+    proposal_external_id_value = CharField(
+        max_length=255, verbose_name="Value", help_text="Proposal External ID Value")
+    proposal_external_id_url = CharField(
+        max_length=200, null=True, verbose_name="URL", help_text="Proposal External ID URL")
+    proposal_external_id_relationship = CharField(
+        null=True, max_length=255, choices=relationship_choices,
+        verbose_name="Relationship", help_text="Proposal External ID Relationship")
+
+    is_active = BooleanField(
+        default=False, help_text="The record is marked 'active' for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    local_id = CharField(
+        max_length=100, null=True, verbose_name="Local ID",
+        help_text="Record identifier used in the data source system.")
+
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "rr"
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source, newline='')
+        if filename is None:
+            filename = datetime.utcnow().isoformat(
+                timespec="seconds") + (".tsv" if '\t' in source else ".csv")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        header_rexs = [
+            (re.compile(ex, re.I), c) for (ex, c) in [
+                (r"identifier", "identifier"),
+                (r"email", "email"),
+                (r"orcid\s*id", "orcid"),
+                (r"first\s*name", "first_name"),
+                (r"last\s*name", "last_name"),
+                (r"put\s*code", "put_code"),
+                (r"visibility", "visibility"),
+
+                (r"proposal\s*title", "proposal_title"),
+                (r"proposal\s*start\s*date", "proposal_start_date"),
+                (r"proposal\s*end\s*date", "proposal_end_date"),
+                (r"proposal\s*url", "proposal_url"),
+                (r"proposal\s*external\s*id\s*type", "proposal_external_id_type"),
+                (r"proposal\s*external\s*id\s*value", "proposal_external_id_value"),
+                (r"proposal\s*external\s*id\s*url", "proposal_external_id_url"),
+                (r"proposal\s*external\s*id\s*relationship", "proposal_external_id_relationship"),
+                (r"proposal\s*host\s*name", "proposal_host_name"),
+                (r"proposal\s*host\s*city", "proposal_host_city"),
+                (r"proposal\s*host\s*region", "proposal_host_region"),
+                (r"proposal\s*host\s*country", "proposal_host_country"),
+                (r"proposal\s*host\s*disambiguat.*id", "proposal_host_disambiguated_id"),
+                (r"proposal\s*host\s*disambiguat.*source", "proposal_host_disambiguation_source"),
+
+                (r"resource\s*name", "name"),
+                (r"resource\s*type", "type"),
+
+                (r"(resource\s*)?external\s*id\s*type", "external_id_type"),
+                (r"(resource\s*)?external\s*id\s*value", "external_id_value"),
+                (r"(resource\s*)?external\s*id\s*url", "external_id_url"),
+                (r"(resource\s*)?external\s*id\s*relationship", "external_id_relationship"),
+
+                (r"(resource\s*)?host\s*name", "host_name"),
+                (r"(resource\s*)?host\s*city", "host_city"),
+                (r"(resource\s*)?host\s*region", "host_region"),
+                (r"(resource\s*)?host\s*country", "host_country"),
+                (r"(resource\s*)?host\s*disambiguat.*id", "host_disambiguated_id"),
+                (r"(resource\s*)?host\s*disambiguat.*source", "host_disambiguation_source"),
+            ]
+        ]
+
+        def index(ex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if ex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        # model column -> file column map:
+        idxs = {column: index(ex) for ex, column in header_rexs}
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, column, default=None):
+            idx = idxs.get(column)
+            if not idx or idx < 0 or idx >= len(row):
+                return default
+            return row[idx].strip() or default
+
+        def country_code(row, column):
+            country = val(row, column)
+            if country:
+                try:
+                    country = countries.lookup(country).alpha_2
+                except Exception:
+                    raise ModelException(
+                        f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                        f"#{row_no+2}: {row}. Header: {header}")
+            return country
+
+        with db.atomic() as transaction:
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.RESOURCE)
+                for row_no, row in enumerate(reader):
+                    # skip empty lines:
+                    if len([item for item in row if item and item.strip()]) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
+                        continue
+
+                    orcid, email = val(row, "orcid"), normalize_email(val(row, "email"))
+                    if orcid:
+                        orcid = validate_orcid_id(orcid)
+                    if email and not validators.email(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+                    visibility = val(row, "visibility")
+                    if visibility:
+                        visibility = visibility.lower()
+
+                    rec = cls.create(task=task,
+                                     visibility=visibility,
+                                     email=email,
+                                     orcid=orcid,
+                                     **{
+                                         c: v
+                                         for c, v in ((c, val(row, c)) for c in idxs
+                                                      if c not in ["email", "orcid", "visibility"])
+                                         if v
+                                     })
+                    validator = ModelValidator(rec)
+                    # TODO: removed the exclude paramtere after we sortout the
+                    # valid domain values.
+                    if not validator.validate(exclude=[cls.external_id_relationship, cls.visibility]):
+                        raise ValueError(
+                            f"Invalid data in the row #{row_no+2}: {validator.errors}")
+
+                transaction.commit()
+                return task
+
+            except Exception:
+                transaction.rollback()
+                app.logger.exception("Failed to load work file.")
+                raise
+
+        if task.is_ready:
+            from .utils import enqueue_task_records
+            enqueue_task_records(task)
+
+    @property
+    def orcid_research_resource(self):
+        """Map the common record parts to dict representation of ORCID API V3.x research resource."""
+        d = {}
+        # resource-item
+        host_org = {"name": self.host_name}
+        if self.host_city or self.host_region or self.host_country:
+            host_org["address"] = {
+                    "city": self.host_city,
+                    "region": self.host_region,
+                    "country": self.host_country}
+        if self.host_disambiguated_id:
+            host_org["disambiguated-organization"] = {
+                    "disambiguated-organization-identifier": self.host_disambiguated_id,
+                    "disambiguation-source": self.host_disambiguation_source}
+        item = {
+            "resource-name": self.name,
+            "resource-type": self.type,
+            "hosts": {"organization": [host_org]},
+            "external-ids": {"external-id": [self.orcid_external_id()]},
+        }
+        if self.url:
+            item["url"] = dict(value=self.url)
+        d["resource-item"] = [item]
+
+        # proposal
+        host_org = {"name": self.proposal_host_name}
+        if self.proposal_host_city or self.proposal_host_region or self.proposal_host_country:
+            host_org["address"] = {
+                    "city": self.proposal_host_city,
+                    "region": self.proposal_host_region,
+                    "country": self.proposal_host_country}
+        if self.proposal_host_disambiguated_id:
+            host_org["disambiguated-organization"] = {
+                    "disambiguated-organization-identifier": self.proposal_host_disambiguated_id,
+                    "disambiguation-source": self.proposal_host_disambiguation_source}
+        d["proposal"] = {
+                "title": {"title": {"value": self.proposal_title}},
+                "hosts": {"organization": [host_org]},
+                "external-ids": {"external-id": [self.orcid_external_id(
+                    self.proposal_external_id_type,
+                    self.proposal_external_id_value,
+                    self.proposal_external_id_url,
+                    self.proposal_external_id_relationship)]},
+                "start-date": self.proposal_start_date.as_orcid_dict(),
+                "end-date": self.proposal_end_date.as_orcid_dict()}
+        if self.proposal_url:
+            d["proposal"]["url"] = dict(value=self.proposal_url)
+        if self.display_index:
+            d["display-index"] = self.display_index
+        if self.visibility:
+            d["visibility"] = self.visibility.lower()
+        if self.put_code:
+            d["put-code"] = self.put_code
+        return d
+
+    def to_export_dict(self):
+        """Map the funding record to dict for export into JSON/YAML."""
+        d = self.orcid_research_resource
+        d["invitee"] = Invitee.to_export_dict(self)
+        return d
+
+
+class Record(RecordModel):
+    """ORCID message loaded from structured batch task file."""
+
+    version = CharField(null=True)
+    type = CharField()
+    message = TextField()
+    invitees = ManyToManyField(Invitee, backref="records")
+
+
+RecordInvitee = Record.invitees.get_through_model()
+
+
 class Delegate(BaseModel):
     """External applications that can be redirected to."""
 
@@ -3951,12 +4292,16 @@ DeferredForeignKey.resolve(User)
 def readup_file(input_file):
     """Read up the whole content and decode it and return the whole content."""
     raw = input_file.read()
-    for encoding in "utf-8-sig", "utf-8", "utf-16":
+    detected_encoding = chardet.detect(raw).get("encoding")
+    encoding_list = ["utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "latin-1"]
+    if detected_encoding:
+        encoding_list.insert(0, detected_encoding)
+
+    for encoding in encoding_list:
         try:
             return raw.decode(encoding)
         except UnicodeDecodeError:
             continue
-    return raw.decode("latin-1")
 
 
 def create_tables(safe=True, drop=False):
@@ -4002,6 +4347,10 @@ def create_tables(safe=True, drop=False):
             Token,
             Delegate,
             AsyncOrcidResponse,
+            Record,
+            Invitee,
+            RecordInvitee,
+            ResourceRecord,
             MailLog,
     ]:
 
@@ -4026,8 +4375,6 @@ def create_audit_tables():
             with db.cursor() as cr:
                 cr.execute(sql)
             db.commit()
-    # elif isinstance(db, SqliteDatabase):
-    #     db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
 
 
 def drop_tables():

@@ -69,30 +69,31 @@
                 <li class="dropdown">
                   <a class="dropdown-toggle" data-toggle="dropdown" href="#">Tasks<span class="caret"></span></a>
                   <ul class="dropdown-menu">
-                    <li id="load_researcher_affiliations"><a href="{{ url_for('load_researcher_affiliations')}}" data-toggle="tooltip"
-                                                                                                                 title="Import an affiliations batch file">Upload Affiliations</a></li>
-                    <li id="load_researcher_funding"><a href="{{ url_for('load_researcher_funding')}}" data-toggle="tooltip"
-                                                                                                       title="Import a funding batch file">Upload Funding</a></li>
-                    <li id="load_researcher_works"><a href="{{ url_for('load_researcher_work')}}" data-toggle="tooltip"
-                                                                                                       title="Import a works batch file">Upload Works</a></li>
-                    <li id="load_peer_review"><a href="{{ url_for('load_researcher_peer_review')}}"  data-toggle="tooltip"
-                                                                                        title="Import a peer reviews batch file">Upload Peer Reviews</a></li>
-                    <li id="load_researcher_urls"><a href="{{ url_for('load_researcher_urls')}}"  data-toggle="tooltip"
-                                                                    title="Import a researcher urls batch file">Upload Researcher Urls</a></li>
-                    <li id="load_other_names"><a href="{{ url_for('load_other_names')}}"  data-toggle="tooltip"
-                                                                    title="Import researcher other names batch file">Upload Researcher Other Names</a></li>
-                    <li id="load_keyword"><a href="{{ url_for('load_keyword')}}"  data-toggle="tooltip"
-                                                                                        title="Import researcher keyword batch file">Upload Researcher Keyword</a></li>
-                    <li id="load_country"><a href="{{ url_for('load_country')}}"  data-toggle="tooltip"
-                                                                                        title="Import researcher Country batch file">Upload Researcher Country</a></li>
-                    <li id="load_other_ids"><a href="{{ url_for('load_other_ids')}}"  data-toggle="tooltip"
-                                                                                        title="Import researcher Other IDs batch file">Upload Researcher Other IDs</a></li>
-                    <li class="divider"></li>
-                    <li id="sync_profiles"><a href="{{ url_for('sync_profiles')}}"  data-toggle="tooltip"
-                                                                                        title="Synchronize researcher porfiles">Sync Profiles</a></li>
-                    <li class="divider"></li>
                     <li id="task.index_view"><a href="{{ url_for('task.index_view')}}"  data-toggle="tooltip"
                                                                                         title="Review the progress and results of your current batch tasks">Uploaded Tasks</a></li>
+                    <li role="separator" class="divider"></li>
+                    <li class="dropdown-header">Upload</li>
+                    <li id="_load_task_AFFILIATION"><a href="{{ url_for('load_task', task_type='AFFILIATION')}}" data-toggle="tooltip" title="Import an affiliations batch file">Affiliations</a></li>
+                    <li id="load_researcher_funding"><a href="{{ url_for('load_researcher_funding')}}" data-toggle="tooltip"
+                                                                                                       title="Import a funding batch file">Funding</a></li>
+                    <li id="load_researcher_works"><a href="{{ url_for('load_researcher_work')}}" data-toggle="tooltip"
+                                                                                                       title="Import a works batch file">Works</a></li>
+                    <li id="load_peer_review"><a href="{{ url_for('load_researcher_peer_review')}}"  data-toggle="tooltip"
+                                                                                        title="Import a peer reviews batch file">Peer Reviews</a></li>
+                    <li id="load_researcher_urls"><a href="{{ url_for('load_researcher_urls')}}"  data-toggle="tooltip"
+                                                                    title="Import a researcher urls batch file">Researcher Urls</a></li>
+                    <li id="load_other_names"><a href="{{ url_for('load_other_names')}}"  data-toggle="tooltip"
+                                                                    title="Import researcher other names batch file">Researcher Other Names</a></li>
+                    <li id="load_keyword"><a href="{{ url_for('load_keyword')}}"  data-toggle="tooltip"
+                                                                                        title="Import researcher keyword batch file">Researcher Keyword</a></li>
+                    <li id="load_country"><a href="{{ url_for('load_country')}}"  data-toggle="tooltip"
+                                                                                        title="Import researcher Country batch file">Researcher Country</a></li>
+                    <li id="load_other_ids"><a href="{{ url_for('load_other_ids')}}"  data-toggle="tooltip"
+                                                                                        title="Import researcher Other IDs batch file">Researcher Other IDs</a></li>
+                    <li id="_load_task_RESOURCE"><a href="{{ url_for('load_task', task_type='RESOURCE')}}" data-toggle="tooltip" title="Import a research resource batch file">Resources</a></li>
+                    <li role="separator" class="divider"></li>
+                    <li id="sync_profiles"><a href="{{ url_for('sync_profiles')}}"  data-toggle="tooltip"
+                                                                                        title="Synchronize researcher porfiles">Sync Profiles</a></li>
                   </ul>
                 </li>
               {% endif %}

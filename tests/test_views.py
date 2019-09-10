@@ -26,10 +26,10 @@ from orcid_hub.forms import FileUploadForm
 from orcid_hub import models
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingContributor,
                               FundingRecord, GroupIdRecord, OrcidToken, Organisation, OrgInfo,
-                              OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord,
-                              Role, Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
+                              OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord, Role,
+                              Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
                               UserOrgAffiliation, WorkRecord, create_tables)
-from tests.utils import get_profile
+from tests.utils import get_profile, get_resources, readup_test_data
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -1663,7 +1663,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
             "start_date:year": "1990",
             "end_date:year": "2024",
             "city": "Auckland City",
-            "state": "Auckland",
+            "region": "Auckland",
             "country": "NZ",
         })
 
@@ -2824,7 +2824,7 @@ def test_reset_all(client):
         role="Test",
         department="Test",
         city="Test",
-        state="Test",
+        region="Test",
         country="NZ",
         disambiguated_id="Test",
         disambiguation_source="Test")
@@ -4292,7 +4292,7 @@ def test_researcher_urls(client):
     """Test researcher url data management."""
     user = client.data["admin"]
     client.login(user, follow_redirects=True)
-    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "researchurls.json"), "rb").read()
+    raw_data0 = readup_test_data("researchurls.json")
     resp = client.post(
         "/load/researcher/urls",
         data={"file_": (BytesIO(raw_data0), "researcher_url_001.json")},
@@ -4467,6 +4467,54 @@ def test_remove_linkage(client, mocker):
     assert not OrcidToken.select().where(OrcidToken.user_id == user.id).exists()
 
 
+def test_research_resources(client, mocker):
+    """Test researcher url data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    raw_data0 = readup_test_data("resources.tsv")
+    resp = client.post(
+        "/load/task/RESOURCE",
+        data={"file_": (BytesIO(raw_data0), "resources.tsv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"SYN-18-UOA-001" in resp.data
+    assert b"invitee1@mailinator.com" in resp.data
+    task = Task.get(filename="resources.tsv")
+    assert task.records.count() == 2
+
+    send = mocker.patch("emails.message.MessageSendMixin.send")
+
+    resp = client.post("/activate_all/?url=/resources", data=dict(task_id=task.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("/resources")
+
+    send.assert_called()
+    assert UserInvitation.select().count() == 2
+
+    raw_data0 = readup_test_data("resources.csv")
+    resp = client.post(
+        "/load/task/RESOURCE",
+        data={"file_": (BytesIO(raw_data0), "resources.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"SYN-18-UOA-001" in resp.data
+    assert b"SYN-18-UOA-999" in resp.data
+    assert b"researcher@test0.edu" in resp.data
+    task = Task.get(filename="resources.csv")
+    assert task.records.count() == 2
+
+    get_resources_mock = mocker.patch(
+        "orcid_hub.orcid_client.MemberAPIV3.get_resources",
+        return_value=get_resources(org=user.organisation, user=user))
+    execute = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.execute")
+
+    resp = client.post("/activate_all/?url=/resources", data=dict(task_id=task.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("/resources")
+    get_resources_mock.assert_called()
+    execute.assert_called()
+
+    
 def test_superuser_view_orcid_api_calls(client):
     """Test if SUPERUSER can comfortably view API calls."""
     u = User.get()

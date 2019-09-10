@@ -193,7 +193,7 @@ class AppModelView(ModelView):
     """ModelView customization."""
 
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
-    column_editable_list = ["name", "is_active", "email", "role", "city", "state", "value", "url", "display_index"]
+    column_editable_list = ["name", "is_active", "email", "role", "city", "region", "value", "url", "display_index"]
     roles_required = Role.SUPERUSER
     export_types = [
         "csv",
@@ -227,7 +227,10 @@ class AppModelView(ModelView):
         "updated_at",
         "updated_by",
     )
-    form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
+    form_overrides = dict(start_date=PartialDateField,
+                          end_date=PartialDateField,
+                          proposal_start_date=PartialDateField,
+                          proposal_end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
     form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
     model_form_converter = AppCustomModelConverter
@@ -641,8 +644,9 @@ class TaskAdmin(AppModelView):
 class RecordModelView(AppModelView):
     """Task record model view."""
 
-    list_template = "affiliation_record_list.html"
     roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "record_list.html"
+
     column_exclude_list = (
         "task",
         "organisation",
@@ -827,8 +831,8 @@ class RecordModelView(AppModelView):
                 form.org_name.data = org.name
             if hasattr(form, "city"):
                 form.city.data = org.city
-            if hasattr(form, "state"):
-                form.state.data = org.state
+            if hasattr(form, "region"):
+                form.region.data = org.region
             if hasattr(form, "country"):
                 form.country.data = org.country
             if hasattr(form, "disambiguated_id"):
@@ -1534,7 +1538,7 @@ class AffiliationRecordAdmin(CompositeRecordModelView):
         "email",
         "role",
         "department",
-        "state",
+        "region",
         "status",
     )
     column_export_list = [
@@ -1863,7 +1867,7 @@ class ViewMembersAdmin(AppModelView):
             titles = [
                 csv_encode(c) for c in [
                     "Put Code", "First Name", "Last Name", "Email", "ORCID iD", "Affiliation Type",
-                    "Role", "Department", "Start Date", "End Date", "City", "State", "Country",
+                    "Role", "Department", "Start Date", "End Date", "City", "Region", "Country",
                     "Disambiguated Id", "Disambiguation Source"
                 ]
             ]
@@ -1975,6 +1979,78 @@ class GroupIdRecordAdmin(AppModelView):
         flash("%d Record was processed." % count)
 
 
+class ResourceRecordAdmin(RecordModelView):
+    """Researcher resource administration view."""
+
+    form_rules = [
+        # rules.Header("Record"),
+        "local_id",
+        "is_active",
+        "display_index",
+        "visibility",
+        "put_code",
+
+        rules.FieldSet([
+            "identifier",
+            "email",
+            "orcid",
+            "first_name",
+            "last_name"
+        ], "Invitee"),
+        rules.HTML("<hr>"),
+
+        rules.FieldSet([
+            "proposal_title",
+            "proposal_start_date",
+            "proposal_end_date",
+            "proposal_url",
+            rules.FieldSet([
+                "proposal_host_name",
+                "proposal_host_city",
+                "proposal_host_region",
+                "proposal_host_country",
+                "proposal_host_disambiguated_id",
+                "proposal_host_disambiguation_source",
+            ], "Host"),
+            rules.FieldSet([
+                "proposal_external_id_type",
+                "proposal_external_id_value",
+                "proposal_external_id_url",
+                "proposal_external_id_relationship",
+            ], "External ID")
+        ], "Proposal"),
+        rules.HTML("<hr>"),
+
+        rules.FieldSet([
+            "name",
+            "type",
+            "start_date",
+            "end_date",
+            "url",
+
+            rules.FieldSet([
+                "host_name",
+                "host_city",
+                "host_region",
+                "host_country",
+                "host_disambiguated_id",
+                "host_disambiguation_source",
+            ], "Host"),
+
+            rules.FieldSet([
+                "external_id_type",
+                "external_id_value",
+                "external_id_url",
+                "external_id_relationship",
+            ], "External ID")
+        ], "Resource"),
+    ]
+
+    def get_export_columns(self):
+        """Create a list of exported columns with lables."""
+        return [(c, self.model._meta.fields[c].help_text or n) for c, n in super().get_export_columns()]
+
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
@@ -2000,6 +2076,7 @@ admin.add_view(InviteeAdmin(PeerReviewInvitee))
 admin.add_view(RecordChildAdmin(PeerReviewExternalId))
 admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
 admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
+admin.add_view(ResourceRecordAdmin())
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -2282,7 +2359,7 @@ def edit_record(user_id, section_type, put_code=None):
                             disambiguation_source=_data.get("convening-organization", "disambiguated-organization",
                                                             "disambiguation-source"),
                             city=_data.get("convening-organization", "address", "city"),
-                            state=_data.get("convening-organization", "address", "region"),
+                            region=_data.get("convening-organization", "address", "region"),
                             country=_data.get("convening-organization", "address", "country"),
                             reviewer_role=(_data.get("reviewer-role", default='') or '').replace('-', '_').upper(),
                             review_url=_data.get("review-url", "value"),
@@ -2330,7 +2407,7 @@ def edit_record(user_id, section_type, put_code=None):
                         disambiguation_source=_data.get("organization", "disambiguated-organization",
                                                         "disambiguation-source"),
                         city=_data.get("organization", "address", "city"),
-                        state=_data.get("organization", "address", "region"),
+                        region=_data.get("organization", "address", "region"),
                         country=_data.get("organization", "address", "country"),
                         department=_data.get("department-name"),
                         role=_data.get("role-title"),
@@ -2723,31 +2800,37 @@ def load_org():
     return render_template("fileUpload.html", form=form, title="Organisation")
 
 
-@app.route("/load/researcher", methods=["GET", "POST"])
+@app.route("/load/task/<task_type>", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def load_researcher_affiliations():
+def load_task(task_type):
     """Preload organisation data."""
+    task_type = TaskType[task_type]
+    record_model = getattr(models, task_type.name.title().replace('_', '') + "Record")
     form = FileUploadForm(extensions=["csv", "tsv", "json", "yaml", "yml"])
     if form.validate_on_submit():
         try:
             filename = secure_filename(form.file_.data.filename)
             content_type = form.file_.data.content_type
             content = read_uploaded_file(form)
+
             if content_type in ["text/tab-separated-values", "text/csv"] or (
                     filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = Task.load_from_csv(content, filename=filename)
+                task = record_model.load_from_csv(content, filename=filename)
             else:
-                task = AffiliationRecord.load(content, filename=filename)
+                task = record_model.load(content, filename=filename)
+
             flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
+            return redirect(url_for(task_type.name.lower() + "record.index_view", task_id=task.id))
         except (
                 ValueError,
                 ModelException,
         ) as ex:
-            flash(f"Failed to load affiliation record file: {ex}", "danger")
-            app.logger.exception("Failed to load affiliation records.")
+            flash(f"Failed to load record file: {ex}", "danger")
+            app.logger.exception("Failed to load records.")
 
-    return render_template("fileUpload.html", form=form, title="Researcher Info Upload")
+    return render_template(
+            "fileUpload.html", form=form, task_type=task_type,
+            title=f"Researcher {task_type.name.title().replace('_', ' ')} Upload")
 
 
 @app.route("/load/researcher/funding", methods=["GET", "POST"])
@@ -2914,7 +2997,7 @@ def register_org(org_name,
                  last_name=None,
                  orcid_id=None,
                  city=None,
-                 state=None,
+                 region=None,
                  country=None,
                  course_or_role=None,
                  disambiguated_id=None,
@@ -2932,7 +3015,7 @@ def register_org(org_name,
         except Organisation.DoesNotExist:
             org = Organisation(name=org_name)
             if via_orcid:
-                org.state = state
+                org.region = region
                 org.city = city
                 org.country = country
                 org.disambiguated_id = disambiguated_id
@@ -3125,7 +3208,7 @@ def invite_user():
         form.disambiguated_id.data = org.disambiguated_id
         form.disambiguation_source.data = org.disambiguation_source
         form.city.data = org.city
-        form.state.data = org.state
+        form.region.data = org.region
         form.country.data = org.country
 
     while form.validate_on_submit():

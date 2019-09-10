@@ -2,7 +2,291 @@
 """Helpers for testing."""
 
 import json
+import os
+
 from orcid_hub import orcid_client
+from orcid_hub.models import readup_file
+
+
+def get_resources(org=None, user=None):
+    """Mock ORCID resource response."""
+    orcid = user.orcid if user else "0000-0003-1255-9023"
+    if org and org.orcid_client_id:
+        client_id = org.orcid_client_id
+    else:
+        client_id = "APP-5ZVH4JRQ0C27RVH5"
+    resp = {
+        "last-modified-date": {
+            "value": 1566896124544
+        },
+        "group": [{
+            "last-modified-date": {
+                "value": 1566896124544
+            },
+            "external-ids": {
+                "external-id": [{
+                    "external-id-type": "proposal-id",
+                    "external-id-value": "SYN-18-UOA-001",
+                    "external-id-normalized": {
+                        "value": "syn-18-uoa-001",
+                        "transient": True
+                    },
+                    "external-id-normalized-error": None,
+                    "external-id-url": None,
+                    "external-id-relationship": "self"
+                }]
+            },
+            "research-resource-summary": [{
+                "created-date": {
+                    "value": 1566896124544
+                },
+                "last-modified-date": {
+                    "value": 1566896124544
+                },
+                "source": {
+                    "source-orcid": None,
+                    "source-client-id": {
+                        "uri": f"https://sandbox.orcid.org/client/{client_id}",
+                        "path": client_id,
+                        "host": "sandbox.orcid.org"
+                    },
+                    "source-name": {
+                        "value": "University of Auckland"
+                    },
+                    "assertion-origin-orcid": None,
+                    "assertion-origin-client-id": None,
+                    "assertion-origin-name": None
+                },
+                "proposal": {
+                    "title": {
+                        "title": {
+                            "value": "Structure of generic matrix supported nanoparticles"
+                        },
+                        "translated-title": None
+                    },
+                    "hosts": {
+                        "organization": [{
+                            "name": "Royal Society Te Apārangi",
+                            "address": {
+                                "city": "Wellington",
+                                "region": None,
+                                "country": "NZ"
+                            },
+                            "disambiguated-organization": {
+                                "disambiguated-organization-identifier": "3232",
+                                "disambiguation-source": "RINGGOLD"
+                            }
+                        }]
+                    },
+                    "external-ids": {
+                        "external-id": [{
+                            "external-id-type": "proposal-id",
+                            "external-id-value": "SYN-18-UOA-001",
+                            "external-id-normalized": {
+                                "value": "syn-18-uoa-001",
+                                "transient": True
+                            },
+                            "external-id-normalized-error": None,
+                            "external-id-url": None,
+                            "external-id-relationship": "self"
+                        }]
+                    },
+                    "start-date": {
+                        "year": {
+                            "value": "2018"
+                        },
+                        "month": {
+                            "value": "01"
+                        },
+                        "day": {
+                            "value": "29"
+                        }
+                    },
+                    "end-date": {
+                        "year": {
+                            "value": "2018"
+                        },
+                        "month": {
+                            "value": "01"
+                        },
+                        "day": {
+                            "value": "31"
+                        }
+                    },
+                    "url": None
+                },
+                "visibility": "public",
+                "put-code": 2055,
+                "path": f"/{orcid}/research-resource/2055",
+                "display-index": "0"
+            }]
+        }, {
+            "last-modified-date": {
+                "value": 1561526792651
+            },
+            "external-ids": {
+                "external-id": [{
+                    "external-id-type": "agr",
+                    "external-id-value": "ABC123",
+                    "external-id-normalized": {
+                        "value": "abc123",
+                        "transient": True
+                    },
+                    "external-id-normalized-error": None,
+                    "external-id-url": None,
+                    "external-id-relationship": "self"
+                }]
+            },
+            "research-resource-summary": [{
+                "created-date": {
+                    "value": 1561526792651
+                },
+                "last-modified-date": {
+                    "value": 1561526792651
+                },
+                "source": {
+                    "source-orcid": None,
+                    "source-client-id": {
+                        "uri": f"https://sandbox.orcid.org/client/{client_id}",
+                        "path": "{client_id}",
+                        "host": "sandbox.orcid.org"
+                    },
+                    "source-name": {
+                        "value": "The University of Auckland - MyORCiD"
+                    },
+                    "assertion-origin-orcid": None,
+                    "assertion-origin-client-id": None,
+                    "assertion-origin-name": None
+                },
+                "proposal": {
+                    "title": {
+                        "title": {
+                            "value": "TEST123"
+                        },
+                        "translated-title": None
+                    },
+                    "hosts": {
+                        "organization": [{
+                            "name": "TEST HOST",
+                            "address": {
+                                "city": "Auckland",
+                                "region": None,
+                                "country": "NZ"
+                            },
+                            "disambiguated-organization": {
+                                "disambiguated-organization-identifier": "3232",
+                                "disambiguation-source": "RINGGOLD"
+                            }
+                        }]
+                    },
+                    "external-ids": {
+                        "external-id": [{
+                            "external-id-type": "agr",
+                            "external-id-value": "ABC123",
+                            "external-id-normalized": {
+                                "value": "abc123",
+                                "transient": True
+                            },
+                            "external-id-normalized-error": None,
+                            "external-id-url": None,
+                            "external-id-relationship": "self"
+                        }]
+                    },
+                    "start-date": None,
+                    "end-date": None,
+                    "url": None
+                },
+                "visibility": "public",
+                "put-code": 2052,
+                "path": f"/{orcid}/research-resource/2052",
+                "display-index": "0"
+            }]
+        }, {
+            "last-modified-date": {
+                "value": 1561525781501
+            },
+            "external-ids": {
+                "external-id": [{
+                    "external-id-type": "agr",
+                    "external-id-value": "ABC",
+                    "external-id-normalized": {
+                        "value": "abc",
+                        "transient": True
+                    },
+                    "external-id-normalized-error": None,
+                    "external-id-url": None,
+                    "external-id-relationship": "self"
+                }]
+            },
+            "research-resource-summary": [{
+                "created-date": {
+                    "value": 1561525781501
+                },
+                "last-modified-date": {
+                    "value": 1561525781501
+                },
+                "source": {
+                    "source-orcid": None,
+                    "source-client-id": {
+                        "uri": f"https://sandbox.orcid.org/client/{client_id}",
+                        "path": client_id,
+                        "host": "sandbox.orcid.org"
+                    },
+                    "source-name": {
+                        "value": "The University of Auckland - MyORCiD"
+                    },
+                    "assertion-origin-orcid": None,
+                    "assertion-origin-client-id": None,
+                    "assertion-origin-name": None
+                },
+                "proposal": {
+                    "title": {
+                        "title": {
+                            "value": "TEST"
+                        },
+                        "translated-title": None
+                    },
+                    "hosts": {
+                        "organization": [{
+                            "name": "TEST HOST",
+                            "address": {
+                                "city": "Auckland",
+                                "region": None,
+                                "country": "NZ"
+                            },
+                            "disambiguated-organization": {
+                                "disambiguated-organization-identifier": "3232",
+                                "disambiguation-source": "RINGGOLD"
+                            }
+                        }]
+                    },
+                    "external-ids": {
+                        "external-id": [{
+                            "external-id-type": "agr",
+                            "external-id-value": "ABC",
+                            "external-id-normalized": {
+                                "value": "abc",
+                                "transient": True
+                            },
+                            "external-id-normalized-error": None,
+                            "external-id-url": None,
+                            "external-id-relationship": "self"
+                        }]
+                    },
+                    "start-date": None,
+                    "end-date": None,
+                    "url": None
+                },
+                "visibility": "public",
+                "put-code": 2051,
+                "path": f"/{orcid}/research-resource/2051",
+                "display-index": "0"
+            }]
+        }],
+        "path":
+        f"/{orcid}/research-resources"
+    }
+    return json.loads(json.dumps(resp), object_pairs_hook=orcid_client.NestedDict)
 
 
 def get_profile(org=None, user=None):
@@ -136,13 +420,13 @@ def get_profile(org=None, user=None):
             },
             "path": f"/{orcid}/person"
         },
-        'activities-summary': {
-            'educations': {
+        "activities-summary": {
+            "educations": {
                 "affiliation-group": [
                     {
                         "summaries": [
                             {
-                                'education-summary': {
+                                "education-summary": {
                                     "created-date": {
                                         "value": 1532322530230
                                     },
@@ -188,7 +472,7 @@ def get_profile(org=None, user=None):
                         ]
                     }
                 ],
-                'path':
+                "path":
                     f"/{orcid}/educations"
             },
             "employments": {
@@ -266,25 +550,25 @@ def get_profile(org=None, user=None):
                 ],
                 "path": f"/{orcid}/distinctions"
             },
-            'fundings': {
-                'last-modified-date': {
-                    'value': 1513136293368
+            "fundings": {
+                "last-modified-date": {
+                    "value": 1513136293368
                 },
-                'group': [{
-                    'last-modified-date': {
-                        'value': 1513136293368
+                "group": [{
+                    "last-modified-date": {
+                        "value": 1513136293368
                     },
-                    'external-ids': {
-                        'external-id': [{
-                            'external-id-type': 'grant_number',
-                            'external-id-value': 'GNS1701',
-                            'external-id-url': None,
-                            'external-id-relationship': 'SELF'
+                    "external-ids": {
+                        "external-id": [{
+                            "external-id-type": "grant_number",
+                            "external-id-value": "GNS1701",
+                            "external-id-url": None,
+                            "external-id-relationship": "SELF"
                         }, {
-                            'external-id-type': 'grant_number',
-                            'external-id-value': '17-GNS-022',
-                            'external-id-url': None,
-                            'external-id-relationship': 'SELF'
+                            "external-id-type": "grant_number",
+                            "external-id-value": "17-GNS-022",
+                            "external-id-url": None,
+                            "external-id-relationship": "SELF"
                         }]
                     },
                     "funding-summary": [{
@@ -316,11 +600,11 @@ def get_profile(org=None, user=None):
                         "type": "CONTRACT",
                         "start-date": None,
                         "end-date": {
-                            'year': {
-                                'value': '2025'
+                            "year": {
+                                "value": "2025"
                             },
-                            'month': None,
-                            'day': None
+                            "month": None,
+                            "day": None
                         },
                         "organization": {
                             "name": "Royal Society Te Apārangi"
@@ -329,8 +613,8 @@ def get_profile(org=None, user=None):
                         "path": f"/{orcid}/funding/9597"
                     }]
                 }],
-                'path':
-                    '/0000-0002-3879-2651/fundings'
+                "path":
+                    "/0000-0002-3879-2651/fundings"
             },
             "peer-reviews": {
                 "group": [{
@@ -381,14 +665,14 @@ def get_profile(org=None, user=None):
                 "path":
                     f"/{orcid}/peer-reviews"
             },
-            'works': {
-                'group': [{
-                    'external-ids': {
-                        'external-id': [{
-                            'external-id-type': 'grant_number',
-                            'external-id-value': 'GNS1701',
-                            'external-id-url': None,
-                            'external-id-relationship': 'SELF'
+            "works": {
+                "group": [{
+                    "external-ids": {
+                        "external-id": [{
+                            "external-id-type": "grant_number",
+                            "external-id-value": "GNS1701",
+                            "external-id-url": None,
+                            "external-id-relationship": "SELF"
                         }]
                     },
                     "work-summary": [{
@@ -411,9 +695,9 @@ def get_profile(org=None, user=None):
                                 "language-code": "hi"
                             }
                         },
-                        'type': 'BOOK_CHAPTER',
-                        'put-code': 9597,
-                        'path': f"/{orcid}/works/9597"
+                        "type": "BOOK_CHAPTER",
+                        "put-code": 9597,
+                        "path": f"/{orcid}/works/9597"
                     }]
                 }],
                 "path":
@@ -424,3 +708,9 @@ def get_profile(org=None, user=None):
         "path": f"/{orcid}"
     }
     return json.loads(json.dumps(resp), object_pairs_hook=orcid_client.NestedDict)
+
+
+def readup_test_data(filename, mode="rb"):
+    """Readup the file with the test data."""
+    with open(os.path.join(os.path.dirname(__file__), "data", filename), mode) as f:
+        return f.read() if 'b' in mode else readup_file(f)
