@@ -1200,12 +1200,22 @@ class Task(AuditedModel):
             ])
         # TODO: refactor for funding task to get records here not in API or export
         if include_records and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
-            task_dict["records"] = [
-                r.to_dict(
-                    to_dashes=to_dashes,
-                    recurse=recurse,
-                    exclude=[self.records.model._meta.fields["task"]]) for r in self.records
-            ]
+            if self.task_type == TaskType.AFFILIATION:
+                task_dict["records"] = [
+                    r.to_dict(
+                        external_id=[ae.to_export_dict() for ae in AffiliationExternalId.select().where(
+                            AffiliationExternalId.record_id == r.id)],
+                        to_dashes=to_dashes,
+                        recurse=recurse,
+                        exclude=[self.record_model.task]) for r in self.records
+                ]
+            else:
+                task_dict["records"] = [
+                    r.to_dict(
+                        to_dashes=to_dashes,
+                        recurse=recurse,
+                        exclude=[self.record_model.task]) for r in self.records
+                ]
         return task_dict
 
     def to_export_dict(self, include_records=True):
@@ -1476,6 +1486,13 @@ class AffiliationRecord(RecordModel):
         ("orcid", "orcid.*"),
         ("local_id", "local.*|.*identifier"),
     ]
+
+    def to_dict(self, external_id=[], *args, **kwargs):
+        """Create a dict and add external ids in affiliation records."""
+        rd = super().to_dict(*args, **kwargs)
+        if external_id:
+            rd['external-id'] = external_id
+        return rd
 
     @classmethod
     def load(cls, data, task=None, task_id=None, filename=None, override=True,
@@ -3550,6 +3567,16 @@ class AffiliationExternalId(ExternalIdModel):
     """Affiliation ExternalId loaded for batch processing."""
 
     record = ForeignKeyField(AffiliationRecord, backref="external_ids", on_delete="CASCADE")
+
+    def to_export_dict(self):
+        """Map the external ID record to dict for exprt into JSON/YAML."""
+        d = {
+            "external-id-type": self.type,
+            "external-id-value": self.value,
+            "external-id-relationship": self.relationship,
+            "external-id-url": self.url
+        }
+        return d
 
     class Meta:  # noqa: D101,D106
         table_alias = "aei"
