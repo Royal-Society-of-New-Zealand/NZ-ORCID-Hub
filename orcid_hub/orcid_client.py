@@ -1505,7 +1505,6 @@ class MemberAPIMixin:
         headers = {"Accept": self.content_type}
         if method != "GET":
             headers["Content-Type"] = self.content_type
-        breakpoint()
         try:
             url = f"/{self.version}/{self.user.orcid}"
             if path:

@@ -624,7 +624,7 @@ def test_field_is_updated(testdb):
 def test_load_task_from_csv(models):
     org, _ = Organisation.get_or_create(name="TEST0")
     # flake8: noqa
-    test = Task.load_from_csv(
+    test = AffiliationRecord.load_from_csv(
         """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title	Start date	End date	Student/Staff
 FNA	LBA	aaa.lnb@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
 FNA	LBA	aaa.lnb@test.com	TEST1	Research Funding	Wellington	Programme Manager - Insights and Evaluation	2014		Staff
@@ -766,6 +766,9 @@ def test_researcher_urls(models):
 
 def test_load_resources_from_csv(models):
     org = Organisation.get()
-    raw_data = readup_test_data("resources.tsv")
-    ResourceRecord.load_from_csv(raw_data, filename="resources.tsv", org=org)
-    pass
+    raw_data = readup_test_data("resources.tsv", "r")
+    task = ResourceRecord.load_from_csv(raw_data, filename="resources.tsv", org=org)
+    assert task
+    assert task.records.count() == 2
+
+

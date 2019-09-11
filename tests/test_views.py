@@ -1558,7 +1558,7 @@ def test_affiliation_deletion_task(client, mocker):
     assert b"log in" not in resp.data
     content = ("Orcid,Put Code,Delete\n" + '\n'.join(f"{user.orcid},{put_code},yes"
                                                      for put_code in range(1, 3)))
-    resp = client.post("/load/researcher",
+    resp = client.post("/load/task/AFFILIATION",
                        data={
                            "save": "Upload",
                            "file_": (
@@ -1598,7 +1598,7 @@ def test_affiliation_tasks(client):
     resp = client.login(user, follow_redirects=True)
     assert b"Organisations using the Hub:" in resp.data
     resp = client.post(
-        "/load/researcher",
+        "/load/task/AFFILIATION",
         data={
             "save":
             "Upload",
@@ -1610,10 +1610,10 @@ Roshan,researcher.010@mailinator.com
             ),
         })
     assert resp.status_code == 200
-    assert b"Failed to load affiliation record file: Wrong number of fields." in resp.data
+    assert b"Failed to load record file: Wrong number of fields" in resp.data
 
     resp = client.post(
-        "/load/researcher",
+        "/load/task/AFFILIATION",
         data={
             "save":
             "Upload",
@@ -1794,7 +1794,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD,
 
         import_type = "json" if export_type == "yaml" else "yaml"
         resp = client.post(
-            "/load/researcher",
+            "/load/task/AFFILIATION",
             data={
                 "save":
                 "Upload",
@@ -2175,8 +2175,13 @@ def test_load_researcher_affiliations(request_ctx):
     UserOrg.create(user=user, org=org, is_admin=True)
     form = FileUploadForm()
     form.file_.name = "conftest.py"
-    with request_ctx("/load/researcher", method="POST", data={"file_": "{'filename': 'xyz.json'}",
-                                                              "email": user.email, form: form}) as ctxx:
+    with request_ctx("/load/task/AFFILIATION",
+                     method="POST",
+                     data={
+                         "file_": "{'filename': 'xyz.json'}",
+                         "email": user.email,
+                         form: form
+                     }) as ctxx:
         login_user(user, remember=True)
         resp = ctxx.app.full_dispatch_request()
         assert resp.status_code == 200
@@ -4436,7 +4441,7 @@ def test_delete_affiliations(client, mocker):
                                      u.id for u in User.select().join(Organisation).where(
                                          Organisation.orcid_client_id.is_null(False))
                                  ]))
-    resp = client.post("/load/researcher",
+    resp = client.post("/load/task/AFFILIATION",
                        data={
                            "save": "Upload",
                            "file_": (
@@ -4514,7 +4519,7 @@ def test_research_resources(client, mocker):
     get_resources_mock.assert_called()
     execute.assert_called()
 
-    
+
 def test_superuser_view_orcid_api_calls(client):
     """Test if SUPERUSER can comfortably view API calls."""
     u = User.get()

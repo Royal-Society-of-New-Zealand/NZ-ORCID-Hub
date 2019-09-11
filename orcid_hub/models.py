@@ -4005,6 +4005,8 @@ class ResourceRecord(RecordModel, Invitee):
             from .utils import enqueue_task_records
             enqueue_task_records(task)
 
+        return task
+
     @property
     def orcid_research_resource(self):
         """Map the common record parts to dict representation of ORCID API V3.x research resource."""
