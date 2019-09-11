@@ -1604,7 +1604,7 @@ class AffiliationRecord(RecordModel):
 
         with db.atomic() as transaction:
             try:
-                task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
+                task = Task.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 is_enqueue = False
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
@@ -1678,7 +1678,7 @@ class AffiliationRecord(RecordModel):
                     if is_active:
                         is_enqueue = is_active
 
-                    af = AffiliationRecord(
+                    af = cls(
                         task=task,
                         first_name=first_name,
                         last_name=last_name,
