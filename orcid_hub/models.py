@@ -1200,12 +1200,22 @@ class Task(AuditedModel):
             ])
         # TODO: refactor for funding task to get records here not in API or export
         if include_records and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
-            task_dict["records"] = [
-                r.to_dict(
-                    to_dashes=to_dashes,
-                    recurse=recurse,
-                    exclude=[self.records.model._meta.fields["task"]]) for r in self.records
-            ]
+            if self.task_type == TaskType.AFFILIATION:
+                task_dict["records"] = [
+                    r.to_dict(
+                        external_id=[ae.to_export_dict() for ae in AffiliationExternalId.select().where(
+                            AffiliationExternalId.record_id == r.id)],
+                        to_dashes=to_dashes,
+                        recurse=recurse,
+                        exclude=[self.record_model.task]) for r in self.records
+                ]
+            else:
+                task_dict["records"] = [
+                    r.to_dict(
+                        to_dashes=to_dashes,
+                        recurse=recurse,
+                        exclude=[self.record_model.task]) for r in self.records
+                ]
         return task_dict
 
     def to_export_dict(self, include_records=True):
@@ -1477,6 +1487,13 @@ class AffiliationRecord(RecordModel):
         ("local_id", "local.*|.*identifier"),
     ]
 
+    def to_dict(self, external_id=[], *args, **kwargs):
+        """Create a dict and add external ids in affiliation records."""
+        rd = super().to_dict(*args, **kwargs)
+        if external_id:
+            rd['external-id'] = external_id
+        return rd
+
     @classmethod
     def load(cls, data, task=None, task_id=None, filename=None, override=True,
              skip_schema_validation=False, org=None):
@@ -1524,13 +1541,14 @@ class AffiliationRecord(RecordModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid record: {validator.errors}")
                         rec.save()
-                        ext_id_data = {k.replace('-', '_'): v for k, v in r.items() if k.startswith("external")}
-
-                        if ext_id_data.get("external_id_type") and ext_id_data.get("external_id_value"):
-                            ext_id = AffiliationExternalId.create(record=rec, **ext_id_data)
-                            if not ModelValidator(ext_id).validate():
-                                raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
-                            ext_id.save()
+                        if r.get('external-id'):
+                            for exi in r.get('external-id'):
+                                ext_data = {k.replace('-', '_').replace('external_id_', ''): v for k, v in exi.items()}
+                                if ext_data.get("type") and ext_data.get("value"):
+                                    ext_id = AffiliationExternalId.create(record=rec, **ext_data)
+                                    if not ModelValidator(ext_id).validate():
+                                        raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
+                                    ext_id.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
                     enqueue_task_records(task)
@@ -3550,6 +3568,16 @@ class AffiliationExternalId(ExternalIdModel):
     """Affiliation ExternalId loaded for batch processing."""
 
     record = ForeignKeyField(AffiliationRecord, backref="external_ids", on_delete="CASCADE")
+
+    def to_export_dict(self):
+        """Map the external ID record to dict for exprt into JSON/YAML."""
+        d = {
+            "external-id-type": self.type,
+            "external-id-value": self.value,
+            "external-id-relationship": self.relationship,
+            "external-id-url": self.url
+        }
+        return d
 
     class Meta:  # noqa: D101,D106
         table_alias = "aei"
