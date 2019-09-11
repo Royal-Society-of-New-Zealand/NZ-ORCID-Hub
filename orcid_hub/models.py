@@ -1541,13 +1541,13 @@ class AffiliationRecord(RecordModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid record: {validator.errors}")
                         rec.save()
-                        ext_id_data = {k.replace('-', '_'): v for k, v in r.items() if k.startswith("external")}
-
-                        if ext_id_data.get("external_id_type") and ext_id_data.get("external_id_value"):
-                            ext_id = AffiliationExternalId.create(record=rec, **ext_id_data)
-                            if not ModelValidator(ext_id).validate():
-                                raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
-                            ext_id.save()
+                        for exi in r.get('external-id'):
+                            ext_id_data = {k.replace('-', '_').replace('external_id_', ''): v for k, v in exi.items()}
+                            if ext_id_data.get("type") and ext_id_data.get("value"):
+                                ext_id = AffiliationExternalId.create(record=rec, **ext_id_data)
+                                if not ModelValidator(ext_id).validate():
+                                    raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
+                                ext_id.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
                     enqueue_task_records(task)

@@ -1637,7 +1637,7 @@ class AffiliationRecordAdmin(CompositeRecordModelView):
         ).join(
             AffiliationExternalId,
             JOIN.LEFT_OUTER,
-            on=(AffiliationExternalId.record_id == self.model.id)).where(AffiliationExternalId.id << ext_ids).objects()
+            on=((AffiliationExternalId.record_id == self.model.id) & (AffiliationExternalId.id << ext_ids))).objects()
 
 
 class ProfilePropertyRecordAdmin(RecordModelView):

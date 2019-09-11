@@ -836,12 +836,19 @@ class AffiliationListAPI(TaskResource):
                 type: string
               local-id:
                 type: string
-              external-id-type:
-                type: string
-              external-id-value:
-                type: string
-              external-id-relationship:
-                type: string
+              external-id:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    external-id-relationship:
+                      type: string
+                    external-id-type:
+                      type: string
+                    external-id-url:
+                      type: string
+                    external-id-value:
+                      type: string
               is-active:
                 type: boolean
               email:
@@ -1717,17 +1724,12 @@ class PropertyListAPI(TaskResource):
                 type: string
                 enum:
                   - COUNTRY
-                  - EMAIL
-                  - ID
                   - KEYWORD
                   - NAME
                   - URL
-                  - WEBSITE
               name:
                 type: string
               value:
-                type: string
-              external-id:
                 type: string
               is-active:
                 type: boolean
