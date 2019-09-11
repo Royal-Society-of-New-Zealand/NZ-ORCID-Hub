@@ -289,8 +289,13 @@ def get_resources(org=None, user=None):
     return json.loads(json.dumps(resp), object_pairs_hook=orcid_client.NestedDict)
 
 
-def get_profile(org=None, user=None):
+def get_profile(self=None, org=None, user=None):
     """Mock ORCID profile api call."""
+    if self:
+        if not org:
+            org = self.org
+        if not user:
+            user = self.user
     orcid = user.orcid if user else "0000-0003-1255-9023"
     if org and org.orcid_client_id:
         client_id = org.orcid_client_id
@@ -712,5 +717,9 @@ def get_profile(org=None, user=None):
 
 def readup_test_data(filename, mode="rb"):
     """Readup the file with the test data."""
-    with open(os.path.join(os.path.dirname(__file__), "data", filename), mode) as f:
-        return f.read() if 'b' in mode else readup_file(f)
+    file_path = os.path.join(os.path.dirname(__file__), "data", filename)
+    if 'b' in mode:
+        with open(file_path, mode) as f:
+            return f.read()
+    with open(file_path, mode + 'b') as f:
+        return readup_file(f)

@@ -8,8 +8,10 @@ import pytest
 from flask_login import login_user
 from peewee import Model, SqliteDatabase
 
+from utils import get_profile, readup_test_data
 from orcid_hub import utils
 from orcid_hub.models import *
+from orcid_api_v3.rest import ApiException
 
 def test_process_task_from_csv_with_failures(request_ctx):
     """Test task loading and processing with failures."""
@@ -18,7 +20,7 @@ def test_process_task_from_csv_with_failures(request_ctx):
     with patch("emails.html") as mock_msg, request_ctx("/") as ctx:
         login_user(super_user)
         # flake8: noqa
-        task = Task.load_from_csv(
+        task = AffiliationRecord.load_from_csv(
             """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title	Start date	End date	Student/Staff
     FNA	LBA	admin@test0.edu	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
     """,
@@ -42,7 +44,7 @@ def test_upload_affiliation_with_wrong_country(request_ctx, mocker):
         login_user(super_user)
         # flake8: noqa
         with pytest.raises(ModelException):
-            task = Task.load_from_csv(
+            task = AffiliationRecord.load_from_csv(
                 """First name\tLast name\temail address\tOrganisation\tCampus/Department\tCity\tCourse or Job title\tStart date\tEnd date\tStudent/Staff\tCountry
 FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09 19:00:00 PM\t\tStaff\tNO COUNTRY
         """,
@@ -50,7 +52,7 @@ FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manag
                 org=org)
 
         # this should work:
-        task = Task.load_from_csv(
+        task = AffiliationRecord.load_from_csv(
             """First name\tLast name\temail address\tOrganisation\tCampus/Department\tCity\tCourse or Job title\tStart date\tEnd date\tStudent/Staff\tCountry
 FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09 19:00:00 PM\t\tStaff\t
     """,
@@ -69,7 +71,7 @@ def test_process_tasks(client, mocker):
     client.login(admin)
 
     # flake8: noqa
-    task = Task.load_from_csv(
+    task = AffiliationRecord.load_from_csv(
         """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title\tStart date	End date	Student/Staff\tCountry
 FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff\tNew Zealand
 """,
@@ -162,8 +164,8 @@ def test_enqueue_user_records(client, mocker):
     """Test user related record enqueing."""
 
     mocker.patch("orcid_hub.utils.send_email")
-    data_dir = os.path.join(os.path.dirname(__file__), "data")
-    raw_data = open(os.path.join(data_dir, "example_works.json"), "r").read()
+
+    raw_data =  readup_test_data("example_works.json", "r")
 
     user = User.select().join(OrcidToken, on=OrcidToken.user).where(User.orcid.is_null(False)).first()
     org = user.organisation
@@ -174,11 +176,18 @@ def test_enqueue_user_records(client, mocker):
     WorkInvitee.update(email=user.email, orcid=user.orcid).execute()
     WorkRecord.update(is_active=True).execute()
 
-    raw_data = open(os.path.join(data_dir, "example_peer_reviews.json"), "r").read()
+    raw_data =  readup_test_data("example_peer_reviews.json", "r")
     task = PeerReviewRecord.load_from_json(raw_data, filename="example_peer_reviews.json", org=org)
     PeerReviewRecord.update(is_active=True).execute()
     PeerReviewInvitee.update(email=user.email, orcid=user.orcid).execute()
 
+    get_record = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", get_profile)
+    create_or_update_work = mocker.patch(
+        "orcid_hub.orcid_client.MemberAPIV3.create_or_update_work",
+        return_value=(123, user.orcid, True, "PUBLIC"))
+    create_or_update_affiliation = mocker.patch(
+        "orcid_hub.orcid_client.MemberAPIV3.create_or_update_affiliation",
+        return_value=(321, user.orcid, True, "PUBLIC"))
     task = Task.create(org=org, task_type=TaskType.AFFILIATION, filename="affiliations.csv")
     AffiliationRecord.insert_many(
         dict(task_id=task.id,
@@ -187,9 +196,10 @@ def test_enqueue_user_records(client, mocker):
              orcid=user.orcid,
              affiliation_type="student" if i % 2 else "staff",
              organisation=org.name,
-             role=f"ROLE #{i}") for i in range(1, 100))
-
+             role=f"ROLE #{i}") for i in range(1, 100)).execute()
     utils.enqueue_user_records(user)
+    create_or_update_work.assert_called()
+    create_or_update_affiliation.assert_called()
 
 
 def test_email_logging(client, mocker):

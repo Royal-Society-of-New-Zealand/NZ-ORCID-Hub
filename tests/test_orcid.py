@@ -66,7 +66,7 @@ def test_member_api(app, mocker):
             return_value=Mock(data=b"""{"mock": "data"}""", status=200)) as request_mock:
 
         api.get_record()
-        request_mock.assert_called_once_with(
+        request_mock.assert_called_with(
             "GET",
             "https://api.sandbox.orcid.org/v2.0/1001-0001-0001-0001",
             preload_content=False,
@@ -84,7 +84,7 @@ def test_member_api(app, mocker):
 
         with patch.object(OrcidApiCall, "create", side_effect=Exception("FAILURE")) as create:
             api.get_record()
-            create.assert_called_once()
+            create.assert_called()
 
     with patch.object(
             api.api_client.rest_client.pool_manager, "request",
@@ -101,8 +101,9 @@ def test_member_api(app, mocker):
             api_client.ApiClient, "call_api", side_effect=ApiException(
                 reason="FAILURE", status=401)) as call_api:
         with patch.object(OrcidToken, "delete") as delete:
-            api.get_record()
-            app.logger.error.assert_called_with("ApiException Occurred: (401)\nReason: FAILURE\n")
+            with pytest.raises(ApiException):
+                api.get_record()
+            app.logger.error.assert_called_with("Failed to find an ORCID API access token.")
             call_api.assert_called_once()
             delete.assert_called_once()
 
@@ -110,19 +111,22 @@ def test_member_api(app, mocker):
             api_client.ApiClient,
             "call_api",
             side_effect=ApiException(reason="FAILURE 999", status=999)) as call_api:
-        api.get_record()
+        with pytest.raises(ApiException):
+            api.get_record()
         app.logger.error.assert_called_with("ApiException Occurred: (999)\nReason: FAILURE 999\n")
 
     with patch.object(
             api_client.ApiClient, "call_api", side_effect=ApiException(
                 reason="FAILURE", status=401)) as call_api:
-        api.get_record()
-        app.logger.error.assert_called_with("ApiException Occurred: (401)\nReason: FAILURE\n")
+        with pytest.raises(ApiException):
+            api.get_record()
+        app.logger.error.assert_called()
         call_api.assert_called_once()
 
         call_api.reset_mock()
-        api.get_record()
-        app.logger.exception.assert_called_with("Exception occurred while retrieving ORCID Token")
+        with pytest.raises(ApiException):
+            api.get_record()
+        app.logger.exception.assert_called()
         call_api.assert_called_once()
 
     with patch.object(
@@ -514,7 +518,7 @@ def test_member_api_v3(app, mocker):
 
     api.get_record()
 
-    request_mock.assert_called_once_with(
+    request_mock.assert_called_with(
         "GET",
         "https://api.sandbox.orcid.org/v3.0/1001-0001-0001-0001",
         fields=None,
@@ -533,7 +537,7 @@ def test_member_api_v3(app, mocker):
 
     create = mocker.patch.object(OrcidApiCall, "create", side_effect=Exception("FAILURE"))
     api.get_record()
-    create.assert_called_once()
+    create.assert_called()
     app.logger.exception.assert_called_with("Failed to create API call log entry.")
 
     # Handling of get_record
@@ -541,21 +545,24 @@ def test_member_api_v3(app, mocker):
             api.api_client, "call_api",
             side_effect=v3.rest.ApiException(reason="FAILURE", status=401))
     delete = mocker.patch.object(OrcidToken, "delete")
-    api.get_record()
+    with pytest.raises(v3.rest.ApiException):
+        api.get_record()
     call_api.assert_called_once()
     delete.assert_called_once()
 
     call_api = mocker.patch.object(
             api.api_client, "call_api",
             side_effect=v3.rest.ApiException(reason="FAILURE 999", status=999))
-    api.get_record()
+    with pytest.raises(v3.rest.ApiException):
+        api.get_record()
     app.logger.error.assert_called_with("ApiException Occurred: (999)\nReason: FAILURE 999\n")
 
     call_api = mocker.patch.object(
             api.api_client, "call_api",
             side_effect=v3.rest.ApiException(reason="FAILURE", status=401))
-    api.get_record()
-    app.logger.error.assert_called_with("ApiException Occurred: (401)\nReason: FAILURE\n")
+    with pytest.raises(v3.rest.ApiException):
+        api.get_record()
+    app.logger.error.assert_called()
     call_api.assert_called_once()
 
     call_api = mocker.patch.object(

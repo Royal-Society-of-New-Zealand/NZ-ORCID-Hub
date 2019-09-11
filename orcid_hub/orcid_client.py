@@ -1526,6 +1526,7 @@ class MemberAPIMixin:
                     app.logger.exception("Exception occurred while retrieving ORCID Token")
             else:
                 app.logger.error(f"ApiException Occurred: {ex}")
+            raise
 
         if resp.data:
             resp.json = json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
