@@ -1937,14 +1937,13 @@ class GroupIdRecordAdmin(AppModelView):
                     try:
                         orcid_token = OrcidToken.get(org=org, scopes='/group-id-record/update')
                     except OrcidToken.DoesNotExist:
-                        orcid_token = utils.get_client_credentials_token(org=org, scope="/group-id-record/update")
+                        orcid_token = utils.get_client_credentials_token(org=org, scopes="/group-id-record/update")
                     except Exception as ex:
                         flash("Something went wrong in ORCID call, "
                               "please contact orcid@royalsociety.org.nz for support", "warning")
                         app.logger.exception(f'Exception occured {ex}')
 
-                    orcid_client.configuration.access_token = orcid_token.access_token
-                    api = orcid_client.MemberAPI(org=org, access_token=orcid_token.access_token)
+                    api = orcid_client.MemberAPIV3(org=org, access_token=orcid_token.access_token)
 
                     put_code, created = api.create_or_update_record_id_group(put_code=gid.put_code,
                                                                              org=org, group_name=gid.name,
@@ -2742,26 +2741,20 @@ def search_group_id_record():
         return redirect(_url)
     elif form.validate_on_submit():
         try:
-            group_id_name = form.group_id_name.data
-            page_size = form.page_size.data
-            page = form.page.data
-
             orcid_token = None
             org = current_user.organisation
             try:
-                orcid_token = OrcidToken.get(org=org, scope='/group-id-record/read')
+                orcid_token = OrcidToken.get(org=org, scopes='/group-id-record/read')
             except OrcidToken.DoesNotExist:
-                orcid_token = utils.get_client_credentials_token(org=org, scope="/group-id-record/read")
+                orcid_token = utils.get_client_credentials_token(org=org, scopes="/group-id-record/read")
             except Exception as ex:
                 flash("Something went wrong in ORCID call, "
                       "please contact orcid@royalsociety.org.nz for support", "warning")
                 app.logger.exception(f'Exception occured {ex}')
 
-            orcid_client.configuration.access_token = orcid_token.access_token
-            api = orcid_client.MemberAPI(org=org, access_token=orcid_token.access_token)
-
-            api_response = api.view_group_id_records(page_size=page_size, page=page, name=group_id_name,
-                                                     _preload_content=False)
+            api = orcid_client.MemberAPIV3(org=org, access_token=orcid_token.access_token)
+            params = {f.name: f.data for f in form if f.data and f.name in ['group_id', 'name', 'page_size', 'page']}
+            api_response = api.view_group_id_recordsv3(**params, _preload_content=False)
             if api_response:
                 data = json.loads(api_response.data)
                 # Currently the api only gives correct response for one entry otherwise it throws 500 exception.

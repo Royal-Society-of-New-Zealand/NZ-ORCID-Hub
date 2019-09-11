@@ -1410,9 +1410,9 @@ class GroupIdRecord(RecordModel):
                                " a publisher (Society of Criminal Justice), or non-specific description (Legal Journal)"
                                " as required.")
     group_id = CharField(max_length=120,
-                         help_text="The group's identifier, formatted as type:identifier, e.g. issn:12345678. "
+                         help_text="The group's identifier, formatted as type:identifier, e.g. ringgold:12345678. "
                                    "This can be as specific (e.g. the journal's ISSN) or vague as required. "
-                                   "Valid types include: issn, ringold, orcid-generated, fundref, publons.")
+                                   "Valid types include: ringgold:|issn:|orcid-generated:|fundref:|publons:")
     description = CharField(max_length=1000,
                             help_text="A brief textual description of the group. "
                                       "This can be as specific or vague as required.")
