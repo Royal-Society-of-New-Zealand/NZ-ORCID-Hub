@@ -220,7 +220,7 @@ class MemberAPIMixin:
     def create_or_update_record_id_group(self, org=None, group_name=None, group_id=None, description=None,
                                          type=None, put_code=None):
         """Create or update group id record."""
-        rec = GroupIdRecord()  # noqa: F405
+        rec = v3.GroupIdRecord()  # noqa: F405
 
         rec.name = group_name
         rec.group_id = group_id
@@ -230,7 +230,7 @@ class MemberAPIMixin:
             rec.put_code = put_code
 
         try:
-            api_call = self.update_group_id_record if put_code else self.create_group_id_record
+            api_call = self.update_group_id_recordv3 if put_code else self.create_group_id_recordv3
 
             params = dict(body=rec, _preload_content=False)
             if put_code:

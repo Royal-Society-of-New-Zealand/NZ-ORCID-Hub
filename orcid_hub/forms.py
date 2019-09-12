@@ -380,7 +380,8 @@ class RecordForm(CommonFieldsForm):
 class GroupIdForm(FlaskForm):
     """GroupID record form."""
 
-    group_id_name = StringField("Group ID Name", [validators.required()])
+    group_id = StringField("Group ID")
+    name = StringField("Name")
     page_size = StringField("Page Size")
     page = StringField("Page")
     search = SubmitField("Search", render_kw={"class": "btn btn-primary"})
