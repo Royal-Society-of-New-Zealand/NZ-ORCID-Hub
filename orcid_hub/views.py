@@ -2713,8 +2713,8 @@ def search_group_id_record():
         form.process(data=data)
 
     if request.method == "POST" and not form.search.data:
-        group_id = request.form.get('group_id')
-        name = request.form.get('name')
+        group_id = request.form.get('g_id')
+        name = request.form.get('g_name')
         description = request.form.get('description')
         id_type = request.form.get('type')
         put_code = request.form.get('put_code')

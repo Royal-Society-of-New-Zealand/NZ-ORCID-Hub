@@ -2749,8 +2749,8 @@ def test_action_insert_update_group_id(mocker, client):
     client.login(admin)
 
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "create_group_id_record",
+            orcid_client.MemberAPIV3,
+            "create_group_id_recordv3",
             MagicMock(return_value=fake_response)):
 
         resp = client.post(
@@ -2766,7 +2766,21 @@ def test_action_insert_update_group_id(mocker, client):
         # checking if the GroupID Record is updated with put_code supplied from fake response
         assert 12399 == group_id_record.put_code
     # Save selected groupid record into existing group id record list.
-    with patch.object(orcid_client.MemberAPIV20Api, "view_group_id_records",
+    with patch.object(orcid_client.MemberAPIV3, "view_group_id_recordsv3",
+                      MagicMock(return_value=fake_response)):
+        client.login(admin)
+        resp = client.post(
+            "/search/group_id_record/list",
+            data={
+                "g_id": "test",
+                "g_name": "test",
+                "description": "TEST",
+                "type": "TEST"
+            })
+        assert resp.status_code == 302
+        assert urlparse(resp.location).path == "/admin/groupidrecord/"
+    # Search the group id record from ORCID
+    with patch.object(orcid_client.MemberAPIV3, "view_group_id_recordsv3",
                       MagicMock(return_value=fake_response)):
         client.login(admin)
         resp = client.post(
@@ -2774,20 +2788,6 @@ def test_action_insert_update_group_id(mocker, client):
             data={
                 "group_id": "test",
                 "name": "test",
-                "description": "TEST",
-                "type": "TEST"
-            })
-        assert resp.status_code == 302
-        assert urlparse(resp.location).path == "/admin/groupidrecord/"
-    # Search the group id record from ORCID
-    with patch.object(orcid_client.MemberAPIV20Api, "view_group_id_records",
-                      MagicMock(return_value=fake_response)):
-        client.login(admin)
-        resp = client.post(
-            "/search/group_id_record/list",
-            data={
-                "group_id": "test",
-                "group_id_name": "test",
                 "description": "TEST",
                 "search": True,
                 "type": "TEST"
