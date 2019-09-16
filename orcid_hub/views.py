@@ -2045,9 +2045,26 @@ class ResourceRecordAdmin(RecordModelView):
         ], "Resource"),
     ]
 
+    export_column_headers = dict(
+        name="Resource Name",
+        type="Resource Type",
+        start_date="Resource Start date",
+        end_date="Resource End date",
+        url="Resource URL",
+        host_name="Resource Host Name",
+        host_city="Resource Host City",
+        host_region="Resource Host Region",
+        host_country="Resource Host Country",
+        host_disambiguated_id="Resource Host Disambiguated ID",
+        host_disambiguation_source="Resource Host Disambiguation Source",
+        external_id_type="Resource External ID Type",
+        external_id_value="Resource External Id Value",
+        external_id_url="Resource External ID URL",
+        external_id_relationship="Resource External ID Relationship")
+
     def get_export_columns(self):
-        """Create a list of exported columns with lables."""
-        return [(c, self.model._meta.fields[c].help_text or n) for c, n in super().get_export_columns()]
+        """Create a list of exported columns with labels."""
+        return [(c, self.export_column_headers.get(c, n)) for c, n in super().get_export_columns()]
 
 
 admin.add_view(UserAdmin(User))
