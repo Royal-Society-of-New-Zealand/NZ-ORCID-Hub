@@ -41,6 +41,20 @@ e.g., for the default container IP (172.33.0.1) add the following to **sendmail.
     DAEMON_OPTIONS(`Port=smtp,Addr=172.33.0.1, Name=MTA')dnl
     FEATURE(`relay_based_on_MX')dnl
 
+For proper configuration of DMARC:
+
+::
+    LOCAL_DOMAIN(`orcidhub.org.nz')dnl
+    FEATURE(masquerade_entire_domain)dnl
+    MASQUERADE_DOMAIN(orcidhub.org.nz)dnl
+
+
+And setup the DMARC report recievers in /etc/aliases fiile (and rebuild it with *newaliases*), for example:
+
+::
+    dmarc: someone@something.something.edu,someoneelse
+
+
 Grant **relay** access from the docker container network editing
 **/etc/mail/access**, e.g.:
 
