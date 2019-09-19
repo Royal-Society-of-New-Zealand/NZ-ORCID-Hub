@@ -1161,6 +1161,8 @@ class Task(AuditedModel):
         """Get all task record query."""
         if not self.task_type or self.task_type in [TaskType.SYNC, TaskType.NONE]:
             return None
+        if self.is_raw:
+            return MessageRecord.select().where(MessageRecord.task == self)
         return getattr(self, self.task_type.name.lower() + "_records")
 
     @lazy_property
@@ -4094,20 +4096,107 @@ class ResourceRecord(RecordModel, Invitee):
     def to_export_dict(self):
         """Map the funding record to dict for export into JSON/YAML."""
         d = self.orcid_research_resource
-        d["invitee"] = Invitee.to_export_dict(self)
+        d["invitees"] = [Invitee.to_export_dict(self), ]
         return d
 
+    @classmethod
+    def load(
+            cls, data, task=None, task_id=None, filename=None, override=True,
+            skip_schema_validation=False, org=None):
+        """Load ORCID message record task form JSON/YAML."""
+        return MessageRecord.load(data,
+                                  filename=filename,
+                                  override=True,
+                                  skip_schema_validation=True,
+                                  org=org or current_user.organisation,
+                                  task_type=TaskType.RESOURCE,
+                                  version="3.0")
 
-class Record(RecordModel):
+
+class MessageRecord(RecordModel):
     """ORCID message loaded from structured batch task file."""
 
+    task = ForeignKeyField(Task, backref="message_records", on_delete="CASCADE")
     version = CharField(null=True)
-    type = CharField()
+    # type = CharField()
     message = TextField()
     invitees = ManyToManyField(Invitee, backref="records")
 
+    @classmethod
+    def load(cls, data, task=None, task_id=None, filename=None, override=True,
+             skip_schema_validation=False, org=None, task_type=None, version="3.0"):
+        """Load ORCID message record task form JSON/YAML."""
+        if isinstance(data, str):
+            data = json.loads(data) if filename.lower().endswith(".json") else yaml.load(data)
+        if org is None:
+            org = current_user.organisation if current_user else None
+        if not skip_schema_validation:
+            jsonschema.validate(data, schemas.affiliation_task)
+        if not task and task_id:
+            task = Task.select().where(Task.id == task_id).first()
+        if not task and "id" in data and override and task_type:
+            task_id = int(data["id"])
+            task = Task.select().where(
+                    Task.id == task_id,
+                    Task.task_type == task_type,
+                    Task.is_raw).first()
+        if not filename:
+            filename = (data.get("filename") or datetime.utcnow().isoformat(timespec="seconds"))
+        if task and not task_type:
+            task_type = task.task_type
+        if not task_type and isinstance(data, dict) and "type" in data:
+            task_type = TaskType[data["type"].upper()]
 
-RecordInvitee = Record.invitees.get_through_model()
+        if isinstance(data, dict):
+            records = data.get("records")
+        else:
+            records = data
+
+        with db.atomic() as transaction:
+            try:
+                if not task:
+                    task = Task.create(
+                            org=org, filename=filename, task_type=task_type, is_raw=True)
+                elif override:
+                    task.record_model.delete().where(task.record_model.task == task).execute()
+
+                is_enqueue = False
+
+                for r in records:
+                    invitees = r.get("invitees")
+                    if not invitees:
+                        raise ModelException(f"Missing invitees, expected to have at lease one: {r}")
+                    del(r["invitees"])
+
+                    message = json.dumps(r, indent=2)
+                    if "id" in r and not override:
+                        rec = cls.get(int(r["id"]))
+                        if rec.message != message:
+                            rec.message = message
+                        if rec.version != version:
+                            rec.version = version
+                    else:
+                        rec = cls.create(task=task, version=version, message=message)
+                    rec.invitees.add([
+                        Invitee.create(
+                            orcid=i.get("ORCID-iD"),
+                            email=i.get("email"),
+                            first_name=i.get("first-name"),
+                            last_name=i.get("last-name"),
+                            put_code=i.get("put-code"),
+                            visibility=i.get("visibility")) for i in invitees])
+
+                if is_enqueue:
+                    from .utils import enqueue_task_records
+                    enqueue_task_records(task)
+            except:
+                transaction.rollback()
+                app.logger.exception("Failed to load affiliation record task file.")
+                raise
+        return task
+
+
+RecordInvitee = MessageRecord.invitees.get_through_model()
 
 
 class Delegate(BaseModel):
@@ -4377,7 +4466,7 @@ def create_tables(safe=True, drop=False):
             Token,
             Delegate,
             AsyncOrcidResponse,
-            Record,
+            MessageRecord,
             Invitee,
             RecordInvitee,
             ResourceRecord,

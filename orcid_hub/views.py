@@ -2119,6 +2119,7 @@ admin.add_view(RecordChildAdmin(PeerReviewExternalId))
 admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
 admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
 admin.add_view(ResourceRecordAdmin())
+admin.add_view(ResourceRecordAdmin(models.MessageRecord))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -2856,7 +2857,8 @@ def load_task(task_type):
                 task = record_model.load(content, filename=filename)
 
             flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for(task_type.name.lower() + "record.index_view", task_id=task.id))
+            task_view = ("message" if task.is_raw else task_type.name.lower()) + "record.index_view"
+            return redirect(url_for(task_view, task_id=task.id))
         except (
                 ValueError,
                 ModelException,
