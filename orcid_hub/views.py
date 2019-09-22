@@ -1832,7 +1832,8 @@ class ViewMembersAdmin(AppModelView):
         for t in tokens:
 
             try:
-                api = orcid_client.MemberAPIV3(user=t.user, access_token=t.access_token)
+                api = orcid_client.MemberAPIV3(user=t.user, org=current_user.organisation,
+                                               access_token=t.access_token)
                 profile = api.get_record()
                 if not profile:
                     continue
@@ -2199,7 +2200,7 @@ def delete_record(user_id, section_type, put_code):
     _url = request.referrer or request.args.get("url") or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
-        user = User.get(id=user_id, organisation_id=current_user.organisation_id)
+        user = User.get(id=user_id)
     except Exception:
         flash("ORCID HUB doesn't have data related to this researcher", "warning")
         return redirect(url_for('viewmembers.index_view'))
@@ -2210,22 +2211,22 @@ def delete_record(user_id, section_type, put_code):
     orcid_token = None
     if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                       OrcidToken.org_id == user.organisation_id,
-                                                                       OrcidToken.scopes.contains(
+                                                                       OrcidToken.org_id == current_user
+                                                                       .organisation_id, OrcidToken.scopes.contains(
                                                                            orcid_client.PERSON_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'PERSON/UPDATE' permission to delete this record", "warning")
             return redirect(_url)
     else:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
-                                                                       OrcidToken.org_id == user.organisation_id,
-                                                                       OrcidToken.scopes.contains(
+                                                                       OrcidToken.org_id == current_user
+                                                                       .organisation_id, OrcidToken.scopes.contains(
                                                                            orcid_client.ACTIVITIES_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to delete this record", "warning")
             return redirect(_url)
 
-    api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
+    api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
 
     try:
         api.delete_section(section_type, put_code)
@@ -2252,8 +2253,7 @@ def edit_record(user_id, section_type, put_code=None):
 
     org = current_user.organisation
     try:
-        # TODO: multiple orginisation support
-        user = User.get(id=user_id, organisation=org.id)
+        user = User.get(id=user_id)
     except User.DoesNotExist:
         flash("ORCID HUB doent have data related to this researcher", "warning")
         return redirect(_url)
@@ -2274,7 +2274,7 @@ def edit_record(user_id, section_type, put_code=None):
             "permission to you to Add/Update these records", "warning")
         return redirect(_url)
 
-    api = orcid_client.MemberAPIV3(user=user, access_token=orcid_token.access_token)
+    api = orcid_client.MemberAPIV3(org=org, user=user, access_token=orcid_token.access_token)
 
     if section_type == "FUN":
         form = FundingForm(form_type=section_type)
@@ -2593,7 +2593,7 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     try:
-        user = User.get(id=user_id, organisation_id=current_user.organisation_id)
+        user = User.get(id=user_id)
     except Exception:
         flash("ORCID HUB doent have data related to this researcher", "warning")
         return redirect(_url)
@@ -2606,7 +2606,7 @@ def section(user_id, section_type="EMP"):
     if request.method == "POST" and section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         try:
             orcid_token = OrcidToken.select(OrcidToken.access_token).where(
-                OrcidToken.user_id == user.id, OrcidToken.org_id == user.organisation_id,
+                OrcidToken.user_id == user.id, OrcidToken.org_id == current_user.organisation_id,
                 OrcidToken.scopes.contains(orcid_client.PERSON_UPDATE)).first()
             if orcid_token:
                 flash(
@@ -2711,7 +2711,7 @@ def section(user_id, section_type="EMP"):
         Affiliation=Affiliation,
         records=records,
         section_type=section_type,
-        org_client_id=user.organisation.orcid_client_id)
+        org_client_id=current_user.organisation.orcid_client_id)
 
 
 @app.route("/search/group_id_record/list", methods=["GET", "POST"])
