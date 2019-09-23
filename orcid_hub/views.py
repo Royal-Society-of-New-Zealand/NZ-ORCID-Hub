@@ -1832,8 +1832,7 @@ class ViewMembersAdmin(AppModelView):
         for t in tokens:
 
             try:
-                api = orcid_client.MemberAPIV3(user=t.user, org=current_user.organisation,
-                                               access_token=t.access_token)
+                api = orcid_client.MemberAPIV3(user=t.user, access_token=t.access_token)
                 profile = api.get_record()
                 if not profile:
                     continue
