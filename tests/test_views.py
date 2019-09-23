@@ -4487,7 +4487,7 @@ def test_research_resources(client, mocker):
     task = Task.get(filename="resources.tsv")
     assert task.records.count() == 2
 
-    for export_type in ["csv", "tsv"]:
+    for export_type in ["csv", "tsv", "json", "yaml"]:
         resp = client.get(f"/admin/resourcerecord/export/{export_type}/?task_id={task.id}")
         file_name = f"resources_reimport.{export_type}"
         resp = client.post(
@@ -4496,9 +4496,16 @@ def test_research_resources(client, mocker):
             follow_redirects=True)
         assert resp.status_code == 200
         assert b"SYN-18-UOA-001" in resp.data
-        assert b"invitee1@mailinator.com" in resp.data
+
         t = Task.get(filename=file_name)
         assert t.records.count() == 2
+        if export_type in ["json", "yaml"]:
+            assert t.is_raw
+            assert t.record_model == models.MessageRecord
+        else:
+            assert b"invitee1@mailinator.com" in resp.data
+            assert not t.is_raw
+            assert t.record_model == models.ResourceRecord
 
     send = mocker.patch("emails.message.MessageSendMixin.send")
 
