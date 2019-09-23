@@ -412,11 +412,7 @@ class MemberAPIMixin:
             rec.type = wr.type.replace('_', '-').lower()
 
         if wr.publication_date:
-            publication_date = wr.publication_date.as_orcid_dict()
-            # TODO:Fix media-type once ORCID starts supporting it again. If not then delete this commented code.
-            """if wr.publication_media_type:
-                publication_date['media-type'] = wr.publication_media_type.upper()"""
-            rec.publication_date = publication_date
+            rec.publication_date = wr.publication_date.as_orcid_dict()
 
         external_ids = []
         contributors = []

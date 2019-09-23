@@ -9,16 +9,20 @@
 
     :copyright: (c) 2017, 2018, 2019 Royal Society of New Zealand.
     :license: MIT, see LICENSE for more details.
+
+$Format:%CI$ ($Format:%H$)
 """
 
 import logging
 import os
 import pkg_resources
 from datetime import date, datetime
+from functools import wraps
 
 import click
+from flask import abort
 from flask.json import JSONEncoder as _JSONEncoder
-from flask_login import current_user, LoginManager
+from flask_login import current_user, LoginManager, login_user
 from flask import Flask, request
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
@@ -36,6 +40,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_ipaddr
 from werkzeug.contrib.cache import SimpleCache
 IDENT = "$Id$"
+
 
 try:
     dist = pkg_resources.get_distribution(__name__)
@@ -63,7 +68,41 @@ if not app.config.from_pyfile(settings_filename, silent=True) and app.debug:
 #     app.config["DATABASE_URL"] = os.getenv("DATABASE_URL")
 
 app.url_map.strict_slashes = False
-oauth = OAuth2Provider(app)
+
+
+class OAuthProvider(OAuth2Provider):
+    """Applicaton oauth provider."""
+
+    def require_oauth(self, *scopes):
+        """Protect resource with specified scopes."""
+        def wrapper(f):
+            @wraps(f)
+            def decorated(*args, **kwargs):
+                for func in self._before_request_funcs:
+                    func()
+
+                if hasattr(request, "oauth") and request.oauth:
+                    return f(*args, **kwargs)
+
+                valid, req = self.verify_request(scopes)
+
+                for func in self._after_request_funcs:
+                    valid, req = func(valid, req)
+
+                if not valid:
+                    if self._invalid_response:
+                        return self._invalid_response(req)
+                    return abort(401)
+                request.oauth = req
+                # login only if the user hasn't logged in yet
+                if not current_user.is_authenticated:
+                    login_user(req.user)
+                return f(*args, **kwargs)
+            return decorated
+        return wrapper
+
+
+oauth = OAuthProvider(app)
 api = Api(app)
 limiter = Limiter(
     app,

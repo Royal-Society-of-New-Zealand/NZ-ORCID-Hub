@@ -32,6 +32,8 @@ mapping:
         mapping:
             value:
                 type: timestamp
+    is-active:
+        type: str
     source:
         type: map
         mapping:

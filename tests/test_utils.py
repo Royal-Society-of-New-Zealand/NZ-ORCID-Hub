@@ -1000,10 +1000,6 @@ def test_send_email(app):
                     "TEST USER",
                     "test123@test0.edu",
                 ),
-                sender=(
-                    None,
-                    None,
-                ),
                 subject="TEST WITH ORG BASE AND LOGO",
                 org=org)
             msg.send.assert_called_once()

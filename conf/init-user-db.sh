@@ -43,6 +43,7 @@ EOF
 createdb -U "$POSTGRES_USER" orcidhub
 createdb -U "$POSTGRES_USER" sentry
 
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d orcidhub  -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d orcidhub <<-EOSQL
   CREATE USER orcidhub WITH PASSWORD '${POSTGRES_PASSWORD}';
   GRANT ALL PRIVILEGES ON DATABASE orcidhub TO orcidhub;
@@ -51,6 +52,7 @@ psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d orcidhub <<-EOSQL
   SECURITY DEFINER LANGUAGE SQL AS 'COPY (SELECT 1) TO ''$PGDATA/pg_failover_trigger.00''';
   GRANT EXECUTE ON FUNCTION promote_standby() TO orcidhub;
 EOSQL
+
 
 cd $PGDATA
 export PASSPHRASE=$(head -c 64 /dev/urandom  | base64)
