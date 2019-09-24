@@ -14,7 +14,7 @@ from io import BytesIO
 import requests
 import tablib
 import yaml
-import orcid_api_v3 as v3
+
 from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
                    send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
@@ -30,7 +30,7 @@ from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
 from flask_rq2.job import FlaskJob
 from jinja2 import Markup
-from orcid_api.rest import ApiException
+from orcid_api_v3.rest import ApiException
 from playhouse.shortcuts import model_to_dict
 from peewee import SQL
 from werkzeug.utils import secure_filename
@@ -2557,7 +2557,7 @@ def edit_record(user_id, section_type, put_code=None):
                 flash("Record details has been updated successfully!", "success")
             return redirect(_url)
 
-        except (ApiException, v3.rest.ApiException) as e:
+        except ApiException as e:
             body = json.loads(e.body)
             message = body.get("user-message")
             dev_message = body.get("developer-message")

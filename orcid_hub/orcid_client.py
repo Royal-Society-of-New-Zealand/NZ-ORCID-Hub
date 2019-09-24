@@ -124,7 +124,7 @@ class MemberAPIMixin:
         self.source_clientid = SourceClientId(
             host=url.hostname,
             path=org.orcid_client_id,
-            uri="https://" + url.hostname + "/client/" + org.orcid_client_id)
+            uri="https://" + url.hostname + "/client/" + (org.orcid_client_id if org.orcid_client_id else ""))
         self.source = Source(
             source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
 

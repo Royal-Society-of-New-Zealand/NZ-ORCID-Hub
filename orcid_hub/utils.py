@@ -20,7 +20,7 @@ from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
 from jinja2 import Template
-from orcid_api.rest import ApiException
+from orcid_api_v3.rest import ApiException
 from peewee import JOIN
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
