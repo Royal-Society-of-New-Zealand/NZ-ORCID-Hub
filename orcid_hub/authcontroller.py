@@ -28,7 +28,7 @@ from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
 from werkzeug.utils import secure_filename
 
-from orcid_api.rest import ApiException
+from orcid_api_v3.rest import ApiException
 
 from . import app, cache, db, orcid_client
 from . import orcid_client as scopes
@@ -1214,11 +1214,10 @@ def orcid_login_callback(request):
                     app.logger.error(f"Missing access token: {token}")
                     abort(401, "Missing ORCID API access token.")
 
-                orcid_client.configuration.access_token = access_token
-                api_instance = orcid_client.MemberAPIV20Api()
+                api_instance = orcid_client.MemberAPIV3(user=user, org=org, access_token=access_token)
                 try:
                     # NB! need to add _preload_content=False to get raw response
-                    api_response = api_instance.view_emails(user.orcid, _preload_content=False)
+                    api_response = api_instance.view_emailsv3(user.orcid, _preload_content=False)
                 except ApiException as ex:
                     message = json.loads(ex.body.decode()).get('user-message')
                     if ex.status == 401:
