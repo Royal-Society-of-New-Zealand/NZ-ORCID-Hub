@@ -1958,30 +1958,30 @@ def test_invite_organisation(client, mocker):
         })
 
     mocker.patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_emails",
+            orcid_client.MemberAPIV3,
+            "view_emailsv3",
             side_effect=Exception("ERROR"))
     resp = client.get(callback_url, follow_redirects=True)
     assert b"ERROR" in resp.data
 
     mocker.patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_emails",
+            orcid_client.MemberAPIV3,
+            "view_emailsv3",
             side_effect=ApiException(status=401, http_resp=Mock(data=b'{"user-message": "USER ERROR MESSAGE"}')))
     resp = client.get(callback_url, follow_redirects=True)
     assert b"USER ERROR MESSAGE" in resp.data
 
     mocker.patch.object(
-            orcid_client.MemberAPIV20Api,
-            "view_emails",
+            orcid_client.MemberAPIV3,
+            "view_emailsv3",
             return_value=Mock(data="""{"email": [{"email": "some_ones_else@test.edu"}]}"""))
     resp = client.get(callback_url, follow_redirects=True)
     assert b"cannot verify your email address" in resp.data
     assert user.orcid is None
 
     mocker.patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_emails",
+        orcid_client.MemberAPIV3,
+        "view_emailsv3",
         return_value=Mock(data=json.dumps(dict(email=[dict(email=user.email)]))))
     resp = client.get(callback_url)
     user = User.get(user.id)
@@ -2031,8 +2031,8 @@ def test_invite_organisation(client, mocker):
             "expires_in": "12121"
         })
     mocker.patch.object(
-        orcid_client.MemberAPIV20Api,
-        "view_emails",
+        orcid_client.MemberAPIV3,
+        "view_emailsv3",
         return_value=Mock(data=json.dumps(dict(email=[dict(email=email)]))))
     resp = client.get(callback_url)
     user = User.get(email=email)
