@@ -3,12 +3,13 @@
 from datetime import datetime
 import os
 from unittest.mock import Mock, patch
+from io import BytesIO
 
 import pytest
 from flask_login import login_user
 from peewee import Model, SqliteDatabase
 
-from utils import get_profile, readup_test_data
+from utils import get_profile, get_resources, readup_test_data
 from orcid_hub import utils
 from orcid_hub.models import *
 from orcid_api_v3.rest import ApiException
@@ -236,3 +237,40 @@ def test_email_logging(client, mocker):
         for r in MailLog.select():
             resp = client.get(f"/admin/maillog/details/?id={r.id}&url=%2Fadmin%2Fmaillog%2F")
             assert resp.status_code == 200
+
+
+def test_message_records(client, mocker):
+    """Test message records processing."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+
+    raw_data0 = readup_test_data("resources.json")
+    resp = client.post(
+        "/load/task/RESOURCE",
+        data={"file_": (BytesIO(raw_data0), "resources.json")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"SYN-18-UOA-333" in resp.data
+    assert b"SYN-18-UOA-222" in resp.data
+    # assert b"bob42@mailinator.com" in resp.data
+    # assert b"alice42@mailinator.com" in resp.data
+    task = Task.get(filename="resources.json")
+    assert task.records.count() == 2
+
+    send = mocker.patch("emails.message.MessageSendMixin.send")
+    get_resources_mock = mocker.patch(
+        "orcid_hub.orcid_client.MemberAPIV3.get_resources",
+        return_value=get_resources(org=user.organisation, user=user))
+    execute = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.execute")
+
+    resp = client.post("/activate_all/?url=/resources", data=dict(task_id=task.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("/resources")
+
+    get_resources_mock.assert_called()
+    execute.assert_called()
+
+    send.assert_called()
+    assert UserInvitation.select().count() == 2
+
+

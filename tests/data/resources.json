@@ -1,0 +1,220 @@
+{
+  "created-at": "2019-09-12T01:26:19",
+  "filename": "resources002_2019-09-12_01-24-48.csv",
+  "id": 704,
+  "records": [
+    {
+      "invitees": [
+        {
+          "ORCID-iD": "0000-0001-8228-7153",
+          "email": "bob42@mailinator.com",
+          "first-name": "Bob",
+          "put-code": 2077,
+          "last-name": "Contributor",
+          "visibility": "limited"
+        },
+        {
+          "ORCID-iD": "1762-2762-3762-00X3",
+          "email": "alice42@mailinator.com",
+          "first-name": "Alice",
+          "last-name": "Contributor",
+          "visibility": "public"
+        },
+        {
+          "ORCID-iD": "0000-0000-0000-00X3",
+          "visibility": "public"
+        }
+      ],
+      "proposal": {
+        "end-date": {
+          "day": {
+            "value": "31"
+          },
+          "month": {
+            "value": "01"
+          },
+          "year": {
+            "value": "2018"
+          }
+        },
+        "external-ids": {
+          "external-id": [
+            {
+              "external-id-relationship": "self",
+              "external-id-type": "agr",
+              "external-id-value": "SYN-18-UOA-222"
+            }
+          ]
+        },
+        "hosts": {
+          "organization": [
+            {
+              "address": {
+                "city": "Wellington",
+                "country": "NZ",
+                "region": null
+              },
+              "disambiguated-organization": {
+                "disambiguated-organization-identifier": "3232",
+                "disambiguation-source": "RINGGOLD"
+              },
+              "name": "Royal Society Te Ap\u0101rangi"
+            }
+          ]
+        },
+        "start-date": {
+          "day": {
+            "value": "29"
+          },
+          "month": {
+            "value": "01"
+          },
+          "year": {
+            "value": "2014"
+          }
+        },
+        "title": {
+          "title": {
+            "value": "DIFFERENT PROPOSAL TITLE"
+          }
+        }
+      },
+      "put-code": 2072,
+      "resource-item": [
+        {
+          "external-ids": {
+            "external-id": [
+              {
+                "external-id-relationship": "part-of",
+                "external-id-type": "uri",
+                "external-id-value": "http://www.synchrotron.org.au/"
+              }
+            ]
+          },
+          "hosts": {
+            "organization": [
+              {
+                "address": {
+                  "city": "Melbourne",
+                  "country": "AU",
+                  "region": null
+                },
+                "disambiguated-organization": {
+                  "disambiguated-organization-identifier": "3232",
+                  "disambiguation-source": "RINGGOLD"
+                },
+                "name": "Australian Synchrotron"
+              }
+            ]
+          },
+          "resource-name": "Powder Diffraction Beamline",
+          "resource-type": "infrastructures"
+        }
+      ],
+      "visibility": "limited"
+    },
+    {
+      "invitees": [
+        {
+          "ORCID-iD": "0000-0001-8228-7153",
+          "email": "rad42@mailinator.com",
+          "first-name": "Alice",
+          "last-name": "Contributor",
+          "put-code": 2073,
+          "visibility": "public"
+        },
+        {"email": "researcher@test0.edu", "visibility": "public"}
+      ],
+      "proposal": {
+        "end-date": {
+          "day": {
+            "value": "31"
+          },
+          "month": {
+            "value": "01"
+          },
+          "year": {
+            "value": "2018"
+          }
+        },
+        "external-ids": {
+          "external-id": [
+            {
+              "external-id-relationship": "self",
+              "external-id-type": "proposal-id",
+              "external-id-value": "SYN-18-UOA-333"
+            }
+          ]
+        },
+        "hosts": {
+          "organization": [
+            {
+              "address": {
+                "city": "Wellington",
+                "country": "NZ",
+                "region": null
+              },
+              "disambiguated-organization": {
+                "disambiguated-organization-identifier": "3232",
+                "disambiguation-source": "RINGGOLD"
+              },
+              "name": "Royal Society Te Ap\u0101rangi"
+            }
+          ]
+        },
+        "start-date": {
+          "day": {
+            "value": "29"
+          },
+          "month": {
+            "value": "01"
+          },
+          "year": {
+            "value": "2018"
+          }
+        },
+        "title": {
+          "title": {
+            "value": "Structure of generic matrix supported nanoparticles"
+          }
+        }
+      },
+      "put-code": 2073,
+      "resource-item": [
+        {
+          "external-ids": {
+            "external-id": [
+              {
+                "external-id-relationship": "part-of",
+                "external-id-type": "uri",
+                "external-id-value": "http://www.synchrotron.org.au/"
+              }
+            ]
+          },
+          "hosts": {
+            "organization": [
+              {
+                "address": {
+                  "city": "Melbourne",
+                  "country": "AU",
+                  "region": null
+                },
+                "disambiguated-organization": {
+                  "disambiguated-organization-identifier": "3232",
+                  "disambiguation-source": "RINGGOLD"
+                },
+                "name": "Australian Synchrotron"
+              }
+            ]
+          },
+          "resource-name": "Powder Diffraction Beamline",
+          "resource-type": "infrastructures"
+        }
+      ],
+      "visibility": "public"
+    }
+  ],
+  "status": null,
+  "task-type": "RESOURCE",
+  "updated-at": "2019-09-12T01:26:19"
+}
