@@ -137,6 +137,7 @@ tags.tmp
 *.ps1
 load_testing/*.csv
 output*.json
+output*.yaml
 output*.html
 .env.dev
 .swagger-codegen-ignore
