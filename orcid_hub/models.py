@@ -4129,6 +4129,7 @@ class MessageRecord(RecordModel):
         default=False, help_text="The record is marked for batch processing", null=True)
     # indicates that all ivitees (user profiles) were processed
     processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
 
     @classmethod
     def load(cls, data, task=None, task_id=None, filename=None, override=True,

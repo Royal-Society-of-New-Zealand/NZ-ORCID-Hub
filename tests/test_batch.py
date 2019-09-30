@@ -271,6 +271,4 @@ def test_message_records(client, mocker):
     execute.assert_called()
 
     send.assert_called()
-    assert UserInvitation.select().count() == 2
-
-
+    assert UserInvitation.select().count() == 3

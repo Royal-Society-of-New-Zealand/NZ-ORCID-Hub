@@ -123,7 +123,13 @@
           "put-code": 2073,
           "visibility": "public"
         },
-        {"email": "researcher@test0.edu", "visibility": "public"}
+        {"email": "researcher@test0.edu", "visibility": "public"},
+        {
+          "ORCID-iD": "0000-0000-0000-00X3",
+          "visibility": "public",
+          "put-code": 8989
+        }
+
       ],
       "proposal": {
         "end-date": {

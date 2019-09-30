@@ -610,7 +610,6 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
 
     :param records: iterator with records for a single profile.
     """
-    breakpoint()
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     if not records:
         return
@@ -627,7 +626,6 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
 
     api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
     resources = api.get_resources()
-    breakpoint()
     resources = resources.get("group")
     if resources:
 
@@ -636,12 +634,12 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
                 rr.get("source", "source-client-id", "path") == org.orcid_client_id
                 for rr in r.get("research-resource-summary"))
         ]
-        taken_put_codes = {r.record.put_code for r in records if r.record.put_code}
+        taken_put_codes = {r.record.ri.invitee.put_code for r in records if r.record.ri.invitee.put_code}
 
         def match_record(records, record):
             """Match and assign put-code to the existing ORCID records."""
-            if record.put_code:
-                return record.put_code
+            if record.ri.invitee.put_code:
+                return record.ri.invitee.put_code
 
             external_ids = record.msg.get("proposal", "external-ids", "external-id", default=[])
             for r in records:
@@ -2086,7 +2084,10 @@ def process_message_records(max_rows=20, record_id=None):
                         & (OrcidToken.scopes.contains("/activities/update"))), attr="token")
 
     if record_id:
-        tasks = tasks.where(MessageRecord.id == record_id)
+        if isinstance(record_id, (list, tuple)):
+            tasks = tasks.where(MessageRecord.id << record_id)
+        else:
+            tasks = tasks.where(MessageRecord.id == record_id)
 
     if max_rows:
         tasks = tasks.limit(max_rows)
@@ -2539,7 +2540,6 @@ def enqueue_user_records(user):
 
 def enqueue_task_records(task):
     """Enqueue all active and not yet processed record."""
-    breakpoint()
     records = task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null())
     if task.is_raw:
         return process_message_records.queue(record_id=[r.id for r in records])

@@ -89,6 +89,16 @@ def get_resources(org=None, user=None):
                             "external-id-normalized-error": None,
                             "external-id-url": None,
                             "external-id-relationship": "self"
+                        }, {
+                            "external-id-type": "agr",
+                            "external-id-value": "SYN-18-UOA-222",
+                            "external-id-normalized": {
+                                "value": "syn-18-uoa-222",
+                                "transient": True
+                            },
+                            "external-id-normalized-error": None,
+                            "external-id-url": None,
+                            "external-id-relationship": "self"
                         }]
                     },
                     "start-date": {
