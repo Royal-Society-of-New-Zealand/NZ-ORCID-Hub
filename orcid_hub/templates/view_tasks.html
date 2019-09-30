@@ -32,11 +32,11 @@
     </a>
   {% elif row.task_type == 9 %}
     {% if row.is_raw %}
-    <a class="icon" href="{{ url_for('resourcerecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+    <a class="icon" href="{{ url_for('messagerecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
       <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
     </a>
     {% else %}
-    <a class="icon" href="{{ url_for('messagerecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+    <a class="icon" href="{{ url_for('resourcerecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
       <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
     </a>
     {% endif %}
