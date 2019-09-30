@@ -2119,7 +2119,7 @@ admin.add_view(RecordChildAdmin(PeerReviewExternalId))
 admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
 admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
 admin.add_view(ResourceRecordAdmin())
-admin.add_view(ResourceRecordAdmin(models.MessageRecord))
+admin.add_view(RecordModelView(models.MessageRecord))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
