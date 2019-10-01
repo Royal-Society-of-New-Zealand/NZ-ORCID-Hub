@@ -290,3 +290,36 @@ def test_message_records(client, mocker):
     assert resp.status_code == 302
     assert resp.location.endswith("/admin/task/")
     assert UserInvitation.select().count() == 3
+
+    # Export and re-import
+    for export_type in ["json", "yaml"]:
+        resp = client.get(f"/admin/messagerecord/export/{export_type}/?task_id={task.id}")
+        data = json.loads(resp.data) if export_type == "json" else yaml.load(resp.data)
+        data0 = data.copy()
+        del(data0["id"])
+
+        file_name = f"resources_reimport.{export_type}"
+        resp = client.post(
+                "/load/task/RESOURCE",
+                data={"file_": (BytesIO((json.dumps(data0) if export_type == "json" else yaml.dump(data0)).encode()), file_name)},
+                follow_redirects=True)
+        assert resp.status_code == 200
+        assert b"SYN-18-UOA-333" in resp.data
+        assert b"SYN-18-UOA-222" in resp.data
+
+        t = Task.get(filename=file_name)
+        assert t.records.count() == 2
+        assert t.is_raw
+
+        # with the the existing ID
+        resp = client.post(
+                "/load/task/RESOURCE",
+                data={"file_": (BytesIO((json.dumps(data) if export_type == "json" else yaml.dump(data)).encode()), file_name)},
+                follow_redirects=True)
+        assert resp.status_code == 200
+        assert b"SYN-18-UOA-333" in resp.data
+        assert b"SYN-18-UOA-222" in resp.data
+
+        t = Task.get(filename=file_name)
+        assert t.records.count() == 2
+        assert t.is_raw

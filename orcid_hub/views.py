@@ -2123,6 +2123,38 @@ class ResourceRecordAdmin(RecordModelView):
         return resp
 
 
+class MessageRecordAdmin(RecordModelView):
+    """Researcher resource administration view."""
+
+    export_types = ["yaml", "json"]
+
+    @expose("/export/<export_type>/")
+    def export(self, export_type):
+        """Check the export type whether it is csv, tsv or other format."""
+        if export_type not in ["json", "yaml", "yml"]:
+            return super().export(export_type)
+        return_url = get_redirect_target() or self.get_url(".index_view")
+
+        task_id = self.current_task_id
+        if not task_id:
+            flash("Missing task ID.", "danger")
+            return redirect(return_url)
+
+        if not self.can_export or (export_type not in self.export_types):
+            flash("Permission denied.", "danger")
+            return redirect(return_url)
+
+        data = Task.get(int(task_id)).to_export_dict()
+        if export_type == "json":
+            resp = jsonify(data)
+        else:
+            resp = yamlfy(data)
+
+        resp.headers[
+            "Content-Disposition"] = f"attachment;filename={secure_filename(self.get_export_name(export_type))}"
+        return resp
+
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
@@ -2149,7 +2181,7 @@ admin.add_view(RecordChildAdmin(PeerReviewExternalId))
 admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
 admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
 admin.add_view(ResourceRecordAdmin())
-admin.add_view(RecordModelView(models.MessageRecord))
+admin.add_view(MessageRecordAdmin())
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
