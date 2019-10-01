@@ -1125,11 +1125,14 @@ def test_activate_all(client):
     assert resp.location.endswith("http://localhost/affiliation_record_activate_for_batch")
     assert UserInvitation.select().count() == 2
 
-    resp = client.post(
-        "/activate_all/?url=http://localhost/funding_record_activate_for_batch",
-        data=dict(task_id=task2.id))
+    # via task view:
+    UserInvitation.delete().execute()
+    AffiliationRecord.update(is_active=False).execute()
+
+    resp = client.post("/admin/task/action/",
+                       data=dict(action="activate", rowid=[task1.id, task2.id]))
     assert resp.status_code == 302
-    assert resp.location.endswith("http://localhost/funding_record_activate_for_batch")
+    assert resp.location.endswith("/admin/task/")
 
 
 def test_logo(request_ctx):
@@ -2963,6 +2966,16 @@ def test_reset_all(client):
     assert t.completed_at is None
     assert resp.status_code == 302
     assert resp.location.endswith("/work_record_reset_for_batch")
+
+    # via task view:
+    UserInvitation.delete().execute()
+    for t in Task.select():
+        t.record_model.update(is_active=True).execute()
+    resp = client.post("/admin/task/action/",
+                       data=dict(action="reset", rowid=[task1.id, task2.id, task3.id]))
+    assert resp.status_code == 302
+    assert resp.location.endswith("/admin/task/")
+    assert UserInvitation.select().count() == 1
 
 
 def test_issue_470198698(request_ctx):

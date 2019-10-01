@@ -640,6 +640,36 @@ class TaskAdmin(AppModelView):
             '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )
 
+    @action("activate", "Activate for processing",
+            """Are you sure you want to activate the selected tasks for batch processing?
+
+            NB! By clicking "OK" you are affirming that the all selected task records to be written are,
+            to the best of your knowledge, correct.""")
+    def activate(self, ids):
+        """Acitave or reset and enqueue all records of selected tasks."""
+        self.activate_or_reset(ids)
+
+    @action("reset", "Reset for processing",
+            """Are you sure you want to reset every record in selected task batch for processing?
+
+            NB! By clicking "OK" you are affirming that all the records of seleced tasks to be written are,
+            to the best of your knowledge, correct!""")
+    def reset(self, ids):
+        """Acitave or reset and enqueue all records of selected tasks."""
+        self.activate_or_reset(ids)
+
+    def activate_or_reset(self, ids):
+        """Acitave or reset and enqueue all records of selected tasks."""
+        count = 0
+        for t in Task.select().where(Task.id.in_(ids)):
+            try:
+                count += utils.activate_all_records(t) if request.form.get(
+                    "action") == "activate" else utils.reset_all_records(t)
+            except Exception as ex:
+                flash(f"Failed to activate the selected records: {ex}", "danger")
+            else:
+                flash(f"{count} records were activated for batch processing.", "info")
+
 
 class RecordModelView(AppModelView):
     """Task record model view."""
@@ -1032,7 +1062,7 @@ class CompositeRecordModelView(RecordModelView):
     def _export_tablib(self, export_type, return_url):
         """Override export functionality to integrate funding/work/peer review invitees with external ids."""
         if tablib is None:
-            flash(gettext('Tablib dependency not installed.'), 'error')
+            flash("Tablib dependency not installed.", "danger")
             return redirect(return_url)
 
         filename = self.get_export_name(export_type)

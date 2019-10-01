@@ -2590,11 +2590,12 @@ def reset_all_records(task):
                         task.record_model.is_active == True):  # noqa: E712
                     record.processed_at = None
                     record.status = status
-
                     invitee_class = record.invitees.model
-                    invitee_class.update(
-                        processed_at=None,
-                        status=status).where(invitee_class.record == record.id).execute()
+
+                    invitee_class.update(processed_at=None, status=status).where((
+                        invitee_class.id << [i.id for i in record.invitees]) if task.is_raw else (
+                            invitee_class.record == record.id)).execute()
+
                     record.save()
                     count = count + 1
 

@@ -272,3 +272,21 @@ def test_message_records(client, mocker):
 
     send.assert_called()
     assert UserInvitation.select().count() == 3
+
+    # via task view - activate all:
+    UserInvitation.delete().execute()
+    MessageRecord.update(is_active=False).execute()
+
+    resp = client.post("/admin/task/action/",
+                       data=dict(action="activate", rowid=[task.id]))
+    assert resp.status_code == 302
+    assert resp.location.endswith("/admin/task/")
+    assert UserInvitation.select().count() == 3
+
+    # via task view - reset all:
+    UserInvitation.delete().execute()
+    resp = client.post("/admin/task/action/",
+                       data=dict(action="reset", rowid=[task.id]))
+    assert resp.status_code == 302
+    assert resp.location.endswith("/admin/task/")
+    assert UserInvitation.select().count() == 3
