@@ -291,6 +291,28 @@ def test_message_records(client, mocker):
     assert resp.location.endswith("/admin/task/")
     assert UserInvitation.select().count() == 3
 
+    # Edit invitees
+    for r in task.records:
+        for i in r.invitees:
+            resp = client.post(
+                f"/admin/invitee/edit/?id={i.id}&url=/admin/invitee/%2F%3Frecord_id={r.id}",
+                data=dict(
+                    identifier=f"ID-{i.id}",
+                    # email="researcher@test0.edu",
+                    first_name=i.first_name or "FN",
+                    last_name=i.first_name or "LN",
+                    visibility=(i.visibility or "LIMITED").upper()))
+            invitee = Invitee.get(i.id)
+            assert invitee.identifier == f"ID-{i.id}"
+
+        invitee_count = r.invitees.count()
+        resp = client.post(f"/admin/invitee/new/?url=/admin/invitee/%2F%3Frecord_id={r.id}",
+                           data=dict(email="a-new-one@org1234.edu",
+                                     first_name="FN",
+                                     last_name="LN",
+                                     visibility="LIMITED"))
+        assert r.invitees.count() == invitee_count + 1
+
     # Export and re-import
     for export_type in ["json", "yaml"]:
         resp = client.get(f"/admin/messagerecord/export/{export_type}/?task_id={task.id}")
