@@ -48,12 +48,13 @@ from .forms import (AddressForm, ApplicationFrom, BitmapMultipleValueField, Cred
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId, CharField,
                      Client, Delegate, ExternalId, FixedCharField, File, FundingContributor,
-                     FundingInvitee, FundingRecord, Grant, GroupIdRecord, ModelException,
-                     NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                     OrgInvitation, PartialDate, PropertyRecord, PeerReviewExternalId,
-                     PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TextField, Token,
-                     Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor,
-                     WorkExternalId, WorkInvitee, WorkRecord, db)
+                     FundingInvitee, FundingRecord, Grant, GroupIdRecord, Invitee, MessageRecord,
+                     ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
+                     Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task,
+                     TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
+                     db)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -975,11 +976,13 @@ class RecordChildAdmin(AppModelView):
             return False
 
         try:
-            model = self.model()
+            model = self.model(record_id=record_id)
             form.populate_obj(model)
-            model.record_id = record_id
+            # model.record_id = record_id
             self._on_model_change(form, model, True)
             model.save()
+            if hasattr(model, "records"):
+                model.records.add(record_id)
 
             # For peewee have to save inline forms after model was saved
             save_inline(form, model)
@@ -1039,6 +1042,17 @@ class InviteeAdmin(RecordChildAdmin):
                 app.logger.exception("Failed to activate the selected records")
             else:
                 flash(f"{count} invitee records were reset for batch processing.")
+
+    def get_query(self):
+        """Build the query for the record related inivtee list."""
+        query = super().get_query()
+        if self.model == Invitee:
+            record_id = self.current_record_id
+            query = query.join(self.model.records.get_through_model()).join(MessageRecord).where(
+                MessageRecord.id == record_id)
+            # query = query.where(MessageRecord.id == record_id).join(
+            #     self.model.records.get_through_model()).joint(MessageRecord)
+        return query
 
 
 class CompositeRecordModelView(RecordModelView):
@@ -2182,6 +2196,7 @@ admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
 admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
 admin.add_view(ResourceRecordAdmin())
 admin.add_view(MessageRecordAdmin())
+admin.add_view(InviteeAdmin(Invitee))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))

@@ -76,11 +76,16 @@
 {% endblock %}
 {% block list_row_actions %}
 {{ super() }}
-{% if task.task_type == 4 %}
 <div class="list-buttons-column">
+{% if task.task_type == 4 %}
     <a class="icon" href="{{ url_for('affiliationexternalid.index_view', record_id=row.id, url=request.url) }}"
        title="Affiliation ExternalId">
         <spam class="fa fa-external-link glyphicon glyphicon-users icon"></spam>
+    </a>
+{% elif task.is_raw %}
+    <a class="icon" href="{{ url_for('invitee.index_view', record_id=row.id, url=request.url) }}"
+       title="Record Invitees">
+        <spam class="fa fa-envelope"></spam>
     </a>
 </div>
 {% endif %}
