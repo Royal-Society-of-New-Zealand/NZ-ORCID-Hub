@@ -484,7 +484,7 @@ class BaseModel(Model):
     @classmethod
     def last(cls):
         """Get last inserted entry."""
-        return cls.select().order_by(cls.id).limit(1).first()
+        return cls.select().order_by(cls.id.desc()).limit(1).first()
 
     @classmethod
     def model_class_name(cls):
@@ -1051,7 +1051,7 @@ class OrcidToken(AuditedModel):
     user = ForeignKeyField(
         User, null=True, index=True, backref="orcid_tokens",
         on_delete="CASCADE")  # TODO: add validation for 3-legged authorization tokens
-    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation", backref="orcid_tokens")
     scopes = TextField(null=True)
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.utcnow)
@@ -4113,6 +4113,9 @@ class ResourceRecord(RecordModel, Invitee):
                                   version="3.0")
 
 
+# ThroughDeferred = DeferredThroughModel()
+
+
 class MessageRecord(RecordModel):
     """ORCID message loaded from structured batch task file."""
 
@@ -4120,7 +4123,13 @@ class MessageRecord(RecordModel):
     version = CharField(null=True)
     # type = CharField()
     message = TextField()
+    # invitees = ManyToManyField(Invitee, backref="records", through_model=ThroughDeferred)
     invitees = ManyToManyField(Invitee, backref="records")
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    # indicates that all ivitees (user profiles) were processed
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
 
     @classmethod
     def load(cls, data, task=None, task_id=None, filename=None, override=True,
@@ -4194,6 +4203,19 @@ class MessageRecord(RecordModel):
                 app.logger.exception("Failed to load affiliation record task file.")
                 raise
         return task
+
+
+# class MessageRecordInvitee(BaseModel):
+#     """Link from a record to an invitee."""
+
+#     put_code = IntegerField(null=True)
+#     record = ForeignKeyField(MessageRecord)
+#     invitee = ForeignKeyField(Invitee)
+#     processed_at = DateTimeField(null=True)
+#     status = TextField(null=True, help_text="Record processing status.")
+
+
+# ThroughDeferred.set_model(MessageRecordInvitee)
 
 
 RecordInvitee = MessageRecord.invitees.get_through_model()
