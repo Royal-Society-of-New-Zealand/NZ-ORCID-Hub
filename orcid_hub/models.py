@@ -4124,7 +4124,7 @@ class MessageRecord(RecordModel):
     # type = CharField()
     message = TextField()
     # invitees = ManyToManyField(Invitee, backref="records", through_model=ThroughDeferred)
-    invitees = ManyToManyField(Invitee, backref="records")
+    invitees = ManyToManyField(Invitee, backref="records", on_delete="CASCADE")
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     # indicates that all ivitees (user profiles) were processed
@@ -4203,6 +4203,12 @@ class MessageRecord(RecordModel):
                 app.logger.exception("Failed to load affiliation record task file.")
                 raise
         return task
+
+    def to_export_dict(self):
+        """Map the common record parts to dict for export into JSON/YAML."""
+        d = json.loads(self.message)
+        d["invitees"] = [i.to_export_dict() for i in self.invitees]
+        return d
 
 
 # class MessageRecordInvitee(BaseModel):

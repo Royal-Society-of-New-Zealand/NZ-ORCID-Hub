@@ -290,3 +290,58 @@ def test_message_records(client, mocker):
     assert resp.status_code == 302
     assert resp.location.endswith("/admin/task/")
     assert UserInvitation.select().count() == 3
+
+    # Edit invitees
+    for r in task.records:
+        for i in r.invitees:
+            resp = client.post(
+                f"/admin/invitee/edit/?id={i.id}&url=/admin/invitee/%2F%3Frecord_id={r.id}",
+                data=dict(
+                    identifier=f"ID-{i.id}",
+                    # email="researcher@test0.edu",
+                    first_name=i.first_name or "FN",
+                    last_name=i.first_name or "LN",
+                    visibility=(i.visibility or "LIMITED").upper()))
+            invitee = Invitee.get(i.id)
+            assert invitee.identifier == f"ID-{i.id}"
+
+        invitee_count = r.invitees.count()
+        resp = client.post(f"/admin/invitee/new/?url=/admin/invitee/%2F%3Frecord_id={r.id}",
+                           data=dict(email="a-new-one@org1234.edu",
+                                     first_name="FN",
+                                     last_name="LN",
+                                     visibility="LIMITED"))
+        assert r.invitees.count() == invitee_count + 1
+
+    # Export and re-import
+    for export_type in ["json", "yaml"]:
+        resp = client.get(f"/admin/messagerecord/export/{export_type}/?task_id={task.id}")
+        data = json.loads(resp.data) if export_type == "json" else yaml.load(resp.data)
+        data0 = data.copy()
+        del(data0["id"])
+
+        file_name = f"resources_reimport.{export_type}"
+        resp = client.post(
+                "/load/task/RESOURCE",
+                data={"file_": (BytesIO((json.dumps(data0) if export_type == "json" else yaml.dump(data0)).encode()), file_name)},
+                follow_redirects=True)
+        assert resp.status_code == 200
+        assert b"SYN-18-UOA-333" in resp.data
+        assert b"SYN-18-UOA-222" in resp.data
+
+        t = Task.get(filename=file_name)
+        assert t.records.count() == 2
+        assert t.is_raw
+
+        # with the the existing ID
+        resp = client.post(
+                "/load/task/RESOURCE",
+                data={"file_": (BytesIO((json.dumps(data) if export_type == "json" else yaml.dump(data)).encode()), file_name)},
+                follow_redirects=True)
+        assert resp.status_code == 200
+        assert b"SYN-18-UOA-333" in resp.data
+        assert b"SYN-18-UOA-222" in resp.data
+
+        t = Task.get(filename=file_name)
+        assert t.records.count() == 2
+        assert t.is_raw
