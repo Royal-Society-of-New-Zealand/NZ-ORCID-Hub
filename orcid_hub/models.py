@@ -46,11 +46,11 @@ ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-\.]\d+){,2}")
 
 
-AFFILIATION_TYPES = ["student", "education", "staff", "employment", "distinction", "position", "invited position",
+AFFILIATION_TYPES = ["student", "education", "staff", "employment", "distinction", "position", "invited-position",
                      "qualification", "membership", "service"]
 DISAMBIGUATION_SOURCES = ["RINGGOLD", "GRID", "FUNDREF", "ISNI"]
-VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
-visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
+VISIBILITIES = ["public", "private", "registered-only", "limited"]
+visibility_choices = [(v, v.replace('-', ' ').title()) for v in VISIBILITIES]
 EXTERNAL_ID_TYPES = ["agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba", "cienciaiul",
                      "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir", "isbn",
                      "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
@@ -1447,7 +1447,8 @@ class AffiliationRecord(RecordModel):
     email = CharField(max_length=80, null=True)
     orcid = OrcidIdField(null=True)
     organisation = CharField(null=True, index=True, max_length=200)
-    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
+    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v.replace('-', ' ').title())
+                                                                    for v in AFFILIATION_TYPES])
     role = CharField(null=True, verbose_name="Role/Course", max_length=100)
     department = CharField(null=True, max_length=200)
     start_date = PartialDateField(null=True)
@@ -1533,8 +1534,10 @@ class AffiliationRecord(RecordModel):
                         k = k.replace('-', '_')
                         if k == "is_active" and v:
                             is_enqueue = v
-                        if k in ["visibility", "disambiguation_source"] and v:
+                        if k in ["disambiguation_source"] and v:
                             v = v.upper()
+                        if k in ["visibility", "affiliation_type"] and v:
+                            v = v.replace('_', '-').lower()
                         if k in record_fields and rec.__data__.get(k) != v:
                             rec.__data__[k] = PartialDate.create(v) if k.endswith("date") else v
                             rec._dirty.add(k)
@@ -1673,7 +1676,7 @@ class AffiliationRecord(RecordModel):
 
                     affiliation_type = val(row, 10)
                     if affiliation_type:
-                        affiliation_type = affiliation_type.lower()
+                        affiliation_type = affiliation_type.replace('_', '-').lower()
                     if not delete_record and (not affiliation_type
                                               or affiliation_type.lower() not in AFFILIATION_TYPES):
                         raise ValueError(
@@ -1692,7 +1695,7 @@ class AffiliationRecord(RecordModel):
                         disambiguation_source = disambiguation_source.upper()
                     visibility = val(row, 18)
                     if visibility:
-                        visibility = visibility.upper()
+                        visibility = visibility.replace('_', '-').lower()
 
                     is_active = val(row, 25, '').lower() in ['y', "yes", "1", "true"]
                     if is_active:
