@@ -2142,6 +2142,7 @@ class MessageRecordAdmin(RecordModelView):
     """Researcher resource administration view."""
 
     export_types = ["yaml", "json"]
+    form_widget_args = dict(message=dict(rows=20))
 
     @expose("/export/<export_type>/")
     def export(self, export_type):

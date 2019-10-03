@@ -626,9 +626,8 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
 
     api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
     resources = api.get_resources()
-    resources = resources.get("group")
     if resources:
-
+        resources = resources.get("group")
         resources = [
             r for r in resources if any(
                 rr.get("source", "source-client-id", "path") == org.orcid_client_id
@@ -636,34 +635,45 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
         ]
         taken_put_codes = {r.record.ri.invitee.put_code for r in records if r.record.ri.invitee.put_code}
 
-        def match_record(records, record):
+        def match_record(resource, record):
             """Match and assign put-code to the existing ORCID records."""
-            if record.ri.invitee.put_code:
-                return record.ri.invitee.put_code
+            put_code = record.invitee.put_code
+
+            if put_code:
+                for rr in (rr for r in resources for rr in r.get("research-resource-summary")):
+                    if rr.get("put-code") == put_code:
+                        record.ri.invitee.visibility = rr.get("visibility")
+                        break
+                return put_code
 
             external_ids = record.msg.get("proposal", "external-ids", "external-id", default=[])
-            for r in records:
+            for r in resource:
 
+                res_external_ids = r.get("external-ids", "external-id")
                 if all(eid.get("external-id-value") != rec_eid.get("external-id-value")
-                        for eid in r.get("external-ids", "external-id") for rec_eid in external_ids):
+                        for eid in res_external_ids for rec_eid in external_ids):
                     continue
 
                 for rr in r.get("research-resource-summary"):
 
-                    put_code = rr.get("put-code")
+                    proposal_external_ids = record.msg.get("proposal", "external-ids", "external-id")
+                    if all(
+                            eid.get("external-id-value") != rec_eid.get("external-id-value")
+                            for rec_eid in proposal_external_ids
+                            for eid in rr.get("proposal", "external-ids", "external-id")):
+                        continue
 
-                    # if all(eid.get("external-id-value") != record.external_id_value
-                    #         for eid in rr.get("proposal", "external-ids", "external-id")):
-                    #     continue
+                    put_code = rr.get("put-code")
 
                     if put_code in taken_put_codes:
                         continue
 
                     record.invitee.put_code = put_code
+                    record.ri.invitee.visibility = rr.get("visibility")
                     taken_put_codes.add(put_code)
 
                     app.logger.debug(
-                        f"put-code {put_code} was asigned to the other id record "
+                        f"put-code {put_code} was asigned to the record "
                         f"(ID: {record.id}, Task ID: {record.task_id})")
 
                     return put_code
@@ -672,8 +682,11 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
             try:
                 rr = t.record
                 put_code = match_record(resources, rr)
+                if "visibility" in rr.msg:
+                    del(rr.msg["visibility"])
 
                 if put_code:
+                    rr.msg["put-code"] = put_code
                     resp = api.put(f"research-resource/{put_code}", rr.msg)
                 else:
                     resp = api.post("research-resource", rr.msg)
