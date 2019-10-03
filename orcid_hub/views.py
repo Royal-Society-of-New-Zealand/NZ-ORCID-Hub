@@ -976,12 +976,13 @@ class RecordChildAdmin(AppModelView):
             return False
 
         try:
-            model = self.model(record_id=record_id)
+            model = self.model()
             form.populate_obj(model)
-            # model.record_id = record_id
+            if self.model != Invitee:
+                model.record_id = record_id
             self._on_model_change(form, model, True)
             model.save()
-            if hasattr(model, "records"):
+            if self.model == Invitee:
                 model.records.add(record_id)
 
             # For peewee have to save inline forms after model was saved
@@ -2141,6 +2142,7 @@ class MessageRecordAdmin(RecordModelView):
     """Researcher resource administration view."""
 
     export_types = ["yaml", "json"]
+    form_widget_args = dict(message=dict(rows=20))
 
     @expose("/export/<export_type>/")
     def export(self, export_type):
