@@ -22,8 +22,8 @@ from rq import get_current_job
 from . import api, app, models, oauth, rq, schemas
 from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, AsyncOrcidResponse, Client, FundingRecord,
-                     OrcidToken, PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User,
-                     UserOrg, WorkRecord, validate_orcid_id)
+                     OrcidToken, PeerReviewRecord, PropertyRecord, ResourceRecord, Role, Task,
+                     TaskType, User, UserOrg, WorkRecord, validate_orcid_id)
 from .utils import (activate_all_records, dump_yaml, enqueue_task_records, is_valid_url,
                     register_orcid_webhook, reset_all_records)
 
@@ -2535,6 +2535,325 @@ class TokenAPI(MethodView):
 
 
 app.add_url_rule("/api/v1/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"))
+
+
+class ResourceListAPI(TaskResource):
+    """Resource list API."""
+
+    def load_from_json(self, task=None):
+        """Load records form the JSON upload."""
+        return ResourceRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
+    def post(self, *args, **kwargs):
+        """Upload the property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Post the property list task."
+        description: "Post the property list task."
+        consumes:
+        - application/json
+        - text/csv
+        - text/yaml
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          required: false
+          in: "query"
+          description: "The batch process filename."
+          type: "string"
+        - name: body
+          in: body
+          description: "Resource task."
+          schema:
+            $ref: "#/definitions/ResourceTask"
+        responses:
+          200:
+            description: "Successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        definitions:
+        - schema:
+            id: ResourceTask
+            resources:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - PROPERTY
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
+              records:
+                type: array
+                items:
+                  $ref: "#/definitions/ResourceTaskRecord"
+        - schema:
+            id: ResourceTaskRecord
+            required:
+              - type
+              - value
+            resources:
+              id:
+                type: integer
+                format: int64
+              put-code:
+                type: string
+              type:
+                type: string
+                enum:
+                  - COUNTRY
+                  - KEYWORD
+                  - NAME
+                  - URL
+              name:
+                type: string
+              value:
+                type: string
+              is-active:
+                type: boolean
+              email:
+                type: string
+              first-name:
+                type: string
+              last-name:
+                type: string
+              role:
+                type: string
+              organisation:
+                type: string
+              department:
+                type: string
+              city:
+                type: string
+              region:
+                type: string
+              country:
+                type: string
+              disambiguated-id:
+                type: string
+              disambiguated-source:
+                type: string
+              start-date:
+                type: string
+              end-date:
+                type: string
+              processed-at:
+                type: string
+                format: date-time
+              status:
+                type: string
+              orcid:
+                type: string
+                format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
+                description: "User ORCID ID"
+        """
+        if request.content_type in ["text/csv", "text/tsv"]:
+            task = ResourceRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            enqueue_task_records(task)
+            return self.jsonify_task(task)
+        return self.handle_task()
+
+
+class ResourceAPI(ResourceListAPI):
+    """Resource task services."""
+
+    def get(self, task_id):
+        """
+        Retrieve the specified property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Retrieve the specified property task."
+        description: "Retrieve the specified property task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "Resource task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+    def post(self, task_id):
+        """Upload the task and completely override the property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Update the property task."
+        description: "Update the property task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Resource task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: propertyTask
+            description: "Resource task."
+            schema:
+              $ref: "#/definitions/ResourceTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def put(self, task_id):
+        """Update the property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Update the property task."
+        description: "Update the property task."
+        consumes:
+          - application/json
+          - text/yaml
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Resource task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: propertyTask
+            description: "Resource task."
+            schema:
+              $ref: "#/definitions/ResourceTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def patch(self, task_id):
+        """Update the property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Update the property task."
+        description: "Update the property task."
+        consumes:
+          - application/json
+          - text/yaml
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Resource task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: propertyTask
+            description: "Resource task."
+            schema:
+              $ref: "#/definitions/ResourceTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Delete the specified property task."
+        description: "Delete the specified property task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Resource task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.delete_task(task_id)
+
+
+api.add_resource(ResourceListAPI, "/api/v1/resources")
+api.add_resource(ResourceAPI, "/api/v1/resources/<int:task_id>")
 
 
 def get_spec(app):
