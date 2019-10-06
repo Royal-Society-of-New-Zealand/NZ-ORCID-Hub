@@ -54,7 +54,7 @@ visibility_choices = [(v, v.replace('-', ' ').title()) for v in VISIBILITIES]
 EXTERNAL_ID_TYPES = ["agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba", "cienciaiul",
                      "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir", "isbn",
                      "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
-                     "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
+                     "pat", "pdb", "pmc", "pmid", "proposal-id", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
                      "wosuid", "zbl"]
 FUNDING_TYPES = ["AWARD", "CONTRACT", "GRANT", "SALARY_AWARD"]
 SUBJECT_TYPES = [
@@ -70,7 +70,7 @@ SUBJECT_TYPES = [
 REVIEWER_ROLES = ["CHAIR", "EDITOR", "MEMBER", "ORGANIZER", "REVIEWER"]
 REVIEW_TYPES = ["EVALUATION", "REVIEW"]
 review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
-RELATIONSHIPS = ["PART_OF", "SELF"]
+RELATIONSHIPS = ["part-of", "self"]
 
 WORK_TYPES = [
     "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
@@ -98,10 +98,7 @@ language_choices.sort(key=lambda e: e[1])
 currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
 external_id_type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in EXTERNAL_ID_TYPES]
-# TODO: reomove one of the list when data gets updated
-relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS] + [
-    (v.lower().replace('_', '-'), v.replace('_', ' ').title()) for v in RELATIONSHIPS
-]
+relationship_choices = [(v, v.replace('-', ' ').title()) for v in RELATIONSHIPS]
 disambiguation_source_choices = [(v, v) for v in DISAMBIGUATION_SOURCES]
 property_type_choices = [(v, v) for v in PROPERTY_TYPES]
 
@@ -1733,7 +1730,7 @@ class AffiliationRecord(RecordModel):
                     external_id_type = val(row, 21, "").lower()
                     external_id_relationship = val(row, 24)
                     if external_id_relationship:
-                        external_id_relationship = external_id_relationship.upper()
+                        external_id_relationship = external_id_relationship.replace('_', '-').lower()
                     external_id_value = val(row, 22)
 
                     if external_id_type and external_id_value:
@@ -1907,7 +1904,7 @@ class FundingRecord(RecordModel):
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
 
             if not external_id_value:
                 raise ModelException(
@@ -2388,7 +2385,7 @@ class PeerReviewRecord(RecordModel):
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
 
             if not external_id_value:
                 raise ModelException(
@@ -3123,7 +3120,7 @@ class WorkRecord(RecordModel):
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
 
             if not external_id_value:
                 raise ModelException(
