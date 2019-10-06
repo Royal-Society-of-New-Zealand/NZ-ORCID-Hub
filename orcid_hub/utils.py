@@ -39,7 +39,7 @@ logger.addHandler(logging.StreamHandler())
 EDU_CODES = {"student", "edu", "education"}
 EMP_CODES = {"faculty", "staff", "emp", "employment"}
 DST_CODES = {"distinction", "dist", "dst"}
-INV_POS_CODES = {"invited position", "position"}
+INV_POS_CODES = {"invited-position", "position"}
 QUA_CODES = {"qualification", "qua"}
 MEM_CODES = {"membership", "mem"}
 SER_CODES = {"service", "ser"}
@@ -1111,8 +1111,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     ar.save()
                     continue
 
-                no_orcid_call = any(
-                    match_put_code(affiliations[at], ar) for at in orcid_affiliation_types)
+                no_orcid_call = match_put_code(affiliations.get(str(affiliation).lower()), ar)
                 if no_orcid_call:
                     ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:

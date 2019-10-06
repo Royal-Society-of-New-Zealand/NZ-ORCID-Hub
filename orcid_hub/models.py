@@ -444,7 +444,7 @@ class Affiliation(IntFlag):
             self.EDU: "Education",
             self.EMP: "Employment",
             self.DST: "Distinction",
-            self.POS: "Invited Position",
+            self.POS: "Invited-Position",
             self.QUA: "Qualification",
             self.MEM: "Membership",
             self.SER: "Service",
