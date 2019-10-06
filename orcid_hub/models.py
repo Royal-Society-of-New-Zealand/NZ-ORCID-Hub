@@ -1545,7 +1545,8 @@ class AffiliationRecord(RecordModel):
                         rec.save()
                         if r.get('external-id'):
                             for exi in r.get('external-id'):
-                                ext_data = {k.replace('-', '_').replace('external_id_', ''): v for k, v in exi.items()}
+                                ext_data = {k.replace('-', '_').replace('external_id_', ''): v.lower() if v else None
+                                            for k, v in exi.items()}
                                 if ext_data.get("type") and ext_data.get("value"):
                                     ext_id = AffiliationExternalId.create(record=rec, **ext_data)
                                     if not ModelValidator(ext_id).validate():
