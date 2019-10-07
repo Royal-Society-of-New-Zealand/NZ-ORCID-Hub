@@ -56,7 +56,7 @@ EXTERNAL_ID_TYPES = ["agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid",
                      "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
                      "pat", "pdb", "pmc", "pmid", "proposal-id", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
                      "wosuid", "zbl"]
-FUNDING_TYPES = ["AWARD", "CONTRACT", "GRANT", "SALARY_AWARD"]
+FUNDING_TYPES = ["award", "contract", "grant", "salary-award"]
 SUBJECT_TYPES = [
     "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
     "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE",
@@ -1761,7 +1761,7 @@ class AffiliationRecord(RecordModel):
 class FundingRecord(RecordModel):
     """Funding record loaded from JSON file for batch processing."""
 
-    funiding_type_choices = [(v, v.replace('_', ' ').title()) for v in FUNDING_TYPES]
+    funiding_type_choices = [(v, v.replace('-', ' ').title()) for v in FUNDING_TYPES]
 
     task = ForeignKeyField(Task, backref="funding_records", on_delete="CASCADE")
     title = CharField(max_length=255)
@@ -1887,6 +1887,10 @@ class FundingRecord(RecordModel):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
+            visibility = val(row, 24)
+            if visibility:
+                visibility = visibility.replace('_', '-').lower()
+
             invitee = dict(
                 identifier=val(row, 27),
                 email=email,
@@ -1894,13 +1898,13 @@ class FundingRecord(RecordModel):
                 last_name=val(row, 26),
                 orcid=orcid,
                 put_code=val(row, 23),
-                visibility=val(row, 24),
+                visibility=visibility,
             )
 
             title = val(row, 0)
             external_id_type = val(row, 19, "").lower()
             external_id_value = val(row, 20)
-            external_id_relationship = val(row, 22, "").upper()
+            external_id_relationship = val(row, 22, "").replace('_', '-').lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
@@ -1936,6 +1940,8 @@ class FundingRecord(RecordModel):
             if not funding_type:
                 raise ModelException(
                     f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+            else:
+                funding_type = funding_type.replace('_', '-').lower()
 
             # The uploaded country must be from ISO 3166-1 alpha-2
             country = val(row, 13)
@@ -2045,6 +2051,8 @@ class FundingRecord(RecordModel):
                     translated_title_language_code = r.get("title", "translated-title",
                                                            "language-code")
                     rec_type = r.get("type")
+                    if rec_type:
+                        rec_type = rec_type.replace('_', '-').lower()
                     organization_defined_type = r.get("organization-defined-type", "value")
                     short_description = r.get("short-description")
                     amount = r.get("amount", "value")
@@ -2095,6 +2103,8 @@ class FundingRecord(RecordModel):
                             orcid = invitee.get_orcid("ORCID-iD")
                             put_code = invitee.get("put-code")
                             visibility = invitee.get("visibility")
+                            if visibility:
+                                visibility = visibility.replace('_', '-').lower()
 
                             FundingInvitee.create(
                                 record=record,
@@ -2131,6 +2141,10 @@ class FundingRecord(RecordModel):
                             value = external_id.get("external-id-value")
                             url = external_id.get("external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
+                            if id_type:
+                                id_type = id_type.lower()
+                            if relationship:
+                                relationship = relationship.replace('_', '-').lower()
                             ExternalId.create(
                                 record=record,
                                 type=id_type,

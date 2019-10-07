@@ -464,9 +464,10 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
 
                 if record.title and record.type and record.org_name and (r.get(
                     "title", "title", "value", default='') or '').lower() == record.title.lower() and (r.get(
-                        "type", default='') or '').replace('-', '_').lower() == record.type.lower() and (r.get(
+                        "type", default='') or '').lower() == record.type.lower() and (r.get(
                         "organization", "name", default='') or '').lower() == record.org_name.lower():
                     invitee.put_code = put_code
+                    invitee.visibility = r.get("visibility")
                     invitee.save()
                     taken_put_codes.add(put_code)
                     app.logger.debug(
