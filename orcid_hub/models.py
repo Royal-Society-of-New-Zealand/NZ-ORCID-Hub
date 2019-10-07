@@ -1189,16 +1189,16 @@ class Task(AuditedModel):
         """
         return self.state == "ACTIVE" or self.records.whhere(self.record_model.is_active).exists()
 
-    def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True, only=None):
+    def to_dict(self, to_dashes=True, recurse=None, exclude=None, include_records=None, only=None):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
         task_dict = super().to_dict(
-            recurse=bool(False),
+            recurse=False,
             to_dashes=to_dashes,
             exclude=exclude,
             only=only or [
                 Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at,
-                Task.status
+                Task.status, Task.is_raw
             ])
         # TODO: refactor for funding task to get records here not in API or export
         if include_records and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
@@ -4206,10 +4206,13 @@ class MessageRecord(RecordModel):
 
     def to_export_dict(self):
         """Map the common record parts to dict for export into JSON/YAML."""
+        return self.to_dict()
+
+    def to_dict(self, *args, **kwargs):
+        """Map the common record parts to dict."""
         d = json.loads(self.message)
         d["invitees"] = [i.to_export_dict() for i in self.invitees]
         return d
-
 
 # class MessageRecordInvitee(BaseModel):
 #     """Link from a record to an invitee."""

@@ -239,11 +239,10 @@ class AppResourceList(AppResource):
         """Create and return API response with pagination links."""
         query = query.paginate(self.page, self.page_size)
         records = [
-            r.to_dict(
-                recurse=recurse,
-                to_dashes=True,
-                exclude=exclude,
-                only=only) for r in query
+            r.to_dict(recurse=recurse,
+                      to_dashes=True,
+                      exclude=exclude,
+                      only=only) for r in query
         ]
         resp = yamlfy(records) if prefers_yaml() else jsonify(records)
         resp.headers["Pagination-Page"] = self.page
@@ -301,7 +300,7 @@ class TaskResource(AppResource):
         if request.method != "HEAD":
             if task.task_type in [
                     TaskType.AFFILIATION, TaskType.FUNDING, TaskType.PEER_REVIEW,
-                    TaskType.PROPERTY, TaskType.WORK, TaskType.OTHER_ID
+                    TaskType.PROPERTY, TaskType.WORK, TaskType.OTHER_ID, TaskType.RESOURCE
             ]:
                 resp = jsonify(task.to_export_dict(include_records=include_records))
             else:
@@ -450,6 +449,7 @@ class TaskList(TaskResource, AppResourceList):
                 - FUNDING
                 - PEER_REVIEW
                 - PROPERTY
+                - RESOURCE
                 - WORK
               created-at:
                 type: string
@@ -465,6 +465,8 @@ class TaskList(TaskResource, AppResourceList):
                 enum:
                 - ACTIVE
                 - RESET
+              is-raw:
+                type: bool
         parameters:
           - name: "type"
             in: "query"
@@ -476,6 +478,7 @@ class TaskList(TaskResource, AppResourceList):
               - FUNDING
               - PEER_REVIEW
               - PROPERTY
+              - RESOURCE
               - WORK
           - name: "status"
             in: "query"
@@ -487,6 +490,19 @@ class TaskList(TaskResource, AppResourceList):
             enum:
               - ACTIVE
               - INACTIVE
+          - name: "with_records"
+            in: "query"
+            required: false
+            description: Indicates that the records should be included
+            default: false
+            type: "bool"
+            enum:
+              - true
+              - false
+              - yes
+              - no
+              - 1
+              - 0
           - in: query
             name: page
             description: The number of the page of retrieved data starting counting from 1
@@ -516,6 +532,9 @@ class TaskList(TaskResource, AppResourceList):
         query = Task.select().where(Task.org_id == current_user.organisation_id)
         task_type = request.args.get("type")
         status = request.args.get("status")
+        with_records = request.args.get("with_records")
+        if with_records:
+            with_records = with_records.lower() not in ["0", "no", "false", "f"]
         if task_type:
             query = query.where(Task.task_type == TaskType[task_type.upper()].value)
         if status:
@@ -528,7 +547,7 @@ class TaskList(TaskResource, AppResourceList):
         return self.api_response(
             query,
             exclude=[Task.created_by, Task.updated_by, Task.org],
-            recurse=False)
+            recurse=with_records)
 
 
 class TaskAPI(TaskList):
