@@ -73,23 +73,23 @@ review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
 RELATIONSHIPS = ["part-of", "self"]
 
 WORK_TYPES = [
-    "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
-    "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE",
-    "DISSERTATION", "EDITED_BOOK", "ENCYCLOPEDIA_ENTRY", "INVENTION", "JOURNAL_ARTICLE",
-    "JOURNAL_ISSUE", "LECTURE_SPEECH", "LICENSE", "MAGAZINE_ARTICLE", "MANUAL",
-    "NEWSLETTER_ARTICLE", "NEWSPAPER_ARTICLE", "ONLINE_RESOURCE", "OTHER"
-    "PATENT", "REGISTERED_COPYRIGHT", "REPORT", "RESEARCH_TECHNIQUE", "RESEARCH_TOOL",
-    "SPIN_OFF_COMPANY", "STANDARDS_AND_POLICY", "SUPERVISED_STUDENT_PUBLICATION",
-    "TECHNICAL_STANDARD", "TEST", "TRADEMARK", "TRANSLATION", "UNDEFINED", "WEBSITE",
-    "WORKING_PAPER"
+    "artistic-performance", "book", "book-chapter", "book-review", "conference-abstract",
+    "conference-paper", "conference-poster", "data-set", "dictionary-entry", "disclosure",
+    "dissertation", "edited-book", "encyclopedia-entry", "invention", "journal-article",
+    "journal-issue", "lecture-speech", "license", "magazine-article", "manual",
+    "newsletter-article", "newspaper-article", "online-resource", "other"
+    "patent", "registered-copyright", "report", "research-technique", "research-tool",
+    "spin-off-company", "standards-and-policy", "supervised-student-publication",
+    "technical-standard", "test", "trademark", "translation", "undefined", "website",
+    "working-paper"
 ]
-work_type_choices = [(v, v.replace('_', ' ').title()) for v in WORK_TYPES]
+work_type_choices = [(v, v.replace('-', ' ').title()) for v in WORK_TYPES]
 CITATION_TYPES = [
-    "BIBTEX", "FORMATTED_APA", "FORMATTED_CHICAGO", "FORMATTED_HARVARD", "FORMATTED_IEEE",
-    "FORMATTED_MLA", "FORMATTED_UNSPECIFIED", "FORMATTED_VANCOUVER", "RIS"
+    "bibtex", "formatted-apa", "formatted-chicago", "formatted-harvard", "formatted-ieee",
+    "formatted-mla", "formatted-unspecified", "formatted-vancouver", "ris"
 ]
 PROPERTY_TYPES = ["URL", "NAME", "KEYWORD", "COUNTRY"]
-citation_type_choices = [(v, v.replace('_', ' ').title()) for v in CITATION_TYPES]
+citation_type_choices = [(v, v.replace('-', ' ').title()) for v in CITATION_TYPES]
 
 country_choices = [(c.alpha_2, c.name) for c in countries]
 country_choices.sort(key=lambda e: e[1])
@@ -3115,7 +3115,7 @@ class WorkRecord(RecordModel):
 
             visibility = val(row, 22)
             if visibility:
-                visibility = visibility.upper()
+                visibility = visibility.replace('_', '-').lower()
 
             invitee = dict(
                 identifier=val(row, 25),
@@ -3130,7 +3130,7 @@ class WorkRecord(RecordModel):
             title = val(row, 0)
             external_id_type = val(row, 17, "").lower()
             external_id_value = val(row, 18)
-            external_id_relationship = val(row, 20, "").upper()
+            external_id_relationship = val(row, 20, "").replace('_', '-').lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
@@ -3162,7 +3162,7 @@ class WorkRecord(RecordModel):
             if is_active:
                 is_enqueue = is_active
 
-            work_type = val(row, 5)
+            work_type = val(row, 5, "").replace('_', '-').lower()
             if not work_type:
                 raise ModelException(
                     f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}")
@@ -3180,7 +3180,7 @@ class WorkRecord(RecordModel):
             publication_date = val(row, 9)
             citation_type = val(row, 7)
             if citation_type:
-                citation_type = citation_type.upper()
+                citation_type = citation_type.replace('_', '-').lower()
 
             if publication_date:
                 publication_date = PartialDate.create(publication_date)
@@ -3284,9 +3284,11 @@ class WorkRecord(RecordModel):
                     short_description = r.get("short-description")
                     citation_type = r.get("citation", "citation-type")
                     if citation_type:
-                        citation_type = citation_type.strip().upper()
+                        citation_type = citation_type.strip().replace('_', '-').lower()
                     citation_value = r.get("citation", "citation-value")
                     rec_type = r.get("type")
+                    if rec_type:
+                        rec_type = rec_type.strip().replace('_', '-').lower()
                     url = r.get("url", "value")
                     language_code = r.get("language-code")
                     country = r.get("country", "value")
@@ -3328,7 +3330,7 @@ class WorkRecord(RecordModel):
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
                             if visibility:
-                                visibility = visibility.upper()
+                                visibility = visibility.replace('_', '-').lower()
 
                             WorkInvitee.create(
                                 record=record,
@@ -3366,9 +3368,14 @@ class WorkRecord(RecordModel):
                     if external_ids_list:
                         for external_id in external_ids_list:
                             id_type = external_id.get("external-id-type")
+                            if id_type:
+                                id_type = id_type.lower()
                             value = external_id.get("external-id-value")
                             url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
+                            if relationship:
+                                relationship = relationship.replace('_', '-').lower()
+
                             WorkExternalId.create(
                                 record=record,
                                 type=id_type,

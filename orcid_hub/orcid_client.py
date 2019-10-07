@@ -494,8 +494,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
