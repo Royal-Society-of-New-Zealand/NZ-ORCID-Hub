@@ -58,17 +58,17 @@ EXTERNAL_ID_TYPES = ["agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid",
                      "wosuid", "zbl"]
 FUNDING_TYPES = ["award", "contract", "grant", "salary-award"]
 SUBJECT_TYPES = [
-    "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
-    "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE",
-    "DISSERTATION", "EDITED_BOOK", "ENCYCLOPEDIA_ENTRY", "INVENTION", "JOURNAL_ARTICLE",
-    "JOURNAL_ISSUE", "LECTURE_SPEECH", "LICENSE", "MAGAZINE_ARTICLE", "MANUAL",
-    "NEWSLETTER_ARTICLE", "NEWSPAPER_ARTICLE", "ONLINE_RESOURCE", "OTHER", "PATENT",
-    "REGISTERED_COPYRIGHT", "REPORT", "RESEARCH_TECHNIQUE", "RESEARCH_TOOL", "SPIN_OFF_COMPANY",
-    "STANDARDS_AND_POLICY", "SUPERVISED_STUDENT_PUBLICATION", "TECHNICAL_STANDARD", "TEST",
-    "TRADEMARK", "TRANSLATION", "UNDEFINED", "WEBSITE", "WORKING_PAPER"
+    "artistic-performance", "book", "book-chapter", "book-review", "conference-abstract",
+    "conference-paper", "conference-poster", "data-set", "dictionary-entry", "disclosure",
+    "dissertation", "edited-book", "encyclopedia-entry", "invention", "journal-article",
+    "journal-issue", "lecture-speech", "license", "magazine-article", "manual",
+    "newsletter-article", "newspaper-article", "online-resource", "other", "patent",
+    "registered-copyright", "report", "research-technique", "research-tool", "spin-off-company",
+    "standards-and-policy", "supervised-student-publication", "technical-standard", "test",
+    "trademark", "translation", "undefined", "website", "working-paper"
 ]
-REVIEWER_ROLES = ["CHAIR", "EDITOR", "MEMBER", "ORGANIZER", "REVIEWER"]
-REVIEW_TYPES = ["EVALUATION", "REVIEW"]
+REVIEWER_ROLES = ["chair", "editor", "member", "organizer", "reviewer"]
+REVIEW_TYPES = ["evaluation", "review"]
 review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
 RELATIONSHIPS = ["part-of", "self"]
 
@@ -1973,7 +1973,7 @@ class FundingRecord(RecordModel):
                         url=val(row, 28),
                         is_active=is_active,
                         disambiguated_id=val(row, 14) or org.disambiguated_id,
-                        disambiguation_source=val(row, 15) or org.disambiguation_source),
+                        disambiguation_source=val(row, 15, "").upper() or org.disambiguation_source),
                     invitee=invitee,
                     external_id=dict(
                         type=external_id_type,
@@ -2068,6 +2068,9 @@ class FundingRecord(RecordModel):
                                              "disambiguated-organization-identifier")
                     disambiguation_source = r.get("organization", "disambiguated-organization",
                                                   "disambiguation-source")
+                    if disambiguation_source:
+                        disambiguation_source = disambiguation_source.upper()
+
                     is_active = r.get("is-active").lower() in ['y', "yes", "1", "true"] if r.get("is-active") else False
                     if is_active:
                         is_enqueue = is_active
@@ -2170,7 +2173,7 @@ class FundingRecord(RecordModel):
 class PeerReviewRecord(RecordModel):
     """Peer Review record loaded from Json file for batch processing."""
 
-    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in SUBJECT_TYPES]
+    subject_type_choices = [(v, v.replace('-', ' ').title()) for v in SUBJECT_TYPES]
     reviewer_role_choices = [(v, v.title()) for v in REVIEWER_ROLES]
 
     task = ForeignKeyField(Task, backref="peer_review_records", on_delete="CASCADE")
@@ -2376,7 +2379,7 @@ class PeerReviewRecord(RecordModel):
 
             visibility = val(row, 28)
             if visibility:
-                visibility = visibility.upper()
+                visibility = visibility.replace('_', '-').lower()
 
             invitee = dict(
                 email=email,
@@ -2395,7 +2398,7 @@ class PeerReviewRecord(RecordModel):
 
             external_id_type = val(row, 29, "").lower()
             external_id_value = val(row, 30)
-            external_id_relationship = val(row, 32, "").upper()
+            external_id_relationship = val(row, 32, "").replace('_', '-').lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
@@ -2441,6 +2444,12 @@ class PeerReviewRecord(RecordModel):
                         f" (Convening Org Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
 
+            reviewer_role = val(row, 1, "").replace('_', '-').lower()
+            review_type = val(row, 3, "").replace('_', '-').lower()
+            subject_type = val(row, 10, "").replace('_', '-').lower()
+            subject_external_id_relationship = val(row, 8, "").replace('_', '-').lower()
+            convening_org_disambiguation_source = val(row, 21, "").upper()
+            subject_external_id_type = val(row, 5, "").lower()
             review_completion_date = val(row, 4)
 
             if review_completion_date:
@@ -2449,16 +2458,16 @@ class PeerReviewRecord(RecordModel):
                 dict(
                     peer_review=dict(
                         review_group_id=review_group_id,
-                        reviewer_role=val(row, 1),
+                        reviewer_role=reviewer_role,
                         review_url=val(row, 2),
-                        review_type=val(row, 3),
+                        review_type=review_type,
                         review_completion_date=review_completion_date,
-                        subject_external_id_type=val(row, 5),
+                        subject_external_id_type=subject_external_id_type,
                         subject_external_id_value=val(row, 6),
                         subject_external_id_url=val(row, 7),
-                        subject_external_id_relationship=val(row, 8),
+                        subject_external_id_relationship=subject_external_id_relationship,
                         subject_container_name=val(row, 9),
-                        subject_type=val(row, 10),
+                        subject_type=subject_type,
                         subject_name_title=val(row, 11),
                         subject_name_subtitle=val(row, 12),
                         subject_name_translated_title_lang_code=val(row, 13),
@@ -2469,7 +2478,7 @@ class PeerReviewRecord(RecordModel):
                         convening_org_region=val(row, 18),
                         convening_org_country=convening_org_country,
                         convening_org_disambiguated_identifier=val(row, 20),
-                        convening_org_disambiguation_source=val(row, 21),
+                        convening_org_disambiguation_source=convening_org_disambiguation_source,
                         is_active=is_active
                     ),
                     invitee=invitee,
@@ -2549,20 +2558,34 @@ class PeerReviewRecord(RecordModel):
 
                     review_group_id = data.get("review-group-id")
                     reviewer_role = data.get("reviewer-role")
+                    if reviewer_role:
+                        reviewer_role = reviewer_role.strip().replace('_', '-').lower()
+
                     review_url = data.get("review-url", "value")
                     review_type = data.get("review-type")
+                    if review_type:
+                        review_type = review_type.strip().replace('_', '-').lower()
+
                     review_completion_date = PartialDate.create(data.get("review-completion-date"))
                     subject_external_id_type = data.get("subject-external-identifier",
                                                         "external-id-type")
+                    if subject_external_id_type:
+                        subject_external_id_type = subject_external_id_type.strip().lower()
+
                     subject_external_id_value = data.get("subject-external-identifier",
                                                          "external-id-value")
                     subject_external_id_url = data.get("subject-external-identifier",
                                                        "external-id-url", "value")
                     subject_external_id_relationship = data.get("subject-external-identifier",
                                                                 "external-id-relationship")
+                    if subject_external_id_relationship:
+                        subject_external_id_relationship = subject_external_id_relationship.replace('_', '-').lower()
 
                     subject_container_name = data.get("subject-container-name", "value")
                     subject_type = data.get("subject-type")
+                    if subject_type:
+                        subject_type = subject_type.strip().replace('_', '-').lower()
+
                     subject_name_title = data.get("subject-name", "title", "value")
                     subject_name_subtitle = data.get("subject-name", "subtitle", "value")
                     subject_name_translated_title_lang_code = data.get(
@@ -2581,6 +2604,9 @@ class PeerReviewRecord(RecordModel):
                     convening_org_disambiguation_source = data.get("convening-organization",
                                                                    "disambiguated-organization",
                                                                    "disambiguation-source")
+                    if convening_org_disambiguation_source:
+                        convening_org_disambiguation_source = convening_org_disambiguation_source.upper()
+
                     is_active = data.get("is-active").lower() in ['y', "yes", "1", "true"] if data.get(
                         "is-active") else False
                     if is_active:
@@ -2623,7 +2649,7 @@ class PeerReviewRecord(RecordModel):
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
                             if visibility:
-                                visibility = visibility.upper()
+                                visibility = visibility.replace('_', '-').lower()
 
                             PeerReviewInvitee.create(
                                 record=record,
@@ -2643,10 +2669,16 @@ class PeerReviewRecord(RecordModel):
                     if external_ids_list:
                         for external_id in external_ids_list:
                             id_type = external_id.get("external-id-type")
+                            if id_type:
+                                id_type = id_type.lower()
+
                             value = external_id.get("external-id-value")
                             url = external_id.get("external-id-url").get("value") if \
                                 external_id.get("external-id-url") else None
                             relationship = external_id.get("external-id-relationship")
+                            if relationship:
+                                relationship = relationship.replace('_', '-').lower()
+
                             PeerReviewExternalId.create(
                                 record=record,
                                 type=id_type,
