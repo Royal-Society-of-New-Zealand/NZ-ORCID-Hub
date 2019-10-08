@@ -499,8 +499,6 @@ class TaskList(TaskResource, AppResourceList):
             enum:
               - true
               - false
-              - yes
-              - no
               - 1
               - 0
           - in: query
