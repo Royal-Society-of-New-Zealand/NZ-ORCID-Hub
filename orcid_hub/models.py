@@ -4110,6 +4110,8 @@ class ResourceRecord(RecordModel, Invitee):
                                   override=True,
                                   skip_schema_validation=True,
                                   org=org or current_user.organisation,
+                                  task=task,
+                                  task_id=task_id,
                                   task_type=TaskType.RESOURCE,
                                   version="3.0")
 
@@ -4136,12 +4138,11 @@ class MessageRecord(RecordModel):
     def load(cls, data, task=None, task_id=None, filename=None, override=True,
              skip_schema_validation=False, org=None, task_type=None, version="3.0"):
         """Load ORCID message record task form JSON/YAML."""
-        if isinstance(data, str):
-            data = json.loads(data) if filename.lower().endswith(".json") else yaml.load(data)
+        data = load_yaml_json(filename=filename, source=data)
         if org is None:
             org = current_user.organisation if current_user else None
-        if not skip_schema_validation:
-            jsonschema.validate(data, schemas.affiliation_task)
+        # if not skip_schema_validation:
+        #     jsonschema.validate(data, schemas.affiliation_task)
         if not task and task_id:
             task = Task.select().where(Task.id == task_id).first()
         if not task and "id" in data and override and task_type:
@@ -4151,7 +4152,10 @@ class MessageRecord(RecordModel):
                     Task.task_type == task_type,
                     Task.is_raw).first()
         if not filename:
-            filename = (data.get("filename") or datetime.utcnow().isoformat(timespec="seconds"))
+            if isinstance(data, dict):
+                filename = data.get("filename")
+            if not filename:
+                filename = datetime.utcnow().isoformat(timespec="seconds")
         if task and not task_type:
             task_type = task.task_type
         if not task_type and isinstance(data, dict) and "type" in data:
@@ -4178,15 +4182,28 @@ class MessageRecord(RecordModel):
                         raise ModelException(f"Missing invitees, expected to have at lease one: {r}")
                     del(r["invitees"])
 
+                    rec_id = r.get("id")
+                    if rec_id:
+                        rec_id = int(rec_id)
+                        del(r["id"])
+
+                    is_active = r.get("is-active")
+                    if "is-active" in r:
+                        del(r["is-active"])
+
                     message = json.dumps(r, indent=2)
-                    if "id" in r and not override:
-                        rec = cls.get(int(r["id"]))
+                    if rec_id and not override:
+                        rec = cls.get(int(rec_id))
                         if rec.message != message:
                             rec.message = message
                         if rec.version != version:
                             rec.version = version
+                        rec.is_active = is_active
                     else:
-                        rec = cls.create(task=task, version=version, message=message)
+                        rec = cls.create(task=task,
+                                         version=version,
+                                         message=message,
+                                         is_active=is_active)
                     rec.invitees.add([
                         Invitee.create(
                             orcid=i.get("ORCID-iD"),
@@ -4212,6 +4229,7 @@ class MessageRecord(RecordModel):
     def to_dict(self, *args, **kwargs):
         """Map the common record parts to dict."""
         d = json.loads(self.message)
+        d["id"] = self.id
         d["invitees"] = [i.to_export_dict() for i in self.invitees]
         return d
 
