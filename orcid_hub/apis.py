@@ -499,8 +499,6 @@ class TaskList(TaskResource, AppResourceList):
             enum:
               - true
               - false
-              - yes
-              - no
               - 1
               - 0
           - in: query
@@ -2561,7 +2559,8 @@ class ResourceListAPI(TaskResource):
 
     def load_from_json(self, task=None):
         """Load records form the JSON upload."""
-        return ResourceRecord.load_from_json(
+        # breakpoint()
+        return ResourceRecord.load(
             request.data.decode("utf-8"), filename=self.filename, task=task)
 
     def post(self, *args, **kwargs):

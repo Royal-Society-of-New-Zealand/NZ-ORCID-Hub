@@ -737,7 +737,7 @@ def test_base_model_to_dict():
 
 
 def test_other_names(models):
-    org = Organisation.select().first()
+    org = Organisation.get()
     raw_data0 = readup_test_data("othernames.json", "r")
     data0 = load_yaml_json("othernames000.json", raw_data0)
     assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
@@ -746,10 +746,10 @@ def test_other_names(models):
     data0 = load_yaml_json(None, source=raw_data0)
     assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
     task0 = PropertyRecord.load_from_json(filename="othernames000.json", source=raw_data0, org=org, file_property_type="NAME")
-    data = task0.to_dict()
+    data = task0.to_dict(recurse=True)
     raw_data = json.dumps(data, cls=JSONEncoder)
     task = PropertyRecord.load_from_json(filename="othernames001.json", source=raw_data, org=org, file_property_type="NAME")
-    assert len(data0) == len(task.to_dict()["records"])
+    assert len(data0) == len(task.to_dict(recurse=True)["records"])
 
 
 def test_researcher_urls(models):
@@ -758,10 +758,10 @@ def test_researcher_urls(models):
     data0 = load_yaml_json("researchurls.json", raw_data0)
     assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
     task0 = PropertyRecord.load_from_json(filename="researchurls000.json", source=raw_data0, org=org, file_property_type="URL")
-    data = task0.to_dict()
+    data = task0.to_dict(recurse=True)
     raw_data = json.dumps(data, cls=JSONEncoder)
     task = PropertyRecord.load_from_json(filename="researchurls001.json", source=raw_data, org=org, file_property_type="URL")
-    assert len(data0) == len(task.to_dict()["records"])
+    assert len(data0) == len(task.to_dict(recurse=True)["records"])
 
 
 def test_load_resources_from_csv(models):

@@ -1632,80 +1632,90 @@ def test_resource_api(client, mocker):
     assert len(data["records"]) == 2
     assert data["filename"] == "resources001.csv"
 
-    # del (data["id"])
-    # resp = client.post("/api/v1/properties/?filename=properties333.json",
-    #                    headers=dict(authorization=f"Bearer {access_token}"),
-    #                    content_type="application/json",
-    #                    data=json.dumps(data))
-    # assert resp.status_code == 200
-    # assert Task.select().count() == 2
+    del (data["id"])
+    resp = client.post("/api/v1/resources/?filename=resources333.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(data))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
 
-    # records = data["records"]
-    # resp = client.post("/api/v1/properties/?filename=properties444.json",
-    #                    headers=dict(authorization=f"Bearer {access_token}"),
-    #                    content_type="application/json",
-    #                    data=json.dumps(records))
-    # assert resp.status_code == 200
-    # assert Task.select().count() == 3
+    records = data["records"]
+    resp = client.post("/api/v1/resources/?filename=resources444.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+    assert Task.get(resp.json["id"]).records.count() == 2
 
-    # resp = client.post("/api/v1/properties",
-    #                    headers=dict(authorization=f"Bearer {access_token}"),
-    #                    content_type="application/json",
-    #                    data=json.dumps(records))
-    # assert resp.status_code == 200
-    # assert Task.select().count() == 4
+    resp = client.post("/api/v1/resources",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+    assert Task.get(resp.json["id"]).records.count() == 2
 
-    # resp = client.post(f"/api/v1/properties/{task_id}",
-    #                    headers=dict(authorization=f"Bearer {access_token}"),
-    #                    content_type="application/json",
-    #                    data=json.dumps(records))
-    # assert resp.status_code == 200
-    # assert Task.select().count() == 4
+    task_id = resp.json["id"]
+    resp = client.post(f"/api/v1/resources/{task_id}",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+    assert Task.get(resp.json["id"]).records.count() == 2
 
-    # resp = client.head(f"/api/v1/properties/{task_id}",
-    #                    headers=dict(authorization=f"Bearer {access_token}"))
-    # assert "Last-Modified" in resp.headers
-    # assert resp.status_code == 200
+    resp = client.head(f"/api/v1/resources/{task_id}",
+                       headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+    assert resp.status_code == 200
 
-    # resp = client.delete(f"/api/v1/properties/{task_id}",
-    #                      headers=dict(authorization=f"Bearer {access_token}"))
+    resp = client.delete(f"/api/v1/resources/{task_id}",
+                         headers=dict(authorization=f"Bearer {access_token}"))
 
-    # resp = client.post("/api/v1/properties/?filename=properties333.csv",
-    #                    headers=dict(authorization=f"Bearer {access_token}"),
-    #                    content_type="text/csv",
-    #                    data=open(os.path.join(data_path, "properties.csv")).read())
-    # assert resp.status_code == 200
-    # assert Task.select().count() == 4
+    resp = client.post("/api/v1/resources/?filename=resources333.csv",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="text/csv",
+                       data=utils.readup_test_data("resources.csv", mode="r"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+    data = resp.json
+    records = data["records"]
+    task_id = data["id"]
+    assert Task.get(task_id).records.count() == 2
 
-    # resp = client.post("/api/v1/properties/?filename=properties333.json",
-    #                    headers=dict(authorization=f"Bearer {access_token}"),
-    #                    content_type="application/json",
-    #                    data=open(os.path.join(data_path, "properties.json")).read())
-    # assert resp.status_code == 200
-    # assert Task.select().count() == 5
-    # user = User.get(orcid="0000-0000-0000-00X3")
-    # OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
-    # get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record",
-    #                            return_value=utils.get_profile(user=user))
-    # send_email = mocker.patch("orcid_hub.utils.send_email")
-    # create_or_update_researcher_url = mocker.patch(
-    #           "orcid_hub.orcid_client.MemberAPIV3.create_or_update_researcher_url")
-    # create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_other_name")
-    # create_or_update_address = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_address")
-    # create_or_update_keyword = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_keyword")
-    # for r in records:
-    #     del(r["id"])
-    #     r["is-active"] = True
-    # resp = client.post("/api/v1/properties/?filename=properties777.json",
-    #                    headers=dict(authorization=f"Bearer {access_token}"),
-    #                    content_type="application/json",
-    #                    data=json.dumps(records))
-    # assert resp.status_code == 200
-    # assert Task.select().count() == 6
-    # assert UserInvitation.select().count() == 7
-    # get_profile.assert_called()
-    # send_email.assert_called()
-    # create_or_update_researcher_url.assert_called_once()
-    # create_or_update_other_name.assert_called_once()
-    # create_or_update_keyword.assert_called_once()
-    # create_or_update_address.assert_called()
+    resp = client.post("/api/v1/resources/?filename=resources333.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=utils.readup_test_data("resources.json"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 5
+    user = User.get(orcid="0000-0000-0000-00X3")
+    OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record",
+                 return_value=utils.get_profile(user=user))
+    get_resources = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_resources",
+                                 return_value=utils.get_resources(user=user))
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.put")
+    post = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.post")
+
+    for r in records:
+        r["is-active"] = True
+        r["invitees"].append({
+            "email": "new-researcher@org999.edu",
+            "first-name": "FN",
+            "last-name": "LN"
+        })
+    resp = client.post("/api/v1/resources/?filename=resources777.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 6
+    assert UserInvitation.select().count() == 1
+    get_resources.assert_called()
+    send_email.assert_called()
+    post.assert_called()

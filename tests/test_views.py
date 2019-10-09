@@ -4503,6 +4503,7 @@ def test_research_resources(client, mocker):
     for export_type in ["csv", "tsv", "json", "yaml"]:
         resp = client.get(f"/admin/resourcerecord/export/{export_type}/?task_id={task.id}")
         file_name = f"resources_reimport.{export_type}"
+
         resp = client.post(
             "/load/task/RESOURCE",
             data={"file_": (BytesIO(resp.data), file_name)},
