@@ -2761,7 +2761,7 @@ class PropertyRecord(RecordModel):
     """Researcher Url record loaded from Json file for batch processing."""
 
     task = ForeignKeyField(Task, backref="property_records", on_delete="CASCADE")
-    type = CharField(verbose_name="Propery Type", choices=property_type_choices)
+    type = CharField(verbose_name="Property Type", choices=property_type_choices)
     display_index = IntegerField(null=True)
     name = CharField(null=True,
                      max_length=255,
@@ -2897,6 +2897,9 @@ class PropertyRecord(RecordModel):
                             "Wrong number of fields. Expected at least fields ( content or value or country and "
                             f"email address or another unique identifier): {row}")
 
+                    visibility = val(row, 8)
+                    if visibility:
+                        visibility = visibility.replace('_', '-').lower()
                     rr = cls(
                         task=task,
                         type=property_type,
@@ -2909,7 +2912,7 @@ class PropertyRecord(RecordModel):
                         last_name=last_name,
                         orcid=orcid,
                         put_code=val(row, 7),
-                        visibility=val(row, 8))
+                        visibility=visibility)
                     validator = ModelValidator(rr)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
@@ -2978,6 +2981,8 @@ class PropertyRecord(RecordModel):
                     orcid = r.get_orcid("ORCID-iD") or r.get_orcid("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
+                    if visibility:
+                        visibility = visibility.replace('_', '-').lower()
                     is_active = bool(r.get("is-active"))
                     if is_active:
                         is_enqueue = is_active

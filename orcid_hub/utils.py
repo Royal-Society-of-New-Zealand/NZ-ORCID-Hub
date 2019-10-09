@@ -844,8 +844,7 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                                     default='') or '').lower() == record.value.lower())):  # noqa: E129
                     record.put_code = put_code
                     record.orcid = orcid
-                    if not record.visibility:
-                        record.visibility = r.get("visibility")
+                    record.visibility = r.get("visibility")
                     if not record.display_index:
                         record.display_index = r.get("display-index")
 
