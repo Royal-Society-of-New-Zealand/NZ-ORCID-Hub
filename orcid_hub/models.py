@@ -3,7 +3,6 @@
 
 import copy
 import csv
-import json
 import jsonschema
 import os
 import random
@@ -23,6 +22,7 @@ from urllib.parse import urlencode
 import chardet
 import validators
 import yaml
+from flask import json
 from flask_login import UserMixin, current_user
 from peewee import JOIN, BlobField, SqliteDatabase
 from peewee import BooleanField as BooleanField_

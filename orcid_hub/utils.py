@@ -2574,7 +2574,8 @@ def activate_all_records(task):
             status = "The record was activated at " + datetime.now().isoformat(timespec="seconds")
             count = task.record_model.update(is_active=True, status=status).where(
                 task.record_model.task == task,
-                task.record_model.is_active == False).execute()  # noqa: E712
+                (task.record_model.is_active.is_null() |
+                 (task.record_model.is_active == False))).execute()  # noqa: E712
             task.status = "ACTIVE"
             task.save()
             enqueue_task_records(task)
