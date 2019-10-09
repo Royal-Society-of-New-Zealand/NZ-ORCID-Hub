@@ -651,7 +651,6 @@ class Organisation(AuditedModel):
         null=True,
         verbose_name="Append ORCID iD",
         help_text="Append the ORCID iD of the user the Webhook URL")
-    webhook_apikey = CharField(null=False, max_length=20)
     email_notifications_enabled = BooleanField(default=False, null=True)
     notification_email = CharField(max_length=100, null=True, verbose_name="Notification Email Address")
 
