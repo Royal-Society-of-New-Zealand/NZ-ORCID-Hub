@@ -40,7 +40,7 @@ logger.addHandler(logging.StreamHandler())
 EDU_CODES = {"student", "edu", "education"}
 EMP_CODES = {"faculty", "staff", "emp", "employment"}
 DST_CODES = {"distinction", "dist", "dst"}
-INV_POS_CODES = {"invited position", "position"}
+INV_POS_CODES = {"invited-position", "position"}
 QUA_CODES = {"qualification", "qua"}
 MEM_CODES = {"membership", "mem"}
 SER_CODES = {"service", "ser"}
@@ -302,8 +302,9 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
 
                 if record.title and record.type and (r.get(
                     "title", "title", "value", default='') or '').lower() == record.title.lower() and (r.get(
-                        "type", default='') or '').replace('-', '_').lower() == record.type.lower():
+                        "type", default='') or '').lower() == record.type.lower():
                     invitee.put_code = put_code
+                    invitee.visibility = r.get("visibility")
                     invitee.save()
                     taken_put_codes.add(put_code)
                     app.logger.debug(
@@ -465,9 +466,10 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
 
                 if record.title and record.type and record.org_name and (r.get(
                     "title", "title", "value", default='') or '').lower() == record.title.lower() and (r.get(
-                        "type", default='') or '').replace('-', '_').lower() == record.type.lower() and (r.get(
+                        "type", default='') or '').lower() == record.type.lower() and (r.get(
                         "organization", "name", default='') or '').lower() == record.org_name.lower():
                     invitee.put_code = put_code
+                    invitee.visibility = r.get("visibility")
                     invitee.save()
                     taken_put_codes.add(put_code)
                     app.logger.debug(
@@ -958,8 +960,7 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                                     default='') or '').lower() == record.value.lower())):  # noqa: E129
                     record.put_code = put_code
                     record.orcid = orcid
-                    if not record.visibility:
-                        record.visibility = r.get("visibility")
+                    record.visibility = r.get("visibility")
                     if not record.display_index:
                         record.display_index = r.get("display-index")
 
@@ -1047,14 +1048,12 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                # ORCID is not consistent with use of hiphens and underscores in external-id-value.
-                if (record.type and record.value and (r.get("external-id-type", default='') or '').replace(
-                    '-', '').replace('_', '').lower() == record.type.replace('-', '').replace('_', '').lower() and (
+                if (record.type and record.value and (r.get(
+                    "external-id-type", default='') or '').lower() == record.type.lower() and (
                         r.get("external-id-value", default='') or '').lower() == record.value.lower()):
                     record.put_code = put_code
                     record.orcid = orcid
-                    if not record.visibility:
-                        record.visibility = r.get("visibility")
+                    record.visibility = r.get("visibility")
                     if not record.display_index:
                         record.display_index = r.get("display-index")
 
@@ -1227,8 +1226,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     ar.save()
                     continue
 
-                no_orcid_call = any(
-                    match_put_code(affiliations[at], ar) for at in orcid_affiliation_types)
+                no_orcid_call = match_put_code(affiliations.get(str(affiliation).lower()), ar)
                 if no_orcid_call:
                     ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:

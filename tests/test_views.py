@@ -2215,7 +2215,7 @@ def test_edit_record(request_ctx):
     with patch.object(
             orcid_client.MemberAPIV3,
             "view_employmentv3",
-            MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
+            MagicMock(return_value=Mock(data="""{"visibility": "public"}"""))
     ) as view_employment, request_ctx(f"/section/{user.id}/EMP/1212/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2225,7 +2225,7 @@ def test_edit_record(request_ctx):
     with patch.object(
             orcid_client.MemberAPIV3,
             "view_educationv3",
-            MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
+            MagicMock(return_value=Mock(data="""{"visibility": "public"}"""))
     ) as view_education, request_ctx(f"/section/{user.id}/EDU/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2235,9 +2235,9 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_fundingv3",
-        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "external-ids": {"external-id": [
+        MagicMock(return_value=Mock(data="""{"visibility": "public", "external-ids": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
-             "external-id-relationship": "SELF"}]}}"""))
+             "external-id-relationship": "self"}]}}"""))
     ) as view_funding, request_ctx(f"/section/{user.id}/FUN/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2247,11 +2247,11 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_peer_reviewv3",
-        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "review-url":{"value":"url"},
+        MagicMock(return_value=Mock(data="""{"visibility": "public", "review-url":{"value":"url"},
         "review-type":"review", "completion-date":{"year":{"value":"2019"}},"review-group-id":"issn:3849221112323779",
         "review-identifiers": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
-             "external-id-relationship": "SELF"}]}}"""))
+             "external-id-relationship": "self"}]}}"""))
     ) as view_peer_review, request_ctx(f"/section/{user.id}/PRR/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2261,10 +2261,10 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_workv3",
-        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "type":"conference-abstract", "publication-date":{
+        MagicMock(return_value=Mock(data="""{"visibility": "public", "type":"conference-abstract", "publication-date":{
         "year":{"value":"2019"}}, "journal-title":{"value":"book title"},"external-ids": {"external-id": [
             {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
-             "external-id-relationship": "SELF"}]}}"""))
+             "external-id-relationship": "self"}]}}"""))
     ) as view_work, request_ctx(f"/section/{user.id}/WOR/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2274,7 +2274,7 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_researcher_urlv3",
-        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
+        MagicMock(return_value=Mock(data="""{"visibility": "public"}"""))
     ) as view_researcher_url, request_ctx(f"/section/{user.id}/RUR/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2284,7 +2284,7 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_other_namev3",
-        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "content": "xyz"}"""))
+        MagicMock(return_value=Mock(data="""{"visibility": "public", "content": "xyz"}"""))
     ) as view_other_name, request_ctx(f"/section/{user.id}/ONR/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2294,7 +2294,7 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV3,
         "view_keywordv3",
-        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
+        MagicMock(return_value=Mock(data="""{"visibility": "public"}"""))
     ) as view_keyword, request_ctx(f"/section/{user.id}/KWR/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2312,7 +2312,7 @@ def test_edit_record(request_ctx):
                     "org_name": "TEST",
                     "disambiguation_source": "RINGGOLD",
                     "disambiguated_id": "test",
-                    "visibility": "PUBLIC"
+                    "visibility": "public"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2331,7 +2331,7 @@ def test_edit_record(request_ctx):
                     "country": "NZ",
                     "org_name": "TEST",
                     "funding_title": "TEST",
-                    "funding_type": "AWARD",
+                    "funding_type": "award",
                     "funding_translated_title": "HI",
                     "translated_title_language": "hi",
                     "total_funding_amount": "1000",
@@ -2345,7 +2345,7 @@ def test_edit_record(request_ctx):
                     "funding_description": "desc",
                     "url": "url",
                     "grant_relationship": "SELF",
-                    "visibility": "PUBLIC"
+                    "visibility": "public"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2360,12 +2360,12 @@ def test_edit_record(request_ctx):
                     "city": "Auckland",
                     "country": "NZ",
                     "org_name": "TEST",
-                    "reviewer_role": "REVIEWER",
-                    "review_type": "REVIEW",
+                    "reviewer_role": "reviewer",
+                    "review_type": "review",
                     "review_completion_date": PartialDate.create("2003-07-14"),
                     "review_group_id": "Test",
-                    "subject_external_identifier_relationship": "PART_OF",
-                    "subject_type": "OTHER",
+                    "subject_external_identifier_relationship": "part-of",
+                    "subject_type": "other",
                     "subject_translated_title_language_code": "en",
                     "grant_type": "https://test.com",
                     "grant_url": "https://test.com",
@@ -2381,8 +2381,8 @@ def test_edit_record(request_ctx):
                     "disambiguation_source": "RINGGOLD",
                     "disambiguated_id": "test",
                     "grant_number": "TEST123",
-                    "grant_relationship": "SELF",
-                    "visibility": "PUBLIC"
+                    "grant_relationship": "self",
+                    "visibility": "public"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2398,22 +2398,22 @@ def test_edit_record(request_ctx):
                     "country": "NZ",
                     "subtitle": "TEST",
                     "title": "test",
-                    "work_type": "MANUAL",
+                    "work_type": "manual",
                     "publication_date": PartialDate.create("2003-07-14"),
                     "translated_title_language_code": "en",
                     "journal_title": "test",
                     "short_description": "OTHER",
-                    "citation_type": "FORMATTED_UNSPECIFIED",
+                    "citation_type": "formatted-unspecified",
                     "citation": "test",
                     "grant_number": "TEST123",
-                    "grant_relationship": "SELF",
+                    "grant_relationship": "self",
                     "grant_type": "https://test.com",
                     "grant_url": "https://test.com",
                     "url": "test",
                     "disambiguation_source": "RINGGOLD",
                     "disambiguated_id": "test",
                     "language_code": "en",
-                    "visibility": "PUBLIC"
+                    "visibility": "public"
                 }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2427,7 +2427,7 @@ def test_edit_record(request_ctx):
                 data={
                     "name": "xyz",
                     "value": "https://www.xyz.com",
-                    "visibility": "PUBLIC",
+                    "visibility": "public",
                     "display_index": "FIRST",
                 }) as ctx:
         login_user(admin)
@@ -2441,7 +2441,7 @@ def test_edit_record(request_ctx):
                 method="POST",
                 data={
                     "content": "xyz",
-                    "visibility": "PUBLIC",
+                    "visibility": "public",
                     "display_index": "FIRST",
                 }) as ctx:
         login_user(admin)
@@ -2455,7 +2455,7 @@ def test_edit_record(request_ctx):
                 method="POST",
                 data={
                     "content": "xyz",
-                    "visibility": "PUBLIC",
+                    "visibility": "public",
                     "display_index": "FIRST",
                 }) as ctx:
         login_user(admin)
@@ -3171,14 +3171,14 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
             "file_": (
                 BytesIO(
                     """Review Group Id,Reviewer Role,Review Url,Review Type,Review Completion Date,Subject External Id Type,Subject External Id Value,Subject External Id Url,Subject External Id Relationship,Subject Container Name,Subject Type,Subject Name Title,Subject Name Subtitle,Subject Name Translated Title Lang Code,Subject Name Translated Title,Subject Url,Convening Org Name,Convening Org City,Convening Org Region,Convening Org Country,Convening Org Disambiguated Identifier,Convening Org Disambiguation Source,Email,ORCID iD,Identifier,First Name,Last Name,Put Code,Visibility,External Id Type,Peer Review Id,External Id Url,External Id Relationship
-issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number,sdsds,https://www.grant-url.com2,PART_OF_incorrect""".encode()     # noqa: E501
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number,sdsds,https://www.grant-url.com2,part-of-incorrect""".encode()     # noqa: E501
                 ),
                 "peer_review.csv",
             ),
         },
         follow_redirects=True)
     assert resp.status_code == 200
-    assert b"Invalid External Id Relationship 'PART_OF_INCORRECT'" in resp.data
+    assert b"Invalid External Id Relationship 'part-of-incorrect'" in resp.data
 
 
 def test_load_funding_csv(client, mocker):
@@ -3249,7 +3249,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
 
     export_resp = client.get(f"/admin/fundingrecord/export/json/?task_id={task.id}")
     assert export_resp.status_code == 200
-    assert b'"type": "CONTRACT"' in export_resp.data
+    assert b'"type": "contract"' in export_resp.data
     assert b'"title": {"title": {"value": "THIS IS A TITLE"}' in export_resp.data
     assert b'"title": {"title": {"value": "THIS IS A TITLE #2"}' in export_resp.data
 
@@ -3473,7 +3473,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
             "email": "test@test.test.test.org",
             "first_name": "TEST FN",
             "last_name": "TEST LN",
-            "visibility": "PUBLIC",
+            "visibility": "public",
         })
     assert record.invitees.count() > invitee_count
 
@@ -3483,7 +3483,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
         data={
             "email": "test_new@test.test.test.org",
             "first_name": invitee.first_name + "NEW",
-            "visibility": "PUBLIC",
+            "visibility": "public",
         })
     assert record.invitees.count() > invitee_count
     assert record.invitees.first().first_name == invitee.first_name + "NEW"
@@ -3498,7 +3498,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
         data={
             "email": "contributor123@test.test.test.org",
             "name": "FN LN",
-            "role": "ROLE",
+            "role": "role",
         })
     assert record.contributors.count() > contributor_count
 
@@ -3532,7 +3532,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
         follow_redirects=True,
         data={
             "title": "FUNDING TITLE",
-            "type": "AWARD",
+            "type": "award",
             "_continue_editing": "Save and Continue Editing",
         })
     assert Task.get(task.id).records.count() == record_count + 1
@@ -3554,13 +3554,13 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
         data={
             "file_": (
                 BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
-    XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF_incorrect"""),  # noqa: E501
+    XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF-incorrect"""),  # noqa: E501
                 "fundings_ex.csv",
             ),
         },
         follow_redirects=True)
     assert resp.status_code == 200
-    assert b"Invalid External Id Relationship 'SELF_INCORRECT'" in resp.data
+    assert b"Invalid External Id Relationship 'self-incorrect'" in resp.data
     resp = client.post(
         "/load/researcher/funding",
         data={
@@ -3624,7 +3624,7 @@ def test_researcher_work(client, mocker):
     assert resp.status_code == 200
     # Work file successfully loaded.
     assert b"WORK TITLE #1" in resp.data
-    assert b"BOOK_CHAPTER" in resp.data
+    assert b"book-chapter" in resp.data
     task = Task.get(filename="work001.json")
     assert task.records.count() == 1
     rec = task.records.first()
@@ -3695,8 +3695,8 @@ def test_researcher_work(client, mocker):
     },
     "journal-title": {"value": "This is a journal title"},
     "short-description": "xyz this is short description",
-    "citation": {"citation-type": "formatted_unspecified", "citation-value": "This is citation value"},
-    "type": "BOOK_CHAPTER",
+    "citation": {"citation-type": "formatted-unspecified", "citation-value": "This is citation value"},
+    "type": "book-chapter",
     "publication-date": {
       "year": {"value": "2001"},
       "month": {"value": "1"},
@@ -3707,7 +3707,7 @@ def test_researcher_work(client, mocker):
           "external-id-type": "bibcode",
           "external-id-value": "sdsds",
           "external-id-url": {"value": "http://url.edu/abs/ghjghghj"},
-          "external-id-relationship": "SELF"
+          "external-id-relationship": "self"
         }
       ]
     },
@@ -3738,7 +3738,7 @@ def test_researcher_work(client, mocker):
         follow_redirects=True)
     assert resp.status_code == 200
     # Work file successfully loaded.
-    assert b"FORMATTED_UNSPECIFIED" in resp.data
+    assert b"formatted-unspecified" in resp.data
     task = Task.get(filename="work002.json")
     assert task.records.count() == 1
     rec = task.records.first()
@@ -3781,7 +3781,7 @@ def test_researcher_work(client, mocker):
 
     export_resp = client.get(f"/admin/workrecord/export/json/?task_id={task.id}")
     assert export_resp.status_code == 200
-    assert b"BOOK_CHAPTER" in export_resp.data
+    assert b"book-chapter" in export_resp.data
     assert b'journal-title": {"value": "This is a journal title"}' in export_resp.data
 
     resp = client.post(
@@ -3881,7 +3881,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
             "email": "test@test.test.test.org",
             "first_name": "TEST FN",
             "last_name": "TEST LN",
-            "visibility": "PUBLIC",
+            "visibility": "public",
         })
     assert record.invitees.count() > invitee_count
 
@@ -3891,7 +3891,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
         data={
             "email": "test_new@test.test.test.org",
             "first_name": invitee.first_name + "NEW",
-            "visibility": "PUBLIC",
+            "visibility": "public",
         })
     assert record.invitees.first().first_name == invitee.first_name + "NEW"
     assert record.invitees.first().email == "test_new@test.test.test.org"
@@ -3939,7 +3939,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
         data={
             "type": "grant_number",
             "value": "EXTERNAL ID VALUE",
-            "relationship": "SELF",
+            "relationship": "self",
         })
     assert record.external_ids.count() == 1
 
@@ -3949,7 +3949,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
         data={
             "type": "grant_number",
             "value": "EXTERNAL ID VALUE 123",
-            "relationship": "SELF",
+            "relationship": "self",
         })
     assert record.external_ids.first().value == "EXTERNAL ID VALUE 123"
 
@@ -3997,7 +3997,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
         },
         follow_redirects=True)
     assert resp.status_code == 200
-    assert b"Invalid External Id Relationship 'SELF_INCORRECT'" in resp.data
+    assert b"Invalid External Id Relationship 'self-incorrect'" in resp.data
 
 
 def test_peer_reviews(client):
@@ -4019,7 +4019,7 @@ def test_peer_reviews(client):
     "identifier":"00002",
     "email": "contributor2@mailinator.com",
     "first-name": "Bob", "last-name": "Contributor 2"}],
-  "reviewer-role": "REVIEWER",
+  "reviewer-role": "reviewer",
   "review-identifiers": {
     "external-id": [{
       "external-id-type": "source-work-id",
@@ -4027,13 +4027,13 @@ def test_peer_reviews(client):
       "external-id-url": {
         "value": "https://localsystem.org/1234"
       },
-      "external-id-relationship": "SELF"
+      "external-id-relationship": "self"
     }]
   },
   "review-url": {
     "value": "https://alt-url.com"
   },
-  "review-type": "REVIEW",
+  "review-type": "review",
   "review-completion-date": {
     "year": {
       "value": "2012"
@@ -4052,12 +4052,12 @@ def test_peer_reviews(client):
     "external-id-url": {
       "value": "https://doi.org/10.1087/20120404"
     },
-    "external-id-relationship": "SELF"
+    "external-id-relationship": "self"
   },
   "subject-container-name": {
     "value": "Journal title"
   },
-  "subject-type": "JOURNAL_ARTICLE",
+  "subject-type": "journal-article",
   "subject-name": {
     "title": {
       "value": "Name of the paper reviewed"
@@ -4134,7 +4134,7 @@ def test_peer_reviews(client):
 
     resp = client.get(f"/admin/peerreviewrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
-    assert b'"review-type": "REVIEW"' in resp.data
+    assert b'"review-type": "review"' in resp.data
     assert b'"invitees": [' in resp.data
     assert b'"review-group-id": "issn:12131"' in resp.data
 
@@ -4413,7 +4413,7 @@ def test_load_other_ids(client):
             type="grant_number",
             value="12323",
             url="http://url.edu/abs/ghjghghj",
-            relationship="SELF",
+            relationship="self",
             display_index="1234",
             email="test@test.com",
             first_name="FN",

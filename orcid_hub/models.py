@@ -46,50 +46,50 @@ ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-\.]\d+){,2}")
 
 
-AFFILIATION_TYPES = ["student", "education", "staff", "employment", "distinction", "position", "invited position",
+AFFILIATION_TYPES = ["student", "education", "staff", "employment", "distinction", "position", "invited-position",
                      "qualification", "membership", "service"]
 DISAMBIGUATION_SOURCES = ["RINGGOLD", "GRID", "FUNDREF", "ISNI"]
-VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
-visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
+VISIBILITIES = ["public", "private", "registered-only", "limited"]
+visibility_choices = [(v, v.replace('-', ' ').title()) for v in VISIBILITIES]
 EXTERNAL_ID_TYPES = ["agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba", "cienciaiul",
                      "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir", "isbn",
                      "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
-                     "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
+                     "pat", "pdb", "pmc", "pmid", "proposal-id", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
                      "wosuid", "zbl"]
-FUNDING_TYPES = ["AWARD", "CONTRACT", "GRANT", "SALARY_AWARD"]
+FUNDING_TYPES = ["award", "contract", "grant", "salary-award"]
 SUBJECT_TYPES = [
-    "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
-    "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE",
-    "DISSERTATION", "EDITED_BOOK", "ENCYCLOPEDIA_ENTRY", "INVENTION", "JOURNAL_ARTICLE",
-    "JOURNAL_ISSUE", "LECTURE_SPEECH", "LICENSE", "MAGAZINE_ARTICLE", "MANUAL",
-    "NEWSLETTER_ARTICLE", "NEWSPAPER_ARTICLE", "ONLINE_RESOURCE", "OTHER", "PATENT",
-    "REGISTERED_COPYRIGHT", "REPORT", "RESEARCH_TECHNIQUE", "RESEARCH_TOOL", "SPIN_OFF_COMPANY",
-    "STANDARDS_AND_POLICY", "SUPERVISED_STUDENT_PUBLICATION", "TECHNICAL_STANDARD", "TEST",
-    "TRADEMARK", "TRANSLATION", "UNDEFINED", "WEBSITE", "WORKING_PAPER"
+    "artistic-performance", "book", "book-chapter", "book-review", "conference-abstract",
+    "conference-paper", "conference-poster", "data-set", "dictionary-entry", "disclosure",
+    "dissertation", "edited-book", "encyclopedia-entry", "invention", "journal-article",
+    "journal-issue", "lecture-speech", "license", "magazine-article", "manual",
+    "newsletter-article", "newspaper-article", "online-resource", "other", "patent",
+    "registered-copyright", "report", "research-technique", "research-tool", "spin-off-company",
+    "standards-and-policy", "supervised-student-publication", "technical-standard", "test",
+    "trademark", "translation", "undefined", "website", "working-paper"
 ]
-REVIEWER_ROLES = ["CHAIR", "EDITOR", "MEMBER", "ORGANIZER", "REVIEWER"]
-REVIEW_TYPES = ["EVALUATION", "REVIEW"]
+REVIEWER_ROLES = ["chair", "editor", "member", "organizer", "reviewer"]
+REVIEW_TYPES = ["evaluation", "review"]
 review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
-RELATIONSHIPS = ["PART_OF", "SELF"]
+RELATIONSHIPS = ["part-of", "self"]
 
 WORK_TYPES = [
-    "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
-    "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE",
-    "DISSERTATION", "EDITED_BOOK", "ENCYCLOPEDIA_ENTRY", "INVENTION", "JOURNAL_ARTICLE",
-    "JOURNAL_ISSUE", "LECTURE_SPEECH", "LICENSE", "MAGAZINE_ARTICLE", "MANUAL",
-    "NEWSLETTER_ARTICLE", "NEWSPAPER_ARTICLE", "ONLINE_RESOURCE", "OTHER"
-    "PATENT", "REGISTERED_COPYRIGHT", "REPORT", "RESEARCH_TECHNIQUE", "RESEARCH_TOOL",
-    "SPIN_OFF_COMPANY", "STANDARDS_AND_POLICY", "SUPERVISED_STUDENT_PUBLICATION",
-    "TECHNICAL_STANDARD", "TEST", "TRADEMARK", "TRANSLATION", "UNDEFINED", "WEBSITE",
-    "WORKING_PAPER"
+    "artistic-performance", "book", "book-chapter", "book-review", "conference-abstract",
+    "conference-paper", "conference-poster", "data-set", "dictionary-entry", "disclosure",
+    "dissertation", "edited-book", "encyclopedia-entry", "invention", "journal-article",
+    "journal-issue", "lecture-speech", "license", "magazine-article", "manual",
+    "newsletter-article", "newspaper-article", "online-resource", "other"
+    "patent", "registered-copyright", "report", "research-technique", "research-tool",
+    "spin-off-company", "standards-and-policy", "supervised-student-publication",
+    "technical-standard", "test", "trademark", "translation", "undefined", "website",
+    "working-paper"
 ]
-work_type_choices = [(v, v.replace('_', ' ').title()) for v in WORK_TYPES]
+work_type_choices = [(v, v.replace('-', ' ').title()) for v in WORK_TYPES]
 CITATION_TYPES = [
-    "BIBTEX", "FORMATTED_APA", "FORMATTED_CHICAGO", "FORMATTED_HARVARD", "FORMATTED_IEEE",
-    "FORMATTED_MLA", "FORMATTED_UNSPECIFIED", "FORMATTED_VANCOUVER", "RIS"
+    "bibtex", "formatted-apa", "formatted-chicago", "formatted-harvard", "formatted-ieee",
+    "formatted-mla", "formatted-unspecified", "formatted-vancouver", "ris"
 ]
 PROPERTY_TYPES = ["URL", "NAME", "KEYWORD", "COUNTRY"]
-citation_type_choices = [(v, v.replace('_', ' ').title()) for v in CITATION_TYPES]
+citation_type_choices = [(v, v.replace('-', ' ').title()) for v in CITATION_TYPES]
 
 country_choices = [(c.alpha_2, c.name) for c in countries]
 country_choices.sort(key=lambda e: e[1])
@@ -98,10 +98,7 @@ language_choices.sort(key=lambda e: e[1])
 currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
 external_id_type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in EXTERNAL_ID_TYPES]
-# TODO: reomove one of the list when data gets updated
-relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS] + [
-    (v.lower().replace('_', '-'), v.replace('_', ' ').title()) for v in RELATIONSHIPS
-]
+relationship_choices = [(v, v.replace('-', ' ').title()) for v in RELATIONSHIPS]
 disambiguation_source_choices = [(v, v) for v in DISAMBIGUATION_SOURCES]
 property_type_choices = [(v, v) for v in PROPERTY_TYPES]
 
@@ -444,7 +441,7 @@ class Affiliation(IntFlag):
             self.EDU: "Education",
             self.EMP: "Employment",
             self.DST: "Distinction",
-            self.POS: "Invited Position",
+            self.POS: "Invited-Position",
             self.QUA: "Qualification",
             self.MEM: "Membership",
             self.SER: "Service",
@@ -1447,7 +1444,8 @@ class AffiliationRecord(RecordModel):
     email = CharField(max_length=80, null=True)
     orcid = OrcidIdField(null=True)
     organisation = CharField(null=True, index=True, max_length=200)
-    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
+    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v.replace('-', ' ').title())
+                                                                    for v in AFFILIATION_TYPES])
     role = CharField(null=True, verbose_name="Role/Course", max_length=100)
     department = CharField(null=True, max_length=200)
     start_date = PartialDateField(null=True)
@@ -1533,8 +1531,10 @@ class AffiliationRecord(RecordModel):
                         k = k.replace('-', '_')
                         if k == "is_active" and v:
                             is_enqueue = v
-                        if k in ["visibility", "disambiguation_source"] and v:
+                        if k in ["disambiguation_source"] and v:
                             v = v.upper()
+                        if k in ["visibility", "affiliation_type"] and v:
+                            v = v.replace('_', '-').lower()
                         if k in record_fields and rec.__data__.get(k) != v:
                             rec.__data__[k] = PartialDate.create(v) if k.endswith("date") else v
                             rec._dirty.add(k)
@@ -1545,7 +1545,8 @@ class AffiliationRecord(RecordModel):
                         rec.save()
                         if r.get('external-id'):
                             for exi in r.get('external-id'):
-                                ext_data = {k.replace('-', '_').replace('external_id_', ''): v for k, v in exi.items()}
+                                ext_data = {k.replace('-', '_').replace('external_id_', ''): v.lower() if v else None
+                                            for k, v in exi.items()}
                                 if ext_data.get("type") and ext_data.get("value"):
                                     ext_id = AffiliationExternalId.create(record=rec, **ext_data)
                                     if not ModelValidator(ext_id).validate():
@@ -1673,7 +1674,7 @@ class AffiliationRecord(RecordModel):
 
                     affiliation_type = val(row, 10)
                     if affiliation_type:
-                        affiliation_type = affiliation_type.lower()
+                        affiliation_type = affiliation_type.replace('_', '-').lower()
                     if not delete_record and (not affiliation_type
                                               or affiliation_type.lower() not in AFFILIATION_TYPES):
                         raise ValueError(
@@ -1692,7 +1693,7 @@ class AffiliationRecord(RecordModel):
                         disambiguation_source = disambiguation_source.upper()
                     visibility = val(row, 18)
                     if visibility:
-                        visibility = visibility.upper()
+                        visibility = visibility.replace('_', '-').lower()
 
                     is_active = val(row, 25, '').lower() in ['y', "yes", "1", "true"]
                     if is_active:
@@ -1730,7 +1731,7 @@ class AffiliationRecord(RecordModel):
                     external_id_type = val(row, 21, "").lower()
                     external_id_relationship = val(row, 24)
                     if external_id_relationship:
-                        external_id_relationship = external_id_relationship.upper()
+                        external_id_relationship = external_id_relationship.replace('_', '-').lower()
                     external_id_value = val(row, 22)
 
                     if external_id_type and external_id_value:
@@ -1760,7 +1761,7 @@ class AffiliationRecord(RecordModel):
 class FundingRecord(RecordModel):
     """Funding record loaded from JSON file for batch processing."""
 
-    funiding_type_choices = [(v, v.replace('_', ' ').title()) for v in FUNDING_TYPES]
+    funiding_type_choices = [(v, v.replace('-', ' ').title()) for v in FUNDING_TYPES]
 
     task = ForeignKeyField(Task, backref="funding_records", on_delete="CASCADE")
     title = CharField(max_length=255)
@@ -1886,6 +1887,10 @@ class FundingRecord(RecordModel):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
+            visibility = val(row, 24)
+            if visibility:
+                visibility = visibility.replace('_', '-').lower()
+
             invitee = dict(
                 identifier=val(row, 27),
                 email=email,
@@ -1893,18 +1898,18 @@ class FundingRecord(RecordModel):
                 last_name=val(row, 26),
                 orcid=orcid,
                 put_code=val(row, 23),
-                visibility=val(row, 24),
+                visibility=visibility,
             )
 
             title = val(row, 0)
             external_id_type = val(row, 19, "").lower()
             external_id_value = val(row, 20)
-            external_id_relationship = val(row, 22, "").upper()
+            external_id_relationship = val(row, 22, "").replace('_', '-').lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
 
             if not external_id_value:
                 raise ModelException(
@@ -1935,6 +1940,8 @@ class FundingRecord(RecordModel):
             if not funding_type:
                 raise ModelException(
                     f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+            else:
+                funding_type = funding_type.replace('_', '-').lower()
 
             # The uploaded country must be from ISO 3166-1 alpha-2
             country = val(row, 13)
@@ -1966,7 +1973,7 @@ class FundingRecord(RecordModel):
                         url=val(row, 28),
                         is_active=is_active,
                         disambiguated_id=val(row, 14) or org.disambiguated_id,
-                        disambiguation_source=val(row, 15) or org.disambiguation_source),
+                        disambiguation_source=val(row, 15, "").upper() or org.disambiguation_source),
                     invitee=invitee,
                     external_id=dict(
                         type=external_id_type,
@@ -2044,6 +2051,8 @@ class FundingRecord(RecordModel):
                     translated_title_language_code = r.get("title", "translated-title",
                                                            "language-code")
                     rec_type = r.get("type")
+                    if rec_type:
+                        rec_type = rec_type.replace('_', '-').lower()
                     organization_defined_type = r.get("organization-defined-type", "value")
                     short_description = r.get("short-description")
                     amount = r.get("amount", "value")
@@ -2059,6 +2068,9 @@ class FundingRecord(RecordModel):
                                              "disambiguated-organization-identifier")
                     disambiguation_source = r.get("organization", "disambiguated-organization",
                                                   "disambiguation-source")
+                    if disambiguation_source:
+                        disambiguation_source = disambiguation_source.upper()
+
                     is_active = r.get("is-active").lower() in ['y', "yes", "1", "true"] if r.get("is-active") else False
                     if is_active:
                         is_enqueue = is_active
@@ -2094,6 +2106,8 @@ class FundingRecord(RecordModel):
                             orcid = invitee.get_orcid("ORCID-iD")
                             put_code = invitee.get("put-code")
                             visibility = invitee.get("visibility")
+                            if visibility:
+                                visibility = visibility.replace('_', '-').lower()
 
                             FundingInvitee.create(
                                 record=record,
@@ -2130,6 +2144,10 @@ class FundingRecord(RecordModel):
                             value = external_id.get("external-id-value")
                             url = external_id.get("external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
+                            if id_type:
+                                id_type = id_type.lower()
+                            if relationship:
+                                relationship = relationship.replace('_', '-').lower()
                             ExternalId.create(
                                 record=record,
                                 type=id_type,
@@ -2155,7 +2173,7 @@ class FundingRecord(RecordModel):
 class PeerReviewRecord(RecordModel):
     """Peer Review record loaded from Json file for batch processing."""
 
-    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in SUBJECT_TYPES]
+    subject_type_choices = [(v, v.replace('-', ' ').title()) for v in SUBJECT_TYPES]
     reviewer_role_choices = [(v, v.title()) for v in REVIEWER_ROLES]
 
     task = ForeignKeyField(Task, backref="peer_review_records", on_delete="CASCADE")
@@ -2361,7 +2379,7 @@ class PeerReviewRecord(RecordModel):
 
             visibility = val(row, 28)
             if visibility:
-                visibility = visibility.upper()
+                visibility = visibility.replace('_', '-').lower()
 
             invitee = dict(
                 email=email,
@@ -2380,12 +2398,12 @@ class PeerReviewRecord(RecordModel):
 
             external_id_type = val(row, 29, "").lower()
             external_id_value = val(row, 30)
-            external_id_relationship = val(row, 32, "").upper()
+            external_id_relationship = val(row, 32, "").replace('_', '-').lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
 
             if not external_id_value:
                 raise ModelException(
@@ -2426,6 +2444,12 @@ class PeerReviewRecord(RecordModel):
                         f" (Convening Org Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
 
+            reviewer_role = val(row, 1, "").replace('_', '-').lower()
+            review_type = val(row, 3, "").replace('_', '-').lower()
+            subject_type = val(row, 10, "").replace('_', '-').lower()
+            subject_external_id_relationship = val(row, 8, "").replace('_', '-').lower()
+            convening_org_disambiguation_source = val(row, 21, "").upper()
+            subject_external_id_type = val(row, 5, "").lower()
             review_completion_date = val(row, 4)
 
             if review_completion_date:
@@ -2434,16 +2458,16 @@ class PeerReviewRecord(RecordModel):
                 dict(
                     peer_review=dict(
                         review_group_id=review_group_id,
-                        reviewer_role=val(row, 1),
+                        reviewer_role=reviewer_role,
                         review_url=val(row, 2),
-                        review_type=val(row, 3),
+                        review_type=review_type,
                         review_completion_date=review_completion_date,
-                        subject_external_id_type=val(row, 5),
+                        subject_external_id_type=subject_external_id_type,
                         subject_external_id_value=val(row, 6),
                         subject_external_id_url=val(row, 7),
-                        subject_external_id_relationship=val(row, 8),
+                        subject_external_id_relationship=subject_external_id_relationship,
                         subject_container_name=val(row, 9),
-                        subject_type=val(row, 10),
+                        subject_type=subject_type,
                         subject_name_title=val(row, 11),
                         subject_name_subtitle=val(row, 12),
                         subject_name_translated_title_lang_code=val(row, 13),
@@ -2454,7 +2478,7 @@ class PeerReviewRecord(RecordModel):
                         convening_org_region=val(row, 18),
                         convening_org_country=convening_org_country,
                         convening_org_disambiguated_identifier=val(row, 20),
-                        convening_org_disambiguation_source=val(row, 21),
+                        convening_org_disambiguation_source=convening_org_disambiguation_source,
                         is_active=is_active
                     ),
                     invitee=invitee,
@@ -2534,20 +2558,34 @@ class PeerReviewRecord(RecordModel):
 
                     review_group_id = data.get("review-group-id")
                     reviewer_role = data.get("reviewer-role")
+                    if reviewer_role:
+                        reviewer_role = reviewer_role.strip().replace('_', '-').lower()
+
                     review_url = data.get("review-url", "value")
                     review_type = data.get("review-type")
+                    if review_type:
+                        review_type = review_type.strip().replace('_', '-').lower()
+
                     review_completion_date = PartialDate.create(data.get("review-completion-date"))
                     subject_external_id_type = data.get("subject-external-identifier",
                                                         "external-id-type")
+                    if subject_external_id_type:
+                        subject_external_id_type = subject_external_id_type.strip().lower()
+
                     subject_external_id_value = data.get("subject-external-identifier",
                                                          "external-id-value")
                     subject_external_id_url = data.get("subject-external-identifier",
                                                        "external-id-url", "value")
                     subject_external_id_relationship = data.get("subject-external-identifier",
                                                                 "external-id-relationship")
+                    if subject_external_id_relationship:
+                        subject_external_id_relationship = subject_external_id_relationship.replace('_', '-').lower()
 
                     subject_container_name = data.get("subject-container-name", "value")
                     subject_type = data.get("subject-type")
+                    if subject_type:
+                        subject_type = subject_type.strip().replace('_', '-').lower()
+
                     subject_name_title = data.get("subject-name", "title", "value")
                     subject_name_subtitle = data.get("subject-name", "subtitle", "value")
                     subject_name_translated_title_lang_code = data.get(
@@ -2566,6 +2604,9 @@ class PeerReviewRecord(RecordModel):
                     convening_org_disambiguation_source = data.get("convening-organization",
                                                                    "disambiguated-organization",
                                                                    "disambiguation-source")
+                    if convening_org_disambiguation_source:
+                        convening_org_disambiguation_source = convening_org_disambiguation_source.upper()
+
                     is_active = data.get("is-active").lower() in ['y', "yes", "1", "true"] if data.get(
                         "is-active") else False
                     if is_active:
@@ -2608,7 +2649,7 @@ class PeerReviewRecord(RecordModel):
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
                             if visibility:
-                                visibility = visibility.upper()
+                                visibility = visibility.replace('_', '-').lower()
 
                             PeerReviewInvitee.create(
                                 record=record,
@@ -2628,10 +2669,16 @@ class PeerReviewRecord(RecordModel):
                     if external_ids_list:
                         for external_id in external_ids_list:
                             id_type = external_id.get("external-id-type")
+                            if id_type:
+                                id_type = id_type.lower()
+
                             value = external_id.get("external-id-value")
                             url = external_id.get("external-id-url").get("value") if \
                                 external_id.get("external-id-url") else None
                             relationship = external_id.get("external-id-relationship")
+                            if relationship:
+                                relationship = relationship.replace('_', '-').lower()
+
                             PeerReviewExternalId.create(
                                 record=record,
                                 type=id_type,
@@ -2714,7 +2761,7 @@ class PropertyRecord(RecordModel):
     """Researcher Url record loaded from Json file for batch processing."""
 
     task = ForeignKeyField(Task, backref="property_records", on_delete="CASCADE")
-    type = CharField(verbose_name="Propery Type", choices=property_type_choices)
+    type = CharField(verbose_name="Property Type", choices=property_type_choices)
     display_index = IntegerField(null=True)
     name = CharField(null=True,
                      max_length=255,
@@ -2850,6 +2897,9 @@ class PropertyRecord(RecordModel):
                             "Wrong number of fields. Expected at least fields ( content or value or country and "
                             f"email address or another unique identifier): {row}")
 
+                    visibility = val(row, 8)
+                    if visibility:
+                        visibility = visibility.replace('_', '-').lower()
                     rr = cls(
                         task=task,
                         type=property_type,
@@ -2862,7 +2912,7 @@ class PropertyRecord(RecordModel):
                         last_name=last_name,
                         orcid=orcid,
                         put_code=val(row, 7),
-                        visibility=val(row, 8))
+                        visibility=visibility)
                     validator = ModelValidator(rr)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
@@ -2931,6 +2981,8 @@ class PropertyRecord(RecordModel):
                     orcid = r.get_orcid("ORCID-iD") or r.get_orcid("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
+                    if visibility:
+                        visibility = visibility.replace('_', '-').lower()
                     is_active = bool(r.get("is-active"))
                     if is_active:
                         is_enqueue = is_active
@@ -3100,7 +3152,7 @@ class WorkRecord(RecordModel):
 
             visibility = val(row, 22)
             if visibility:
-                visibility = visibility.upper()
+                visibility = visibility.replace('_', '-').lower()
 
             invitee = dict(
                 identifier=val(row, 25),
@@ -3115,12 +3167,12 @@ class WorkRecord(RecordModel):
             title = val(row, 0)
             external_id_type = val(row, 17, "").lower()
             external_id_value = val(row, 18)
-            external_id_relationship = val(row, 20, "").upper()
+            external_id_relationship = val(row, 20, "").replace('_', '-').lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
 
             if not external_id_value:
                 raise ModelException(
@@ -3147,7 +3199,7 @@ class WorkRecord(RecordModel):
             if is_active:
                 is_enqueue = is_active
 
-            work_type = val(row, 5)
+            work_type = val(row, 5, "").replace('_', '-').lower()
             if not work_type:
                 raise ModelException(
                     f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}")
@@ -3165,7 +3217,7 @@ class WorkRecord(RecordModel):
             publication_date = val(row, 9)
             citation_type = val(row, 7)
             if citation_type:
-                citation_type = citation_type.upper()
+                citation_type = citation_type.replace('_', '-').lower()
 
             if publication_date:
                 publication_date = PartialDate.create(publication_date)
@@ -3269,9 +3321,11 @@ class WorkRecord(RecordModel):
                     short_description = r.get("short-description")
                     citation_type = r.get("citation", "citation-type")
                     if citation_type:
-                        citation_type = citation_type.strip().upper()
+                        citation_type = citation_type.strip().replace('_', '-').lower()
                     citation_value = r.get("citation", "citation-value")
                     rec_type = r.get("type")
+                    if rec_type:
+                        rec_type = rec_type.strip().replace('_', '-').lower()
                     url = r.get("url", "value")
                     language_code = r.get("language-code")
                     country = r.get("country", "value")
@@ -3313,7 +3367,7 @@ class WorkRecord(RecordModel):
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
                             if visibility:
-                                visibility = visibility.upper()
+                                visibility = visibility.replace('_', '-').lower()
 
                             WorkInvitee.create(
                                 record=record,
@@ -3351,9 +3405,14 @@ class WorkRecord(RecordModel):
                     if external_ids_list:
                         for external_id in external_ids_list:
                             id_type = external_id.get("external-id-type")
+                            if id_type:
+                                id_type = id_type.lower()
                             value = external_id.get("external-id-value")
                             url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
+                            if relationship:
+                                relationship = relationship.replace('_', '-').lower()
+
                             WorkExternalId.create(
                                 record=record,
                                 type=id_type,
@@ -3686,7 +3745,7 @@ class OtherIdRecord(ExternalIdModel):
                     rec_type = val(row, 1, "").lower()
                     value = val(row, 2)
                     url = val(row, 3)
-                    relationship = val(row, 4, "").upper()
+                    relationship = val(row, 4, "").replace('_', '-').lower()
                     first_name = val(row, 6)
                     last_name = val(row, 7)
                     is_active = val(row, 11, '').lower() in ['y', "yes", "1", "true"]
@@ -3707,6 +3766,7 @@ class OtherIdRecord(ExternalIdModel):
                             f"Missing External Id Url: {url} or External Id Relationship: {relationship} #{row_no+2}: "
                             f"{row}.")
 
+                    visibility = val(row, 10, "").replace('_', '-').lower()
                     rr = cls(
                         task=task,
                         type=rec_type,
@@ -3719,7 +3779,7 @@ class OtherIdRecord(ExternalIdModel):
                         last_name=last_name,
                         orcid=orcid,
                         put_code=val(row, 9),
-                        visibility=val(row, 10),
+                        visibility=visibility,
                         is_active=is_active)
                     validator = ModelValidator(rr)
                     if not validator.validate():
@@ -3756,9 +3816,13 @@ class OtherIdRecord(ExternalIdModel):
                 for r in records:
 
                     id_type = r.get("type") or r.get("external-id-type")
+                    if id_type:
+                        id_type = id_type.lower()
                     value = r.get("value") or r.get("external-id-value")
                     url = r.get("url") or r.get("external-id-url", "value") or r.get("external-id-url")
                     relationship = r.get("relationship") or r.get("external-id-relationship")
+                    if relationship:
+                        relationship = relationship.replace('_', '-').lower()
                     display_index = r.get("display-index")
                     email = normalize_email(r.get("email"))
                     first_name = r.get("first-name")
@@ -3766,6 +3830,8 @@ class OtherIdRecord(ExternalIdModel):
                     orcid = r.get_orcid("ORCID-iD") or r.get_orcid("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
+                    if visibility:
+                        visibility = visibility.replace('_', '-').lower()
                     is_active = bool(r.get("is-active"))
                     if is_active:
                         is_enqueue = is_active
