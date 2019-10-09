@@ -1201,7 +1201,8 @@ class Task(AuditedModel):
                 Task.status, Task.is_raw
             ])
         # TODO: refactor for funding task to get records here not in API or export
-        if (recurse or include_records) and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
+        if (recurse or include_records
+                or recurse is None) and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
             if self.task_type == TaskType.AFFILIATION:
                 task_dict["records"] = [
                     r.to_dict(
