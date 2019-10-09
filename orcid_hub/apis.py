@@ -2559,7 +2559,7 @@ class ResourceListAPI(TaskResource):
 
     def load_from_json(self, task=None):
         """Load records form the JSON upload."""
-        return ResourceRecord.load_from_json(
+        return ResourceRecord.load(
             request.data.decode("utf-8"), filename=self.filename, task=task)
 
     def post(self, *args, **kwargs):

@@ -1632,55 +1632,55 @@ def test_resource_api(client, mocker):
     assert len(data["records"]) == 2
     assert data["filename"] == "resources001.csv"
 
-    # del (data["id"])
-    # resp = client.post("/api/v1/properties/?filename=properties333.json",
-    #                    headers=dict(authorization=f"Bearer {access_token}"),
-    #                    content_type="application/json",
-    #                    data=json.dumps(data))
-    # assert resp.status_code == 200
-    # assert Task.select().count() == 2
+    del (data["id"])
+    resp = client.post("/api/v1/resources/?filename=resources333.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(data))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
 
     # records = data["records"]
-    # resp = client.post("/api/v1/properties/?filename=properties444.json",
+    # resp = client.post("/api/v1/resources/?filename=resources444.json",
     #                    headers=dict(authorization=f"Bearer {access_token}"),
     #                    content_type="application/json",
     #                    data=json.dumps(records))
     # assert resp.status_code == 200
     # assert Task.select().count() == 3
 
-    # resp = client.post("/api/v1/properties",
+    # resp = client.post("/api/v1/resources",
     #                    headers=dict(authorization=f"Bearer {access_token}"),
     #                    content_type="application/json",
     #                    data=json.dumps(records))
     # assert resp.status_code == 200
     # assert Task.select().count() == 4
 
-    # resp = client.post(f"/api/v1/properties/{task_id}",
+    # resp = client.post(f"/api/v1/resources/{task_id}",
     #                    headers=dict(authorization=f"Bearer {access_token}"),
     #                    content_type="application/json",
     #                    data=json.dumps(records))
     # assert resp.status_code == 200
     # assert Task.select().count() == 4
 
-    # resp = client.head(f"/api/v1/properties/{task_id}",
+    # resp = client.head(f"/api/v1/resources/{task_id}",
     #                    headers=dict(authorization=f"Bearer {access_token}"))
     # assert "Last-Modified" in resp.headers
     # assert resp.status_code == 200
 
-    # resp = client.delete(f"/api/v1/properties/{task_id}",
+    # resp = client.delete(f"/api/v1/resources/{task_id}",
     #                      headers=dict(authorization=f"Bearer {access_token}"))
 
-    # resp = client.post("/api/v1/properties/?filename=properties333.csv",
+    # resp = client.post("/api/v1/resources/?filename=resources333.csv",
     #                    headers=dict(authorization=f"Bearer {access_token}"),
     #                    content_type="text/csv",
-    #                    data=open(os.path.join(data_path, "properties.csv")).read())
+    #                    data=open(os.path.join(data_path, "resources.csv")).read())
     # assert resp.status_code == 200
     # assert Task.select().count() == 4
 
-    # resp = client.post("/api/v1/properties/?filename=properties333.json",
+    # resp = client.post("/api/v1/resources/?filename=resources333.json",
     #                    headers=dict(authorization=f"Bearer {access_token}"),
     #                    content_type="application/json",
-    #                    data=open(os.path.join(data_path, "properties.json")).read())
+    #                    data=open(os.path.join(data_path, "resources.json")).read())
     # assert resp.status_code == 200
     # assert Task.select().count() == 5
     # user = User.get(orcid="0000-0000-0000-00X3")
@@ -1696,7 +1696,7 @@ def test_resource_api(client, mocker):
     # for r in records:
     #     del(r["id"])
     #     r["is-active"] = True
-    # resp = client.post("/api/v1/properties/?filename=properties777.json",
+    # resp = client.post("/api/v1/resources/?filename=resources777.json",
     #                    headers=dict(authorization=f"Bearer {access_token}"),
     #                    content_type="application/json",
     #                    data=json.dumps(records))
