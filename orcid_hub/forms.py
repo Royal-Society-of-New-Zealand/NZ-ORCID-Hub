@@ -221,7 +221,7 @@ class AppForm(FlaskForm):
 class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
-    type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.FUNDING_TYPES]
+    type_choices = [(v, v.replace('-', ' ').title()) for v in [''] + models.FUNDING_TYPES]
 
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
@@ -249,9 +249,9 @@ class FundingForm(FlaskForm):
 class PeerReviewForm(FlaskForm):
     """User/researcher Peer review detail form."""
 
-    reviewer_role_choices = [(v, v.replace('_', ' ').title())
+    reviewer_role_choices = [(v, v.title())
                              for v in [''] + models.REVIEWER_ROLES]
-    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.SUBJECT_TYPES]
+    subject_type_choices = [(v, v.replace('-', ' ').title()) for v in [''] + models.SUBJECT_TYPES]
 
     org_name = StringField("Institution", [validators.required()])
     disambiguated_id = StringField("Disambiguated Organisation ID")
