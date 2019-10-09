@@ -3745,7 +3745,7 @@ class OtherIdRecord(ExternalIdModel):
                     rec_type = val(row, 1, "").lower()
                     value = val(row, 2)
                     url = val(row, 3)
-                    relationship = val(row, 4, "").upper()
+                    relationship = val(row, 4, "").replace('_', '-').lower()
                     first_name = val(row, 6)
                     last_name = val(row, 7)
                     is_active = val(row, 11, '').lower() in ['y', "yes", "1", "true"]
@@ -3766,6 +3766,7 @@ class OtherIdRecord(ExternalIdModel):
                             f"Missing External Id Url: {url} or External Id Relationship: {relationship} #{row_no+2}: "
                             f"{row}.")
 
+                    visibility = val(row, 10, "").replace('_', '-').lower()
                     rr = cls(
                         task=task,
                         type=rec_type,
@@ -3778,7 +3779,7 @@ class OtherIdRecord(ExternalIdModel):
                         last_name=last_name,
                         orcid=orcid,
                         put_code=val(row, 9),
-                        visibility=val(row, 10),
+                        visibility=visibility,
                         is_active=is_active)
                     validator = ModelValidator(rr)
                     if not validator.validate():
@@ -3815,9 +3816,13 @@ class OtherIdRecord(ExternalIdModel):
                 for r in records:
 
                     id_type = r.get("type") or r.get("external-id-type")
+                    if id_type:
+                        id_type = id_type.lower()
                     value = r.get("value") or r.get("external-id-value")
                     url = r.get("url") or r.get("external-id-url", "value") or r.get("external-id-url")
                     relationship = r.get("relationship") or r.get("external-id-relationship")
+                    if relationship:
+                        relationship = relationship.replace('_', '-').lower()
                     display_index = r.get("display-index")
                     email = normalize_email(r.get("email"))
                     first_name = r.get("first-name")
@@ -3825,6 +3830,8 @@ class OtherIdRecord(ExternalIdModel):
                     orcid = r.get_orcid("ORCID-iD") or r.get_orcid("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
+                    if visibility:
+                        visibility = visibility.replace('_', '-').lower()
                     is_active = bool(r.get("is-active"))
                     if is_active:
                         is_enqueue = is_active

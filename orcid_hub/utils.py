@@ -932,14 +932,12 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                # ORCID is not consistent with use of hiphens and underscores in external-id-value.
-                if (record.type and record.value and (r.get("external-id-type", default='') or '').replace(
-                    '-', '').replace('_', '').lower() == record.type.replace('-', '').replace('_', '').lower() and (
+                if (record.type and record.value and (r.get(
+                    "external-id-type", default='') or '').lower() == record.type.lower() and (
                         r.get("external-id-value", default='') or '').lower() == record.value.lower()):
                     record.put_code = put_code
                     record.orcid = orcid
-                    if not record.visibility:
-                        record.visibility = r.get("visibility")
+                    record.visibility = r.get("visibility")
                     if not record.display_index:
                         record.display_index = r.get("display-index")
 
