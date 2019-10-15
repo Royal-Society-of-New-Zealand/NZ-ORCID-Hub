@@ -232,7 +232,7 @@ class AppModelView(ModelView):
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=orcid_link_formatter)
     column_default_sort = ("id", True)
-    column_labels = dict(org="Organisation", orcid="ORCID iD")
+    column_labels = dict(org="Organisation", orcid="ORCID iD", identifier="Local Identifier")
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({datetime: lambda view, value: isodate(value)})
     column_type_formatters_export = dict(typefmt.EXPORT_FORMATTERS)
@@ -1151,7 +1151,7 @@ class CompositeRecordModelView(RecordModelView):
 
                 for f in row.invitees:
                     invitees_rec = {}
-                    invitees_rec['identifier'] = self.get_export_value(f, 'identifier')
+                    invitees_rec['local-identifier'] = self.get_export_value(f, 'identifier')
                     invitees_rec['email'] = self.get_export_value(f, 'email')
                     invitees_rec['first-name'] = self.get_export_value(f, 'first_name')
                     invitees_rec['last-name'] = self.get_export_value(f, 'last_name')
@@ -1335,7 +1335,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
     list_template = "funding_record_list.html"
     column_export_list = (
         "funding_id",
-        "identifier",
+        "local_identifier",
         "put_code",
         "title",
         "translated_title",
@@ -1384,7 +1384,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
             self.model,
             FundingInvitee.email,
             FundingInvitee.orcid,
-            FundingInvitee.identifier,
+            FundingInvitee.identifier.alias("local_identifier"),
             FundingInvitee.first_name,
             FundingInvitee.last_name,
             FundingInvitee.put_code,
@@ -1430,7 +1430,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "visibility",
         "orcid",
         "email",
-        "identifier",
+        "local_identifier",
         "first_name",
         "last_name",
         "external_id_type",
@@ -1459,7 +1459,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
             self.model,
             WorkInvitee.email,
             WorkInvitee.orcid,
-            WorkInvitee.identifier,
+            WorkInvitee.identifier.alias("local_identifier"),
             WorkInvitee.first_name,
             WorkInvitee.last_name,
             WorkInvitee.put_code,
@@ -1532,7 +1532,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         "convening_org_disambiguation_source",
         "email",
         "orcid",
-        "identifier",
+        "local_identifier",
         "first_name",
         "last_name",
         "put_code",
@@ -1565,7 +1565,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
             self.model,
             PeerReviewInvitee.email,
             PeerReviewInvitee.orcid,
-            PeerReviewInvitee.identifier,
+            PeerReviewInvitee.identifier.alias("local_identifier"),
             PeerReviewInvitee.first_name,
             PeerReviewInvitee.last_name,
             PeerReviewInvitee.put_code,
