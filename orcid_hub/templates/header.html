@@ -267,6 +267,7 @@
                           <h3 class="text-center">Institutional credentials</h3>
                           <img class="center-block" alt="Login via Tuakiri" src="{{image('REANNZ_Tuakiri_service.png')}}" style="width:50%">
                           <br/>
+                          <div class="box-blue">
                           <p>I'm currently employed by, or studying, with a <a href="#" data-toggle="tooltip"
                                                                                         title="Tuakiri-members are all Universities and Crown Research Institutes (with the exception of GNS)">
                             Tuakiri-member organisation</a></p>
@@ -275,6 +276,7 @@
                               <div class="btn btn-primary center-block">Login&nbsp;via&nbsp;Tuakiri</div>
                             </div>
                           </a>
+                          </div>
                           <p></p>
                           <p><small>This log in takes you to the Tuakiri Directory Service where you can select your Home Organisation.
                             Once returned to the Hub, you'll be able to give your organisation permission to write your affiliation to your ORCID record</small></p>
@@ -283,12 +285,14 @@
                           <h3 class="text-center">ORCID record</h3>
                           <img class="center-block" alt="Login via Orcid" src="{{image('orcid-logo.png')}}" style="width:50%">
                           <br/>
+                          <div class="box-green">
                           <p>I'm the Tech Contact or Administrator for a Non-Tuakiri member organsation</p>
                           <a href="{{orcid_login_url()|safe}}">
                             <div class="orcid">
-                              <div class="btn btn-primary center-block">Login&nbsp;via&nbsp;ORCID</div>
+                              <div class="btn btn-success center-block">Login&nbsp;via&nbsp;ORCID</div>
                             </div>
                           </a>
+                          </div>
                           <p></p>
                           <p><small>This log in takes you to ORCID to let the Hub retrieve your ORCID iD.<br/>
                             Once you've linked your ORCID iD to an organisation using the Hub, you can use this ORCID record to log in.</small></p>
