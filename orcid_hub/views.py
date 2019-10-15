@@ -193,6 +193,20 @@ class AppCustomModelConverter(CustomModelConverter):
 class AppModelView(ModelView):
     """ModelView customization."""
 
+    # def get_column_name(self, field):
+    #     """
+    #         Return a human-readable column name.
+
+    #         :param field:
+    #             Model field name.
+    #     """
+    #     if self.column_labels and field in self.column_labels:
+    #         return self.column_labels[field]
+    #     else:
+    #         model_field = self.model._meta.fields.get(field)
+    #         return self._prettify_name(
+    #             model_field.verbose_name if model_field and model_field.verbose_name else field)
+
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
     column_editable_list = ["name", "is_active", "email", "role", "city", "region", "value", "url", "display_index"]
     roles_required = Role.SUPERUSER
@@ -2025,6 +2039,8 @@ class GroupIdRecordAdmin(AppModelView):
 
 class ResourceRecordAdmin(RecordModelView):
     """Researcher resource administration view."""
+
+    # column_labels = dict(identifier="Local ID")
 
     form_rules = [
         # rules.Header("Record"),

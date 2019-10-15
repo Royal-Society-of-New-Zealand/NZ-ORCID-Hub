@@ -3503,7 +3503,7 @@ class FundingContributor(ContributorModel):
 class Invitee(BaseModel):
     """Common model bits of the invitees records."""
 
-    identifier = CharField(max_length=120, null=True)
+    identifier = CharField(max_length=120, null=True, verbose_name="Local ID")
     email = CharField(max_length=120, null=True)
     orcid = OrcidIdField(null=True)
     first_name = CharField(max_length=120, null=True)
@@ -4038,7 +4038,7 @@ class ResourceRecord(RecordModel, Invitee):
 
         def val(row, column, default=None):
             idx = idxs.get(column)
-            if not idx or idx < 0 or idx >= len(row):
+            if idx is None or idx < 0 or idx >= len(row):
                 return default
             return row[idx].strip() or default
 
