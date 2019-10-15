@@ -626,10 +626,12 @@ class WebhookForm(
                 "webhook_enabled",
                 "webhook_url",
                 "webhook_append_orcid",
+                "webhook_apikey",
                 "email_notifications_enabled",
                 "notification_email",
             ],
             field_args=dict(
+                webhook_apikey=dict(validators=[optional()]),
                 notification_email=dict(
                     render_kw={
                         "data-toggle":
