@@ -1844,7 +1844,7 @@ class FundingRecord(RecordModel):
                 r"(is)?\s*visib(bility|le)?",
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
-                "identifier",
+                "local.*|.*identifier",
                 r"url"
             ]
         ]
@@ -2100,7 +2100,7 @@ class FundingRecord(RecordModel):
                     invitees = r.get("invitees", default=[])
                     if invitees:
                         for invitee in invitees:
-                            identifier = invitee.get("identifier")
+                            identifier = invitee.get("local-identifier") or invitee.get("identifier")
                             email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
@@ -2328,7 +2328,7 @@ class PeerReviewRecord(RecordModel):
                 r"(convening)?\s*(org(ani[zs]ation)?)?\s*disambiguation\s*source$",
                 "email",
                 r"orcid\s*(id)?$",
-                "identifier",
+                "local.*|identifier",
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
                 "put.*code",
@@ -2642,7 +2642,7 @@ class PeerReviewRecord(RecordModel):
                     invitee_list = data.get("invitees")
                     if invitee_list:
                         for invitee in invitee_list:
-                            identifier = invitee.get("identifier")
+                            identifier = invitee.get("local-identifier") or invitee.get("identifier")
                             email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
@@ -3107,7 +3107,7 @@ class WorkRecord(RecordModel):
                 r"(is)?\s*visib(bility|le)?",
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
-                "identifier",
+                "local.*|.*identifier",
             ]
         ]
 
@@ -3360,7 +3360,7 @@ class WorkRecord(RecordModel):
                     invitee_list = r.get("invitees")
                     if invitee_list:
                         for invitee in invitee_list:
-                            identifier = invitee.get("identifier")
+                            identifier = invitee.get("local-identifier") or invitee.get("identifier")
                             email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
@@ -3502,7 +3502,7 @@ class FundingContributor(ContributorModel):
 class Invitee(BaseModel):
     """Common model bits of the invitees records."""
 
-    identifier = CharField(max_length=120, null=True)
+    identifier = CharField(max_length=120, verbose_name="Local Identifier", null=True)
     email = CharField(max_length=120, null=True)
     orcid = OrcidIdField(null=True)
     first_name = CharField(max_length=120, null=True)
@@ -3978,7 +3978,7 @@ class ResourceRecord(RecordModel, Invitee):
 
         header_rexs = [
             (re.compile(ex, re.I), c) for (ex, c) in [
-                (r"identifier", "identifier"),
+                (r"local.*|.*identifier", "identifier"),
                 (r"email", "email"),
                 (r"orcid\s*id", "orcid"),
                 (r"first\s*name", "first_name"),
