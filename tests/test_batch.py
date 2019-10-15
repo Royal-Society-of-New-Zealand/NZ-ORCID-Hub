@@ -301,7 +301,7 @@ def test_message_records(client, mocker):
                     # email="researcher@test0.edu",
                     first_name=i.first_name or "FN",
                     last_name=i.first_name or "LN",
-                    visibility=(i.visibility or "LIMITED").upper()))
+                    visibility=(i.visibility or "limited").lower()))
             invitee = Invitee.get(i.id)
             assert invitee.identifier == f"ID-{i.id}"
 
@@ -310,7 +310,7 @@ def test_message_records(client, mocker):
                            data=dict(email="a-new-one@org1234.edu",
                                      first_name="FN",
                                      last_name="LN",
-                                     visibility="LIMITED"))
+                                     visibility="limited"))
         assert r.invitees.count() == invitee_count + 1
 
     # Export and re-import
