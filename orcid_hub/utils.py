@@ -2299,7 +2299,6 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     If URL is given, it will be used for as call-back URL.
     """
     local_handler = (callback_url is None)
-
     # Don't delete the webhook if there is anyther organisation with enabled webhook:
     if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
         return
@@ -2403,7 +2402,7 @@ def enable_org_webhook(org):
     """Enable Organisation Webhook."""
     org.webhook_enabled = True
     org.save()
-    for u in org.users.where(User.webhook_enabled.NOT()):
+    for u in org.users.where(User.webhook_enabled.NOT(), User.orcid.is_null(False)):
         register_orcid_webhook.queue(u)
 
 
@@ -2412,7 +2411,7 @@ def disable_org_webhook(org):
     """Disable Organisation Webhook."""
     org.webhook_enabled = False
     org.save()
-    for u in org.users.where(User.webhook_enabled):
+    for u in org.users.where(User.webhook_enabled, User.orcid.is_null(False)):
         register_orcid_webhook.queue(u, delete=True)
 
 

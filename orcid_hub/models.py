@@ -1002,16 +1002,11 @@ class UserOrg(AuditedModel):
     user = ForeignKeyField(User, on_delete="CASCADE", index=True, backref="user_orgs")
     org = ForeignKeyField(
         Organisation, on_delete="CASCADE", index=True, verbose_name="Organisation", backref="user_orgs")
-
     is_admin = BooleanField(
         null=True, default=False, help_text="User is an administrator for the organisation")
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
-    # created_by = ForeignKeyField(
-    #     User, on_delete="SET NULL", null=True, backref="created_user_orgs")
-    # updated_by = ForeignKeyField(
-    #     User, on_delete="SET NULL", null=True, backref="updated_user_orgs")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)

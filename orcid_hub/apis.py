@@ -2559,7 +2559,6 @@ class ResourceListAPI(TaskResource):
 
     def load_from_json(self, task=None):
         """Load records form the JSON upload."""
-        # breakpoint()
         return ResourceRecord.load(
             request.data.decode("utf-8"), filename=self.filename, task=task)
 
@@ -3491,18 +3490,20 @@ def register_webhook(orcid=None, callback_url=None):
         org = current_user.organisation
         was_enabled = org.webhook_enabled
 
-        if request.method == "DELETE" and org.webhook_enabled:
-            org.webhook_enabled = False
+        if request.method == "DELETE":
+            if org.webhook_enabled:
+                job = utils.disable_org_webhook.queue(org)
+                return jsonify({"job-id": job.id}), 200
+            return '', 204
         else:
-            data = request.json
+            data = request.json or {}
             enabled = data.get("enabled")
-            url = data.get("url")
+            url = data.get("url", callback_url)
             append_orcid = data.get("append-orcid")
             apikey = data.get("apikey")
             email_notifications_enabled = data.get("email-notifications-enabled")
+            notification_email = data.get("notification-email")
 
-            if enabled is not None:
-                org.webhook_enabled = enabled
             if url is not None:
                 org.webhook_url = url
             if append_orcid is not None:
@@ -3510,18 +3511,22 @@ def register_webhook(orcid=None, callback_url=None):
             if apikey is not None:
                 org.webhook_apikey = apikey
             if email_notifications_enabled is not None:
-                org.email_notifications_enabled = email_notifications_enabled
-        org.save()
+                org.email_notifications_enabled = bool(email_notifications_enabled)
+            if notification_email is not None:
+                org.notification_email = notification_email
+            org.save()
 
-        if enabled or email_notifications_enabled:
-            job = utils.enable_org_webhook.queue(org)
-            return jsonify({
-                "enabled": org.webhook_enabled,
-                "url": org.webhook_url,
-                "append-orcid": org.webhook_append_orcid,
-                "apikey": org.webhook_apikey,
-                "job-id": job.id
-            }), 201 if (not was_enabled and enabled) else 200
+            data = {k: v for (k, v) in [
+                ("enabled", org.webhook_enabled),
+                ("url", org.webhook_url),
+                ("append-orcid", org.webhook_append_orcid),
+                ("apikey", org.webhook_apikey),
+                ("email-notifications-enabled", org.email_notifications_enabled),
+                ("notification-email", org.notification_email),
+            ] if v is not None}
 
-    job = utils.disable_org_webhook.queue(org)
-    return jsonify({"job-id": job.id}), 204
+            if enabled or email_notifications_enabled:
+                job = utils.enable_org_webhook.queue(org)
+                data["job-id"] = job.id
+
+            return jsonify(data), 201 if (not was_enabled and enabled) else 200
