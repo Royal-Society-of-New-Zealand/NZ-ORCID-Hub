@@ -8,6 +8,8 @@ mapping:
           -
             type: map
             mapping:
+                local-identifier:
+                    type: str
                 identifier:
                     type: str
                 email:
