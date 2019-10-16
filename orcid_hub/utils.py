@@ -2335,6 +2335,7 @@ def notify_about_update(user, event_type="UPDATED"):
                                          user.orcid,
                                          user.created_at or user.updated_at,
                                          user.updated_at or user.created_at,
+                                         apikey=org.webhook_apikey,
                                          event_type=event_type,
                                          append_orcid=org.webhook_append_orcid)
 
@@ -2352,7 +2353,7 @@ def notify_about_update(user, event_type="UPDATED"):
 
 @rq.job(timeout=300)
 def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, updated_at=None, message=None,
-                           event_type="UPDATED", url=None, attempts=5, append_orcid=False):
+                           apikey=None, event_type="UPDATED", url=None, attempts=5, append_orcid=False):
     """Propagate 'updated' event to the organisation event handler URL."""
     if not message:
         url = app.config["ORCID_BASE_URL"] + orcid
@@ -2380,7 +2381,10 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             url += orcid
 
     try:
-        resp = requests.post(url, json=message)
+        if apikey:
+            resp = requests.post(url, json=message, headers=dict(apikey=apikey))
+        else:
+            resp = requests.post(url, json=message)
     except:
         if attempts == 1:
             raise
@@ -2390,6 +2394,7 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             invoke_webhook_handler.schedule(timedelta(minutes=5 *
                                                       (6 - attempts) if attempts < 6 else 5),
                                             message=message,
+                                            apikey=apikey,
                                             url=url,
                                             attempts=attempts - 1)
         else:

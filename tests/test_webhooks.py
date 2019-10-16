@@ -364,17 +364,26 @@ def test_webhook_invokation(client, mocker):
     resp = client.post(f"/services/{user.id}/updated")
     assert resp.status_code == 204
     schedule.assert_called_with(datetime.timedelta(seconds=300),
+                                apikey=None,
                                 attempts=4,
                                 message=message,
                                 url=f"http://test.edu/{user.orcid}")
 
-    post = mocker.patch.object(utils.requests, "post", side_effect=Exception("OH! NOHHH!"))
+    Organisation.update(webhook_apikey="ABC123").execute()
+    schedule.reset_mock()
     resp = client.post(f"/services/{user.id}/updated")
-    assert resp.status_code == 204
     schedule.assert_called_with(datetime.timedelta(seconds=300),
+                                apikey="ABC123",
                                 attempts=4,
                                 message=message,
                                 url=f"http://test.edu/{user.orcid}")
+
+    Organisation.update(webhook_apikey=None).execute()
+    post = mocker.patch.object(utils.requests, "post", side_effect=Exception("OH! NOHHH!"))
+    schedule.reset_mock()
+    resp = client.post(f"/services/{user.id}/updated")
+    assert resp.status_code == 204
+    schedule.assert_not_called()
 
     with pytest.raises(Exception):
         utils.invoke_webhook_handler(attempts=1, message=message, url=f"http://test.edu/{user.orcid}")
