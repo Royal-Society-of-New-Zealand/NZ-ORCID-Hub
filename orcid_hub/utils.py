@@ -2513,7 +2513,7 @@ def dump_yaml(data):
     """Dump the objects into YAML representation."""
     yaml.add_representer(datetime, SafeRepresenterWithISODate.represent_datetime, Dumper=Dumper)
     yaml.add_representer(defaultdict, SafeRepresenter.represent_dict)
-    return yaml.dump(data)
+    return yaml.dump(data, allow_unicode=True)
 
 
 def enqueue_user_records(user):

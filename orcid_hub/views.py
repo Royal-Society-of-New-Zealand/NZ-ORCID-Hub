@@ -1114,8 +1114,13 @@ class CompositeRecordModelView(RecordModelView):
 
         try:
             try:
-                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
-                response_data = ds.export(format=export_type)
+                if export_type == 'json':
+                    response_data = json.dumps(json.loads(ds.json), ensure_ascii=False)
+                elif export_type == 'yaml':
+                    response_data = yaml.safe_dump(json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")),
+                                                   allow_unicode=True)
+                else:
+                    response_data = ds.export(format=export_type)
             except AttributeError:
                 response_data = getattr(ds, export_type)
         except (AttributeError, tablib.UnsupportedFormat):
@@ -1604,7 +1609,7 @@ class AffiliationRecordAdmin(CompositeRecordModelView):
         "start_date",
         "end_date",
         "city",
-        "state",
+        "region",
         "country",
         "disambiguated_id",
         "disambiguation_source",
