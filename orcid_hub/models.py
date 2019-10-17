@@ -646,12 +646,12 @@ class Organisation(AuditedModel):
     email_template = TextField(null=True)
     email_template_enabled = BooleanField(null=True, default=False)
     webhook_enabled = BooleanField(default=False, null=True)
-    webhook_url = CharField(max_length=100, null=True)
+    webhook_url = CharField(max_length=200, null=True)
     webhook_append_orcid = BooleanField(
         null=True,
         verbose_name="Append ORCID iD",
         help_text="Append the ORCID iD of the user the Webhook URL")
-    webhook_apikey = CharField(null=True, max_length=20)
+    webhook_apikey = CharField(null=True, max_length=100)
     email_notifications_enabled = BooleanField(default=False, null=True)
     notification_email = CharField(max_length=100, null=True, verbose_name="Notification Email Address")
 

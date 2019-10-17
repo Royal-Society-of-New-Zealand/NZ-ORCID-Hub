@@ -495,7 +495,7 @@ class TaskList(TaskResource, AppResourceList):
             required: false
             description: Indicates that the records should be included
             default: false
-            type: "bool"
+            type: "boolean"
             enum:
               - true
               - false
@@ -3018,6 +3018,16 @@ def get_spec(app):
             },
         }
     }
+    swag["definitions"]["OrganisationWebhook"] = {
+        "properties": {
+            "enabled": {"type": "boolean"},
+            "url": {"type": "string"},
+            "append-orcid": {"type": "boolean"},
+            "apikey": {"type": "string"},
+            "email-notifications-enabled": {"type": "boolean"},
+            "notification-email": {"type": "string"},
+        }
+    }
     # Webhooks:
     put_responses = {
         "201": {
@@ -3052,6 +3062,29 @@ def get_spec(app):
                 "$ref": "#/definitions/Error"
             },
         },
+    }
+    swag["paths"]["/api/v1/webhook"] = {
+        "put": {
+            "consumes": ["application/json"],
+            "description": "Setup the organisation webhook",
+            "parameters": [
+                {
+                    "description": "Organistion webhook",
+                    "in": "body",
+                    "name": "organisationWebhook",
+                    "schema": {
+                        "$ref": "#/definitions/OrganisationWebhook"
+                    }
+                }
+            ],
+            "produces": ["application/json"],
+            "tags": ["webhooks"],
+            "responses": put_responses,
+        },
+        "delete": {
+            "tags": ["webhooks"],
+            "responses": delete_responses,
+        }
     }
     swag["paths"]["/api/v1/{orcid}/webhook"] = {
         "parameters": [swag["parameters"]["orcidParam"]],
