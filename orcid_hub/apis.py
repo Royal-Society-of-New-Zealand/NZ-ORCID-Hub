@@ -19,7 +19,7 @@ from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 from rq import get_current_job
 
-from . import api, app, models, oauth, rq, schemas
+from . import api, app, models, oauth, rq, schemas, utils
 from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, AsyncOrcidResponse, Client, FundingRecord,
                      OrcidToken, PeerReviewRecord, PropertyRecord, ResourceRecord, Role, Task,
@@ -2559,7 +2559,6 @@ class ResourceListAPI(TaskResource):
 
     def load_from_json(self, task=None):
         """Load records form the JSON upload."""
-        # breakpoint()
         return ResourceRecord.load(
             request.data.decode("utf-8"), filename=self.filename, task=task)
 
@@ -3450,15 +3449,18 @@ def exeute_orcid_call_async(method, url, data, headers):
     ar.save()
 
 
-@app.route("/api/v1/<string:orcid>/webhook", methods=["PUT", "DELETE"])
 @app.route("/api/v1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
+@app.route("/api/v1/<string:orcid>/webhook", methods=["PUT", "DELETE"])
+@app.route("/api/v1/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
+@app.route("/api/v1/webhook", methods=["PUT", "POST", "PATCH"])
 @oauth.require_oauth()
-def register_webhook(orcid, callback_url=None):
+def register_webhook(orcid=None, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
-    try:
-        validate_orcid_id(orcid)
-    except Exception as ex:
-        return jsonify({"error": "Missing or invalid ORCID iD.", "message": str(ex)}), 415
+    if orcid:
+        try:
+            validate_orcid_id(orcid)
+        except Exception as ex:
+            return jsonify({"error": "Missing or invalid ORCID iD.", "message": str(ex)}), 415
     if callback_url == "undefined":
         callback_url = None
     if callback_url:
@@ -3469,17 +3471,62 @@ def register_webhook(orcid, callback_url=None):
                 "message": f"Invalid call-back URL: {callback_url}"
             }), 415
 
-    try:
-        user = User.get(orcid=orcid)
-    except User.DoesNotExist:
-        return jsonify({
-            "error": "Invalid ORCID iD.",
-            "message": f"User with given ORCID ID '{orcid}' doesn't exist."
-        }), 404
+    if orcid:
+        try:
+            user = User.get(orcid=orcid)
+        except User.DoesNotExist:
+            return jsonify({
+                "error": "Invalid ORCID iD.",
+                "message": f"User with given ORCID ID '{orcid}' doesn't exist."
+            }), 404
 
-    orcid_resp = register_orcid_webhook(user, callback_url, delete=request.method == "DELETE")
-    resp = make_response('', orcid_resp.status_code if orcid_resp else 204)
-    if orcid_resp and "Location" in orcid_resp.headers:
-        resp.headers["Location"] = orcid_resp.headers["Location"]
+        orcid_resp = register_orcid_webhook(user, callback_url, delete=request.method == "DELETE")
+        resp = make_response('', orcid_resp.status_code if orcid_resp else 204)
+        if orcid_resp and "Location" in orcid_resp.headers:
+            resp.headers["Location"] = orcid_resp.headers["Location"]
+        return resp
 
-    return resp
+    else:
+        org = current_user.organisation
+        was_enabled = org.webhook_enabled
+
+        if request.method == "DELETE":
+            if org.webhook_enabled:
+                job = utils.disable_org_webhook.queue(org)
+                return jsonify({"job-id": job.id}), 200
+            return '', 204
+        else:
+            data = request.json or {}
+            enabled = data.get("enabled")
+            url = data.get("url", callback_url)
+            append_orcid = data.get("append-orcid")
+            apikey = data.get("apikey")
+            email_notifications_enabled = data.get("email-notifications-enabled")
+            notification_email = data.get("notification-email")
+
+            if url is not None:
+                org.webhook_url = url
+            if append_orcid is not None:
+                org.webhook_append_orcid = bool(append_orcid)
+            if apikey is not None:
+                org.webhook_apikey = apikey
+            if email_notifications_enabled is not None:
+                org.email_notifications_enabled = bool(email_notifications_enabled)
+            if notification_email is not None:
+                org.notification_email = notification_email
+            org.save()
+
+            data = {k: v for (k, v) in [
+                ("enabled", org.webhook_enabled),
+                ("url", org.webhook_url),
+                ("append-orcid", org.webhook_append_orcid),
+                ("apikey", org.webhook_apikey),
+                ("email-notifications-enabled", org.email_notifications_enabled),
+                ("notification-email", org.notification_email),
+            ] if v is not None}
+
+            if enabled or email_notifications_enabled:
+                job = utils.enable_org_webhook.queue(org)
+                data["job-id"] = job.id
+
+            return jsonify(data), 201 if (not was_enabled and enabled) else 200
