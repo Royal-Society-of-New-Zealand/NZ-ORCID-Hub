@@ -2049,7 +2049,6 @@ class ResourceRecordAdmin(RecordModelView):
 
     form_rules = [
         # rules.Header("Record"),
-        "local_id",
         "is_active",
         "display_index",
         "visibility",

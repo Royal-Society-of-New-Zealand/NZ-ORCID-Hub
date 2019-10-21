@@ -525,10 +525,10 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
         OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
         OrcidToken.scopes.contains("/activities/update")).first()
     api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
-    resources = api.get_resources().get("group")
+    resources = api.get_resources()
 
     if resources:
-
+        resources = resources.get("group")
         resources = [
             r for r in resources if any(
                 rr.get("source", "source-client-id", "path") == org.orcid_client_id
@@ -552,7 +552,6 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
                     # if all(eid.get("external-id-value") != record.external_id_value
                     #         for eid in rr.get("proposal", "external-ids", "external-id")):
                     #     continue
-
                     if put_code in taken_put_codes:
                         continue
 
@@ -581,11 +580,18 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
                     resp = api.post("research-resource", rr.orcid_research_resource)
 
                 if resp.status == 201:
+                    orcid, put_code = resp.headers["Location"].split("/")[-3::2]
                     rr.add_status_line("ORCID record was created.")
                 else:
+                    orcid = user.orcid
                     rr.add_status_line("ORCID record was updated.")
-                if not put_code:
-                    rr.put_code = resp.headers["Location"].split('/')[-1]
+                if not rr.put_code and put_code:
+                    rr.put_code = int(put_code)
+                if not rr.orcid and orcid:
+                    rr.orcid = orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                if rr.visibility != visibility:
+                    rr.visibility = visibility
 
             except ApiException as ex:
                 if ex.status == 404:
@@ -2014,6 +2020,7 @@ def process_resource_records(max_rows=20, record_id=None):
             tasks = tasks.where(ResourceRecord.id.in_(record_id))
         else:
             tasks = tasks.where(ResourceRecord.id == record_id)
+
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
