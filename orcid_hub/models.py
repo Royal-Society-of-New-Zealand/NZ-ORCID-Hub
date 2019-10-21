@@ -3498,7 +3498,7 @@ class FundingContributor(ContributorModel):
 class Invitee(BaseModel):
     """Common model bits of the invitees records."""
 
-    identifier = CharField(max_length=120, null=True, verbose_name="Local ID")
+    identifier = CharField(max_length=120, null=True, verbose_name="Local Identifier")
     email = CharField(max_length=120, null=True)
     orcid = OrcidIdField(null=True)
     first_name = CharField(max_length=120, null=True)

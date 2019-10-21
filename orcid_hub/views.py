@@ -803,7 +803,7 @@ class RecordModelView(AppModelView):
         try:
             status = "The record was activated at " + datetime.now().isoformat(timespec="seconds")
             count = self.model.update(is_active=True, status=status).where(
-                self.model.is_active == False,  # noqa: E712
+                ((self.model.is_active.is_null()) | (self.model.is_active == False)),  # noqa: E712
                 self.model.id.in_(ids)).execute()
             if self.model == AffiliationRecord:
                 records = self.model.select().where(self.model.id.in_(ids)).order_by(
@@ -2045,10 +2045,9 @@ class GroupIdRecordAdmin(AppModelView):
 class ResourceRecordAdmin(RecordModelView):
     """Researcher resource administration view."""
 
-    # column_labels = dict(identifier="Local ID")
-
     form_rules = [
         # rules.Header("Record"),
+        "local_id",
         "is_active",
         "display_index",
         "visibility",

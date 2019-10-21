@@ -2546,6 +2546,11 @@ def enqueue_user_records(user):
             records = records.join(WorkInvitee).where(
                 (WorkInvitee.email.is_null() | (WorkInvitee.email == user.email)),
                 (WorkInvitee.orcid.is_null() | (WorkInvitee.orcid == user.orcid)))
+        # TODO: Handle Research Resource json enqueing
+        # elif task.task_type == TaskType.RESOURCE and hasattr(task.record_model, "invitees"):
+        #    inv = task.record_model.invitees.rel_model
+        #    records = records.where((inv.email.is_null() | (inv.email == user.email)),
+        #       (inv.orcid.is_null() | (inv.orcid == user.orcid)))
         else:
             records = records.where(
                 (task.record_model.email.is_null() | (task.record_model.email == user.email)),
