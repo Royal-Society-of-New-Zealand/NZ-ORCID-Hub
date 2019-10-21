@@ -10,7 +10,9 @@ from flask_login import current_user
 from . import app, models
 
 REDIS_URL = app.config["REDIS_URL"] = app.config.get("RQ_REDIS_URL")
-__redis_available = bool(REDIS_URL)
+__redis_available = bool(REDIS_URL) or (
+    app.config.get("RQ_CONNECTION_CLASS") !=
+    "fakeredis.FakeStrictRedis") or not (app.config.get("RQ_ASYNC"))
 
 if __redis_available:
     try:
@@ -46,26 +48,29 @@ if __redis_available:
         __redis_available = False
 
 if not __redis_available:
-    from functools import wraps
+    app.config.RQ_CONNECTION_CLASS = app.config["RQ_CONNECTION_CLASS"] = "fakeredis.FakeStrictRedis"
+    app.config.RQ_ASYNC = app.config["RQ_ASYNC"] = False
 
-    class RQ:  # noqa: F811
-        """Fake RQ."""
+    # from functools import wraps
 
-        def __init__(self, *args, **kwargs):
-            """Create a fake wrapper."""
-            pass
+    # class RQ:  # noqa: F811
+    #     """Fake RQ."""
 
-        def job(self, *args, **kwargs):  # noqa: D202
-            """Docorate a function to emulate queueing into a queue."""
+    #     def __init__(self, *args, **kwargs):
+    #         """Create a fake wrapper."""
+    #         pass
 
-            def wrapper(fn):
-                @wraps(fn)
-                def decorated_view(*args, **kwargs):
-                    return fn(*args, **kwargs)
+    #     def job(self, *args, **kwargs):  # noqa: D202
+    #         """Docorate a function to emulate queueing into a queue."""
 
-                return decorated_view
+    #         def wrapper(fn):
+    #             @wraps(fn)
+    #             def decorated_view(*args, **kwargs):
+    #                 return fn(*args, **kwargs)
 
-            return wrapper
+    #             return decorated_view
+
+    #         return wrapper
 
 # app.config.from_object(rq_dashboard.default_settings)
 rq = RQ(app)

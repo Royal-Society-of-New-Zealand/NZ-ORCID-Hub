@@ -533,7 +533,18 @@ class OrcidTokenAdmin(AppModelView):
         "org.name",
     )
     can_export = True
-    can_create = False
+    can_create = True
+
+    form_ajax_refs = {
+        "user": {
+            "fields": (User.name, User.email),
+            "page_size": 5
+        },
+        "org": {
+            "fields": (Organisation.name, Organisation.tuakiri_name),
+            "page_size": 5
+        },
+    }
 
 
 class OrcidApiCallAmin(AppModelView):
