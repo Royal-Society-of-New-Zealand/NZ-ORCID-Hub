@@ -14,6 +14,10 @@ from orcid_hub import utils
 from orcid_hub.models import *
 from orcid_api_v3.rest import ApiException
 
+
+data_path = os.path.join(os.path.dirname(__file__), "data")
+
+
 def test_process_task_from_csv_with_failures(request_ctx):
     """Test task loading and processing with failures."""
     org = Organisation.get(name="TEST0")
@@ -345,3 +349,41 @@ def test_message_records(client, mocker):
         t = Task.get(filename=file_name)
         assert t.records.count() == 2
         assert t.is_raw
+
+
+def test_affiliation_records(client, mocker):
+    """Test affiliation records processing."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+
+    with open(os.path.join(data_path, "affiliations.csv"), "rb") as f:
+        resp = client.post(
+            "/load/task/AFFILIATION",
+            data={"file_": (f, "affiliations.csv")},
+            follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"55561720" in resp.data
+    assert b"208013283/01" in resp.data
+    task = Task.get(filename="affiliations.csv")
+    assert task.records.count() == 4
+
+    send = mocker.patch("emails.message.MessageSendMixin.send")
+    mocker.patch(
+        "orcid_hub.orcid_client.MemberAPIV3.get_record",
+        lambda s: get_profile(org=s.org, user=s.user))
+    urlopen = mocker.patch("urllib3.poolmanager.PoolManager.urlopen",
+            return_value=Mock(status_code=201, headers={"Location: /record/424242"}))
+
+    resp = client.post("/activate_all/?url=/affiliations", data=dict(task_id=task.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("/affiliations")
+
+    urlopen.assert_called()
+    for (args, kwargs) in urlopen.call_args_lis:
+        assert args[0] == "PUT"
+
+    send.assert_called()
+    assert UserInvitation.select().count() == 1
+
+    resp = client.get(f"/admin/affiliationrecord/?task_id={task.id}")
+    assert b"555" in resp.data

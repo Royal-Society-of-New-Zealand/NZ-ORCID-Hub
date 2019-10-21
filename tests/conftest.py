@@ -19,6 +19,7 @@ os.environ["DATABASE_URL"] = DATABASE_URL
 from orcid_hub import config
 config.DATABASE_URL = DATABASE_URL
 config.RQ_CONNECTION_CLASS = "fakeredis.FakeStrictRedis"
+config.RQ_ASYNC = False
 
 # Patch it before is gets patched by 'orcid_client'
 # import orcid_api
@@ -382,6 +383,7 @@ def app(testdb):
     _app.config["DEBUG_TB_ENABLED"] = False
     _app.config["LOAD_TEST"] = True
     _app.config["RQ_CONNECTION_CLASS"] = "fakeredis.FakeStrictRedis"
+    _app.config["RQ_ASYNC"] = False
     _app.extensions["rq2"].init_app(_app)
 
     logger = logging.getLogger("peewee")

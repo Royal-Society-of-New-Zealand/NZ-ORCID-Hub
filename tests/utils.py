@@ -483,9 +483,54 @@ def get_profile(self=None, org=None, user=None):
                                     "put-code": 1,
                                     "path": f"/{orcid}/education/1"
                                 }
+                            },
+                        ]
+                    },
+                    {
+                        "summaries": [
+                            {
+                                "education-summary": {
+                                    "created-date": {
+                                        "value": 1532322530230
+                                    },
+                                    "last-modified-date": {
+                                        "value": 1532322530230
+                                    },
+                                    "source": {
+                                        "source-client-id": {
+                                            "uri": f"http://sandbox.orcid.org/client/{client_id}",
+                                            "path": client_id,
+                                            "host": "sandbox.orcid.org"
+                                        },
+                                        "source-name": {
+                                            "value": "The University of Auckland - MyORCiD"
+                                        }
+                                    },
+                                    "role-title": "Master of Engineering Studies",
+                                    "department-name": "",
+                                    "end-date": {
+                                        "year": {"value": "2019"},
+                                        "month": {"value": "02"},
+                                        "day": {"value": "29"}},
+                                    "organization": {
+                                        "name": "The University of Auckland",
+                                        "address": {
+                                            "city": "Auckland",
+                                            "region": "Auckland",
+                                            "country": "NZ"
+                                        },
+                                        "disambiguated-organization": {
+                                            "disambiguated-organization-identifier": "123456",
+                                            "disambiguation-source": "RINGGOLD"
+                                        }
+                                    },
+                                    "visibility": "PRIVATE",
+                                    "put-code": 555,
+                                    "path": f"/{orcid}/education/555"
+                                }
                             }
                         ]
-                    }
+                    },
                 ],
                 "path":
                     f"/{orcid}/educations"

@@ -1135,25 +1135,24 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
             for r in records:
                 try:
-                    orcid, put_code = r.get('path').split("/")[-3::2]
+                    orcid, rec_type, put_code = r.get('path').split("/")[-3:]
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
                 start_date = record.start_date.as_orcid_dict() if record.start_date else None
                 end_date = record.end_date.as_orcid_dict() if record.end_date else None
 
-                if (r.get("start-date") == start_date and r.get(
-                    "end-date") == end_date and r.get(
-                    "department-name") == record.department
-                    and r.get("role-title") == record.role
-                    and get_val(r, "organization", "name") == record.organisation
-                    and get_val(r, "organization", "address", "city") == record.city
-                    and get_val(r, "organization", "address", "region") == record.region
-                    and get_val(r, "organization", "address", "country") == record.country
-                    and get_val(r, "organization", "disambiguated-organization",
+                if (r.get("start-date") == start_date and r.get("end-date") == end_date and
+                    (rec_type == "education" or r.get("department-name") == record.department)
+                        and r.get("role-title") == record.role
+                        and get_val(r, "organization", "name") == record.organisation
+                        and get_val(r, "organization", "address", "city") == record.city
+                        and get_val(r, "organization", "address", "region") == record.region
+                        and get_val(r, "organization", "address", "country") == record.country and
+                        get_val(r, "organization", "disambiguated-organization",
                                 "disambiguated-organization-identifier") == record.disambiguated_id
-                    and get_val(r, "organization", "disambiguated-organization",
-                                "disambiguation-source") == record.disambiguation_source):
+                        and get_val(r, "organization", "disambiguated-organization",
+                                    "disambiguation-source") == record.disambiguation_source):
                     record.put_code = put_code
                     record.orcid = orcid
                     record.visibility = r.get("visibility")
@@ -1165,18 +1164,24 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("start-date") is None and r.get("end-date") is None and r.get(
-                    "department-name") is None and r.get("role-title") is None)
-                    or (record.department and record.role and r.get("start-date") == start_date
-                        and (r.get("department-name", default='') or '').lower() == record.department.lower()
-                        and (r.get("role-title", default='') or '').lower() == record.role.lower())):
+                if (
+                        # pure vanilla:
+                        (r.get("start-date") is None and r.get("end-date") is None and
+                            r.get("department-name") is None and r.get("role-title") is None) or
+                        # partial match
+                        ((
+                            # for 'edu' records department and start-date can be missing:
+                            rec_type == "education" or (
+                                record.department and r.get("start-date") == start_date and
+                                r.get("department-name", default='').lower() == record.department.lower())
+                        ) and record.role and r.get("role-title", default=''.lower() == record.role.lower()))
+                ):
                     record.visibility = r.get("visibility")
                     record.put_code = put_code
                     record.orcid = orcid
                     taken_put_codes.add(put_code)
-                    app.logger.debug(
-                        f"put-code {put_code} was asigned to the affiliation record "
-                        f"(ID: {record.id}, Task ID: {record.task_id})")
+                    app.logger.debug(f"put-code {put_code} was asigned to the affiliation record "
+                                     f"(ID: {record.id}, Task ID: {record.task_id})")
                     break
 
         for task_by_user in records:
