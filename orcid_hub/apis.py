@@ -3558,7 +3558,7 @@ def register_webhook(orcid=None, callback_url=None):
                 ("notification-email", org.notification_email),
             ] if v is not None}
 
-            if enabled or email_notifications_enabled:
+            if (enabled or email_notifications_enabled) and not was_enabled:
                 job = utils.enable_org_webhook.queue(org)
                 data["job-id"] = job.id
 
