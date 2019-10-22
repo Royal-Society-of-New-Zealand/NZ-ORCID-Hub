@@ -71,6 +71,7 @@ class AppResource(Resource):
         oauth.require_oauth(),
     ]
 
+    @property
     def org(self):
         """Get the organisation the app belongs to."""
         return request.oauth.access_token.client.org
