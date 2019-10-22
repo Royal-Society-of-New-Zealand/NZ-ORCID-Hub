@@ -4295,18 +4295,6 @@ class MessageRecord(RecordModel):
         d["invitees"] = [i.to_export_dict() for i in self.invitees]
         return d
 
-# class MessageRecordInvitee(BaseModel):
-#     """Link from a record to an invitee."""
-
-#     put_code = IntegerField(null=True)
-#     record = ForeignKeyField(MessageRecord)
-#     invitee = ForeignKeyField(Invitee)
-#     processed_at = DateTimeField(null=True)
-#     status = TextField(null=True, help_text="Record processing status.")
-
-
-# ThroughDeferred.set_model(MessageRecordInvitee)
-
 
 RecordInvitee = MessageRecord.invitees.get_through_model()
 

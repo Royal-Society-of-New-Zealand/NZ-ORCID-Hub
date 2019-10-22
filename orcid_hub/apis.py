@@ -71,6 +71,10 @@ class AppResource(Resource):
         oauth.require_oauth(),
     ]
 
+    def org(self):
+        """Get the organisation the app belongs to."""
+        return request.oauth.access_token.client.org
+
     def dispatch_request(self, *args, **kwargs):
         """Do some pre-handling and post-handling."""
         resp = super().dispatch_request(*args, **kwargs)
@@ -364,7 +368,8 @@ class TaskResource(AppResource):
                 filename=filename,
                 task_id=task_id,
                 skip_schema_validation=True,
-                override=(request.method == "POST"))
+                override=(request.method == "POST"),
+                org=self.org)
         except Exception as ex:
             app.logger.exception("Failed to handle affiliation API request.")
             return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
@@ -910,7 +915,7 @@ class AffiliationListAPI(TaskResource):
                 description: "User ORCID ID"
         """
         if request.content_type in ["text/csv", "text/tsv"]:
-            task = AffiliationRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            task = AffiliationRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename, org=self.org)
             return self.jsonify_task(task)
         return self.handle_affiliation_task()
 
