@@ -51,7 +51,7 @@ from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId
                      FundingInvitee, FundingRecord, Grant, GroupIdRecord, Invitee, MessageRecord,
                      ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
                      Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, RecordInvitee, Role, Task,
                      TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
                      UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
                      db)
@@ -192,6 +192,20 @@ class AppCustomModelConverter(CustomModelConverter):
 
 class AppModelView(ModelView):
     """ModelView customization."""
+
+    # def get_column_name(self, field):
+    #     """
+    #         Return a human-readable column name.
+
+    #         :param field:
+    #             Model field name.
+    #     """
+    #     if self.column_labels and field in self.column_labels:
+    #         return self.column_labels[field]
+    #     else:
+    #         model_field = self.model._meta.fields.get(field)
+    #         return self._prettify_name(
+    #             model_field.verbose_name if model_field and model_field.verbose_name else field)
 
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
     column_editable_list = ["name", "is_active", "email", "role", "city", "region", "value", "url", "display_index"]
@@ -800,7 +814,7 @@ class RecordModelView(AppModelView):
         try:
             status = "The record was activated at " + datetime.now().isoformat(timespec="seconds")
             count = self.model.update(is_active=True, status=status).where(
-                self.model.is_active == False,  # noqa: E712
+                ((self.model.is_active.is_null()) | (self.model.is_active == False)),  # noqa: E712
                 self.model.id.in_(ids)).execute()
             if self.model == AffiliationRecord:
                 records = self.model.select().where(self.model.id.in_(ids)).order_by(
@@ -837,7 +851,13 @@ class RecordModelView(AppModelView):
                     processed_at=None, status=status).where(self.model.is_active,
                                                             self.model.id.in_(ids)).execute()
 
-                if hasattr(self.model, "invitees"):
+                if task.is_raw:
+                    invitee_ids = [i.id for i in Invitee.select().join(
+                        RecordInvitee).join(MessageRecord).where(MessageRecord.id.in_(ids))]
+                    count = Invitee.update(
+                        processed_at=None, status=status).where(Invitee.id.in_(invitee_ids)).execute()
+                    emails = Invitee.select(Invitee.email).where(Invitee.id.in_(invitee_ids))
+                elif hasattr(self.model, "invitees"):
                     im = self.model.invitees.rel_model
                     count = im.update(
                         processed_at=None, status=status).where(im.record.in_(ids)).execute()
@@ -968,7 +988,7 @@ class RecordChildAdmin(AppModelView):
             record_id = request.args.get("record_id")
             if record_id:
                 return int(record_id)
-            url = request.args.get("url")
+            url = request.values.get("url") or request.referrer
             if not url:
                 flash("Missing return URL.", "danger")
                 return None
@@ -1036,18 +1056,20 @@ class InviteeAdmin(RecordChildAdmin):
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
+        rec_id = self.current_record_id
         with db.atomic() as transaction:
             try:
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
-                record_id = self.model.select().where(
-                    self.model.id.in_(ids))[0].record_id
-                rec_class = self.model.record.rel_model
+                if self.model == Invitee and MessageRecord.select().where(MessageRecord.id == rec_id).exists():
+                    rec_class = MessageRecord
+                else:
+                    rec_class = self.model.record.rel_model
                 rec_class.update(
                     processed_at=None, status=status).where(
-                    rec_class.is_active, rec_class.id == record_id).execute()
-                getattr(utils, f"process_{rec_class.underscore_name()}s").queue(record_id)
+                    rec_class.is_active, rec_class.id == rec_id).execute()
+                getattr(utils, f"process_{rec_class.underscore_name()}s").queue(rec_id)
             except Exception as ex:
                 transaction.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -1125,8 +1147,13 @@ class CompositeRecordModelView(RecordModelView):
 
         try:
             try:
-                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
-                response_data = ds.export(format=export_type)
+                if export_type == 'json':
+                    response_data = json.dumps(json.loads(ds.json), ensure_ascii=False)
+                elif export_type == 'yaml':
+                    response_data = yaml.safe_dump(json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")),
+                                                   allow_unicode=True)
+                else:
+                    response_data = ds.export(format=export_type)
             except AttributeError:
                 response_data = getattr(ds, export_type)
         except (AttributeError, tablib.UnsupportedFormat):
@@ -1615,7 +1642,7 @@ class AffiliationRecordAdmin(CompositeRecordModelView):
         "start_date",
         "end_date",
         "city",
-        "state",
+        "region",
         "country",
         "disambiguated_id",
         "disambiguation_source",

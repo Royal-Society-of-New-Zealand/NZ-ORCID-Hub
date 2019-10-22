@@ -27,11 +27,11 @@ from yaml.representer import SafeRepresenter
 
 from . import app, db, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
-                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee, OtherIdRecord,
-                     OrcidToken, Organisation, OrgInvitation, PartialDate, PeerReviewExternalId,
-                     PeerReviewInvitee, PeerReviewRecord, PropertyRecord, ResourceRecord, Role,
-                     Task, TaskType, User, UserInvitation, UserOrg, WorkInvitee, WorkRecord,
-                     get_val, readup_file)
+                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee,
+                     OtherIdRecord, OrcidToken, Organisation, OrgInvitation, PartialDate,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, PropertyRecord,
+                     RecordInvitee, ResourceRecord, Role, Task, TaskType, User, UserInvitation,
+                     UserOrg, WorkInvitee, WorkRecord, get_val, readup_file)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -525,10 +525,10 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
         OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
         OrcidToken.scopes.contains("/activities/update")).first()
     api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
-    resources = api.get_resources().get("group")
+    resources = api.get_resources()
 
     if resources:
-
+        resources = resources.get("group")
         resources = [
             r for r in resources if any(
                 rr.get("source", "source-client-id", "path") == org.orcid_client_id
@@ -552,7 +552,6 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
                     # if all(eid.get("external-id-value") != record.external_id_value
                     #         for eid in rr.get("proposal", "external-ids", "external-id")):
                     #     continue
-
                     if put_code in taken_put_codes:
                         continue
 
@@ -581,11 +580,18 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
                     resp = api.post("research-resource", rr.orcid_research_resource)
 
                 if resp.status == 201:
+                    orcid, put_code = resp.headers["Location"].split("/")[-3::2]
                     rr.add_status_line("ORCID record was created.")
                 else:
+                    orcid = user.orcid
                     rr.add_status_line("ORCID record was updated.")
-                if not put_code:
-                    rr.put_code = resp.headers["Location"].split('/')[-1]
+                if not rr.put_code and put_code:
+                    rr.put_code = int(put_code)
+                if not rr.orcid and orcid:
+                    rr.orcid = orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                if rr.visibility != visibility:
+                    rr.visibility = visibility
 
             except ApiException as ex:
                 if ex.status == 404:
@@ -2019,6 +2025,7 @@ def process_resource_records(max_rows=20, record_id=None):
             tasks = tasks.where(ResourceRecord.id.in_(record_id))
         else:
             tasks = tasks.where(ResourceRecord.id == record_id)
+
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
@@ -2304,7 +2311,6 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     If URL is given, it will be used for as call-back URL.
     """
     local_handler = (callback_url is None)
-
     # Don't delete the webhook if there is anyther organisation with enabled webhook:
     if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
         return
@@ -2341,6 +2347,7 @@ def notify_about_update(user, event_type="UPDATED"):
                                          user.orcid,
                                          user.created_at or user.updated_at,
                                          user.updated_at or user.created_at,
+                                         apikey=org.webhook_apikey,
                                          event_type=event_type,
                                          append_orcid=org.webhook_append_orcid)
 
@@ -2358,7 +2365,7 @@ def notify_about_update(user, event_type="UPDATED"):
 
 @rq.job(timeout=300)
 def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, updated_at=None, message=None,
-                           event_type="UPDATED", url=None, attempts=5, append_orcid=False):
+                           apikey=None, event_type="UPDATED", url=None, attempts=5, append_orcid=False):
     """Propagate 'updated' event to the organisation event handler URL."""
     if not message:
         url = app.config["ORCID_BASE_URL"] + orcid
@@ -2386,7 +2393,10 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             url += orcid
 
     try:
-        resp = requests.post(url, json=message)
+        if apikey:
+            resp = requests.post(url, json=message, headers=dict(apikey=apikey))
+        else:
+            resp = requests.post(url, json=message)
     except:
         if attempts == 1:
             raise
@@ -2396,6 +2406,7 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             invoke_webhook_handler.schedule(timedelta(minutes=5 *
                                                       (6 - attempts) if attempts < 6 else 5),
                                             message=message,
+                                            apikey=apikey,
                                             url=url,
                                             attempts=attempts - 1)
         else:
@@ -2408,7 +2419,7 @@ def enable_org_webhook(org):
     """Enable Organisation Webhook."""
     org.webhook_enabled = True
     org.save()
-    for u in org.users.where(User.webhook_enabled.NOT()):
+    for u in org.users.where(User.webhook_enabled.NOT(), User.orcid.is_null(False)):
         register_orcid_webhook.queue(u)
 
 
@@ -2417,7 +2428,7 @@ def disable_org_webhook(org):
     """Disable Organisation Webhook."""
     org.webhook_enabled = False
     org.save()
-    for u in org.users.where(User.webhook_enabled):
+    for u in org.users.where(User.webhook_enabled, User.orcid.is_null(False)):
         register_orcid_webhook.queue(u, delete=True)
 
 
@@ -2518,7 +2529,7 @@ def dump_yaml(data):
     """Dump the objects into YAML representation."""
     yaml.add_representer(datetime, SafeRepresenterWithISODate.represent_datetime, Dumper=Dumper)
     yaml.add_representer(defaultdict, SafeRepresenter.represent_dict)
-    return yaml.dump(data)
+    return yaml.dump(data, allow_unicode=True)
 
 
 def enqueue_user_records(user):
@@ -2540,6 +2551,11 @@ def enqueue_user_records(user):
             records = records.join(WorkInvitee).where(
                 (WorkInvitee.email.is_null() | (WorkInvitee.email == user.email)),
                 (WorkInvitee.orcid.is_null() | (WorkInvitee.orcid == user.orcid)))
+        elif task.task_type == TaskType.RESOURCE and task.is_raw:
+            invitee_model = task.record_model.invitees.rel_model
+            records = records.join(RecordInvitee).join(Invitee).where(
+                (invitee_model.email.is_null() | (invitee_model.email == user.email)),
+                (invitee_model.orcid.is_null() | (invitee_model.orcid == user.orcid)))
         else:
             records = records.where(
                 (task.record_model.email.is_null() | (task.record_model.email == user.email)),

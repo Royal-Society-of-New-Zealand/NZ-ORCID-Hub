@@ -135,6 +135,7 @@ class JSONEncoder(_JSONEncoder):
         return super().default(o)
 
 
+app.config["JSON_AS_ASCII"] = False
 app.json_encoder = JSONEncoder
 
 

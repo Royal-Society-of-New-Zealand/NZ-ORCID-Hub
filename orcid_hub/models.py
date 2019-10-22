@@ -1002,16 +1002,11 @@ class UserOrg(AuditedModel):
     user = ForeignKeyField(User, on_delete="CASCADE", index=True, backref="user_orgs")
     org = ForeignKeyField(
         Organisation, on_delete="CASCADE", index=True, verbose_name="Organisation", backref="user_orgs")
-
     is_admin = BooleanField(
         null=True, default=False, help_text="User is an administrator for the organisation")
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
-    # created_by = ForeignKeyField(
-    #     User, on_delete="SET NULL", null=True, backref="created_user_orgs")
-    # updated_by = ForeignKeyField(
-    #     User, on_delete="SET NULL", null=True, backref="updated_user_orgs")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
@@ -3503,7 +3498,7 @@ class FundingContributor(ContributorModel):
 class Invitee(BaseModel):
     """Common model bits of the invitees records."""
 
-    identifier = CharField(max_length=120, verbose_name="Local Identifier", null=True)
+    identifier = CharField(max_length=120, null=True, verbose_name="Local Identifier")
     email = CharField(max_length=120, null=True)
     orcid = OrcidIdField(null=True)
     first_name = CharField(max_length=120, null=True)
@@ -4038,7 +4033,7 @@ class ResourceRecord(RecordModel, Invitee):
 
         def val(row, column, default=None):
             idx = idxs.get(column)
-            if not idx or idx < 0 or idx >= len(row):
+            if idx is None or idx < 0 or idx >= len(row):
                 return default
             return row[idx].strip() or default
 
