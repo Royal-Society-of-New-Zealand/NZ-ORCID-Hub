@@ -19,9 +19,9 @@ if __redis_available:
         from flask_rq2 import RQ
         import rq_dashboard
         from rq import Queue as _Queue
-        import redis
-        with redis.Redis.from_url(REDIS_URL, socket_connect_timeout=1) as r:
-            r.ping()
+        # import redis
+        # with redis.Redis.from_url(REDIS_URL, socket_connect_timeout=1) as r:
+        #     r.ping()
 
         class ThrottledQueue(_Queue):
             """Queue with throttled deque."""
