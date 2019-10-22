@@ -589,7 +589,7 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
                     rr.put_code = int(put_code)
                 if not rr.orcid and orcid:
                     rr.orcid = orcid
-                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") and resp.data else None
                 if rr.visibility != visibility:
                     rr.visibility = visibility
 
