@@ -51,7 +51,7 @@ from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId
                      FundingInvitee, FundingRecord, Grant, GroupIdRecord, Invitee, MessageRecord,
                      ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
                      Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, RecordInvitee, Role, Task,
                      TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
                      UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
                      db)
@@ -840,7 +840,13 @@ class RecordModelView(AppModelView):
                     processed_at=None, status=status).where(self.model.is_active,
                                                             self.model.id.in_(ids)).execute()
 
-                if hasattr(self.model, "invitees"):
+                if task.is_raw:
+                    invitee_ids = [i.id for i in Invitee.select().join(
+                        RecordInvitee).join(MessageRecord).where(MessageRecord.id.in_(ids))]
+                    count = Invitee.update(
+                        processed_at=None, status=status).where(Invitee.id.in_(invitee_ids)).execute()
+                    emails = Invitee.select(Invitee.email).where(Invitee.id.in_(invitee_ids))
+                elif hasattr(self.model, "invitees"):
                     im = self.model.invitees.rel_model
                     count = im.update(
                         processed_at=None, status=status).where(im.record.in_(ids)).execute()
@@ -971,7 +977,7 @@ class RecordChildAdmin(AppModelView):
             record_id = request.args.get("record_id")
             if record_id:
                 return int(record_id)
-            url = request.args.get("url")
+            url = request.values.get("url") or request.referrer
             if not url:
                 flash("Missing return URL.", "danger")
                 return None
@@ -1039,18 +1045,20 @@ class InviteeAdmin(RecordChildAdmin):
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
+        rec_id = self.current_record_id
         with db.atomic() as transaction:
             try:
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
-                record_id = self.model.select().where(
-                    self.model.id.in_(ids))[0].record_id
-                rec_class = self.model.record.rel_model
+                if self.model == Invitee and MessageRecord.select().where(MessageRecord.id == rec_id).exists():
+                    rec_class = MessageRecord
+                else:
+                    rec_class = self.model.record.rel_model
                 rec_class.update(
                     processed_at=None, status=status).where(
-                    rec_class.is_active, rec_class.id == record_id).execute()
-                getattr(utils, f"process_{rec_class.underscore_name()}s").queue(record_id)
+                    rec_class.is_active, rec_class.id == rec_id).execute()
+                getattr(utils, f"process_{rec_class.underscore_name()}s").queue(rec_id)
             except Exception as ex:
                 transaction.rollback()
                 flash(f"Failed to activate the selected records: {ex}")

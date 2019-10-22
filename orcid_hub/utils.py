@@ -27,11 +27,11 @@ from yaml.representer import SafeRepresenter
 
 from . import app, db, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
-                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee, OtherIdRecord,
-                     OrcidToken, Organisation, OrgInvitation, PartialDate, PeerReviewExternalId,
-                     PeerReviewInvitee, PeerReviewRecord, PropertyRecord, ResourceRecord, Role,
-                     Task, TaskType, User, UserInvitation, UserOrg, WorkInvitee, WorkRecord,
-                     get_val, readup_file)
+                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee,
+                     OtherIdRecord, OrcidToken, Organisation, OrgInvitation, PartialDate,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, PropertyRecord,
+                     RecordInvitee, ResourceRecord, Role, Task, TaskType, User, UserInvitation,
+                     UserOrg, WorkInvitee, WorkRecord, get_val, readup_file)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -2546,11 +2546,11 @@ def enqueue_user_records(user):
             records = records.join(WorkInvitee).where(
                 (WorkInvitee.email.is_null() | (WorkInvitee.email == user.email)),
                 (WorkInvitee.orcid.is_null() | (WorkInvitee.orcid == user.orcid)))
-        # TODO: Handle Research Resource json enqueing
-        # elif task.task_type == TaskType.RESOURCE and hasattr(task.record_model, "invitees"):
-        #    inv = task.record_model.invitees.rel_model
-        #    records = records.where((inv.email.is_null() | (inv.email == user.email)),
-        #       (inv.orcid.is_null() | (inv.orcid == user.orcid)))
+        elif task.task_type == TaskType.RESOURCE and task.is_raw:
+            invitee_model = task.record_model.invitees.rel_model
+            records = records.join(RecordInvitee).join(Invitee).where(
+                (invitee_model.email.is_null() | (invitee_model.email == user.email)),
+                (invitee_model.orcid.is_null() | (invitee_model.orcid == user.orcid)))
         else:
             records = records.where(
                 (task.record_model.email.is_null() | (task.record_model.email == user.email)),
