@@ -29,6 +29,7 @@ from playhouse import db_url
 # disable Sentry if there is no SENTRY_DSN:
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
 from sentry_sdk.integrations.rq import RqIntegration
 
 from . import config
@@ -213,7 +214,7 @@ SENTRY_DSN = app.config.get("SENTRY_DSN")
 if SENTRY_DSN:
     sentry_sdk.init(
         SENTRY_DSN,
-        integrations=[FlaskIntegration(), RqIntegration()],
+        integrations=[FlaskIntegration(), RqIntegration(), RedisIntegration()],
         debug=app.debug,
         environment=app.config.get("ENV"),
         send_default_pii=True)
