@@ -1680,7 +1680,7 @@ class AffiliationRecord(RecordModel):
 
                     first_name = val(row, 0)
                     last_name = val(row, 1)
-                    if not delete_record and not(first_name and last_name):
+                    if not delete_record and not(email or orcid):
                         raise ModelException(
                             "Wrong number of fields. Expected at least 4 fields "
                             "(first name, last name, email address or another unique identifier, "
@@ -3498,7 +3498,7 @@ class FundingContributor(ContributorModel):
 class Invitee(BaseModel):
     """Common model bits of the invitees records."""
 
-    identifier = CharField(max_length=120, null=True, verbose_name="Local ID")
+    identifier = CharField(max_length=120, null=True, verbose_name="Local Identifier")
     email = CharField(max_length=120, null=True)
     orcid = OrcidIdField(null=True)
     first_name = CharField(max_length=120, null=True)

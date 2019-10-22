@@ -27,11 +27,11 @@ from yaml.representer import SafeRepresenter
 
 from . import app, db, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
-                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee, OtherIdRecord,
-                     OrcidToken, Organisation, OrgInvitation, PartialDate, PeerReviewExternalId,
-                     PeerReviewInvitee, PeerReviewRecord, PropertyRecord, ResourceRecord, Role,
-                     Task, TaskType, User, UserInvitation, UserOrg, WorkInvitee, WorkRecord,
-                     get_val, readup_file)
+                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee,
+                     OtherIdRecord, OrcidToken, Organisation, OrgInvitation, PartialDate,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, PropertyRecord,
+                     RecordInvitee, ResourceRecord, Role, Task, TaskType, User, UserInvitation,
+                     UserOrg, WorkInvitee, WorkRecord, get_val, readup_file)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -525,10 +525,10 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
         OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
         OrcidToken.scopes.contains("/activities/update")).first()
     api = orcid_client.MemberAPIV3(org, user, access_token=token.access_token)
-    resources = api.get_resources().get("group")
+    resources = api.get_resources()
 
     if resources:
-
+        resources = resources.get("group")
         resources = [
             r for r in resources if any(
                 rr.get("source", "source-client-id", "path") == org.orcid_client_id
@@ -552,7 +552,6 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
                     # if all(eid.get("external-id-value") != record.external_id_value
                     #         for eid in rr.get("proposal", "external-ids", "external-id")):
                     #     continue
-
                     if put_code in taken_put_codes:
                         continue
 
@@ -581,11 +580,18 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
                     resp = api.post("research-resource", rr.orcid_research_resource)
 
                 if resp.status == 201:
+                    orcid, put_code = resp.headers["Location"].split("/")[-3::2]
                     rr.add_status_line("ORCID record was created.")
                 else:
+                    orcid = user.orcid
                     rr.add_status_line("ORCID record was updated.")
-                if not put_code:
-                    rr.put_code = resp.headers["Location"].split('/')[-1]
+                if not rr.put_code and put_code:
+                    rr.put_code = int(put_code)
+                if not rr.orcid and orcid:
+                    rr.orcid = orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
+                if rr.visibility != visibility:
+                    rr.visibility = visibility
 
             except ApiException as ex:
                 if ex.status == 404:
@@ -1135,25 +1141,24 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
             for r in records:
                 try:
-                    orcid, put_code = r.get('path').split("/")[-3::2]
+                    orcid, rec_type, put_code = r.get('path').split("/")[-3:]
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
                 start_date = record.start_date.as_orcid_dict() if record.start_date else None
                 end_date = record.end_date.as_orcid_dict() if record.end_date else None
 
-                if (r.get("start-date") == start_date and r.get(
-                    "end-date") == end_date and r.get(
-                    "department-name") == record.department
-                    and r.get("role-title") == record.role
-                    and get_val(r, "organization", "name") == record.organisation
-                    and get_val(r, "organization", "address", "city") == record.city
-                    and get_val(r, "organization", "address", "region") == record.region
-                    and get_val(r, "organization", "address", "country") == record.country
-                    and get_val(r, "organization", "disambiguated-organization",
+                if (r.get("start-date") == start_date and r.get("end-date") == end_date and
+                    (rec_type == "education" or r.get("department-name") == record.department)
+                        and r.get("role-title") == record.role
+                        and get_val(r, "organization", "name") == record.organisation
+                        and get_val(r, "organization", "address", "city") == record.city
+                        and get_val(r, "organization", "address", "region") == record.region
+                        and get_val(r, "organization", "address", "country") == record.country and
+                        get_val(r, "organization", "disambiguated-organization",
                                 "disambiguated-organization-identifier") == record.disambiguated_id
-                    and get_val(r, "organization", "disambiguated-organization",
-                                "disambiguation-source") == record.disambiguation_source):
+                        and get_val(r, "organization", "disambiguated-organization",
+                                    "disambiguation-source") == record.disambiguation_source):
                     record.put_code = put_code
                     record.orcid = orcid
                     record.visibility = r.get("visibility")
@@ -1165,18 +1170,24 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("start-date") is None and r.get("end-date") is None and r.get(
-                    "department-name") is None and r.get("role-title") is None)
-                    or (record.department and record.role and r.get("start-date") == start_date
-                        and (r.get("department-name", default='') or '').lower() == record.department.lower()
-                        and (r.get("role-title", default='') or '').lower() == record.role.lower())):
+                if (
+                        # pure vanilla:
+                        (r.get("start-date") is None and r.get("end-date") is None and
+                            r.get("department-name") is None and r.get("role-title") is None) or
+                        # partial match
+                        ((
+                            # for 'edu' records department and start-date can be missing:
+                            rec_type == "education" or (
+                                record.department and r.get("start-date") == start_date and
+                                r.get("department-name", default='').lower() == record.department.lower())
+                        ) and record.role and r.get("role-title", default=''.lower() == record.role.lower()))
+                ):
                     record.visibility = r.get("visibility")
                     record.put_code = put_code
                     record.orcid = orcid
                     taken_put_codes.add(put_code)
-                    app.logger.debug(
-                        f"put-code {put_code} was asigned to the affiliation record "
-                        f"(ID: {record.id}, Task ID: {record.task_id})")
+                    app.logger.debug(f"put-code {put_code} was asigned to the affiliation record "
+                                     f"(ID: {record.id}, Task ID: {record.task_id})")
                     break
 
         for task_by_user in records:
@@ -2014,6 +2025,7 @@ def process_resource_records(max_rows=20, record_id=None):
             tasks = tasks.where(ResourceRecord.id.in_(record_id))
         else:
             tasks = tasks.where(ResourceRecord.id == record_id)
+
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
@@ -2539,6 +2551,11 @@ def enqueue_user_records(user):
             records = records.join(WorkInvitee).where(
                 (WorkInvitee.email.is_null() | (WorkInvitee.email == user.email)),
                 (WorkInvitee.orcid.is_null() | (WorkInvitee.orcid == user.orcid)))
+        elif task.task_type == TaskType.RESOURCE and task.is_raw:
+            invitee_model = task.record_model.invitees.rel_model
+            records = records.join(RecordInvitee).join(Invitee).where(
+                (invitee_model.email.is_null() | (invitee_model.email == user.email)),
+                (invitee_model.orcid.is_null() | (invitee_model.orcid == user.orcid)))
         else:
             records = records.where(
                 (task.record_model.email.is_null() | (task.record_model.email == user.email)),
