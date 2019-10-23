@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 from flask_login import logout_user
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-# sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
 os.environ["DATABASE_URL"] = DATABASE_URL
