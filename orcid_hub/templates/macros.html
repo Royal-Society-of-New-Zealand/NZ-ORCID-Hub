@@ -60,6 +60,7 @@
 
 {# Render a publication information on CV. #}
 {%- macro publication_info(j, person_data) -%}
+{% if j is iterable and j is not string%}
 {% if j.get('contributors', 'contributor') %}
   {% for c in j.get('contributors', 'contributor') %}
   {% if c.get('credit-name', 'value') %}
@@ -72,24 +73,27 @@
   {{ s}}
   {% endfor %}
 {% endif %}
-{% if j.get('publication_date', 'day', 'value') and j.get('publication_date', 'month', 'value') and
-j.get('publication_date', 'year', 'value')%}
-  ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date', 'month',
-  'value')}}/{{j.get('publication_date', 'year', 'value')}})
-  {% elif j.get('publication_date', 'year', 'value')%}
-  ({{j.get('publication_date', 'year', 'value')}})
+{% if j.get('publication-date', 'day', 'value') and j.get('publication-date', 'month', 'value') and
+j.get('publication-date', 'year', 'value')%}
+  ({{j.get('publication-date', 'day', 'value')}}/{{j.get('publication-date', 'month',
+  'value')}}/{{j.get('publication-date', 'year', 'value')}})
+  {% elif j.get('publication-date', 'year', 'value')%}
+  ({{j.get('publication-date', 'year', 'value')}})
 {% endif %}
   , {{j.get('title', 'title', 'value') }}
 {% if j.get('title', 'subtitle', 'value') %}
   , {{ j.get('title', 'subtitle', 'value') }}
 {% endif %}
-{% if j.get('external_ids') and  j.get('external_ids', 'external-id') %}
-  {% for e in j.get('external_ids', 'external-id') %}
-    , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+{% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+  {% for e in j.get('external-ids', 'external-id') %}
+    , {{ e.get('external-id-type')}}: {{ e.get('external-id-value') }}
     {% if e.get('external-id-url', 'value') %}
       , {{ e.get('external-id-url', 'value') }}
     {% endif %}
   {% endfor %}
+{% endif %}
+{% else %}
+  {{ j }}
 {% endif %}
 {%- endmacro -%}
 
