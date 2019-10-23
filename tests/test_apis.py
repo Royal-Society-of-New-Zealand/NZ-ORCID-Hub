@@ -17,7 +17,7 @@ from orcid_hub.data_apis import plural
 from orcid_hub.models import (AffiliationRecord, AsyncOrcidResponse, Client, OrcidToken,
                               Organisation, Task, TaskType, Token, User, UserInvitation)
 from unittest.mock import patch, MagicMock
-from tests import utils
+from utils import get_profile as get_profile_data, get_resources as get_resources_data, readup_test_data
 
 # Test data directory
 data_path = os.path.join(os.path.dirname(__file__), "data")
@@ -1582,7 +1582,7 @@ def test_property_api(client, mocker):
     user = User.get(orcid="0000-0000-0000-00X3")
     OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
     get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record",
-                               return_value=utils.get_profile(user=user))
+                               return_value=get_profile_data(user=user))
     send_email = mocker.patch("orcid_hub.utils.send_email")
     create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_researcher_url")
     create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_other_name")
@@ -1677,7 +1677,7 @@ def test_resource_api(client, mocker):
     resp = client.post("/api/v1/resources/?filename=resources333.csv",
                        headers=dict(authorization=f"Bearer {access_token}"),
                        content_type="text/csv",
-                       data=utils.readup_test_data("resources.csv", mode="r"))
+                       data=readup_test_data("resources.csv", mode="r"))
     assert resp.status_code == 200
     assert Task.select().count() == 4
     data = resp.json
@@ -1688,15 +1688,15 @@ def test_resource_api(client, mocker):
     resp = client.post("/api/v1/resources/?filename=resources333.json",
                        headers=dict(authorization=f"Bearer {access_token}"),
                        content_type="application/json",
-                       data=utils.readup_test_data("resources.json"))
+                       data=readup_test_data("resources.json"))
     assert resp.status_code == 200
     assert Task.select().count() == 5
     user = User.get(orcid="0000-0000-0000-00X3")
     OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
     mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record",
-                 return_value=utils.get_profile(user=user))
+                 return_value=get_profile_data(user=user))
     get_resources = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_resources",
-                                 return_value=utils.get_resources(user=user))
+                                 return_value=get_resources_data(user=user))
     send_email = mocker.patch("orcid_hub.utils.send_email")
 
     mocker.patch("orcid_hub.orcid_client.MemberAPIV3.put")

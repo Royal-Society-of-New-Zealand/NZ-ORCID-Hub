@@ -29,7 +29,7 @@ from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, Fund
                               OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord, Role,
                               Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
                               UserOrgAffiliation, WorkRecord, create_tables)
-from tests.utils import get_profile, get_resources, readup_test_data
+from utils import get_profile, get_resources, readup_test_data
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -1295,7 +1295,7 @@ def test_invite_user(client):
 def test_researcher_invitation(client, mocker):
     """Test full researcher invitation flow."""
     mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
-    mocker.patch("orcid_hub.MemberAPI.create_or_update_affiliation")
+    mocker.patch("orcid_hub.MemberAPIV3.create_or_update_affiliation")
     mocker.patch(
         "orcid_hub.views.send_user_invitation.queue",
         lambda *args, **kwargs: (views.send_user_invitation(*args, **kwargs) and Mock()))
