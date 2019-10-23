@@ -17,7 +17,7 @@ from orcid_hub.orcid_client import (ApiException, MemberAPI, MemberAPIV3, api_cl
                                     configuration, NestedDict)  # noqa:E404
 import orcid_api_v3 as v3
 
-from tests.utils import get_profile
+from utils import get_profile
 fake_time = time.time()
 
 
