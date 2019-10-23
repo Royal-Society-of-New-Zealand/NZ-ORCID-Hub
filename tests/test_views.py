@@ -29,7 +29,7 @@ from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, Fund
                               OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord, Role,
                               Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
                               UserOrgAffiliation, WorkRecord, create_tables)
-from tests.utils import get_profile, get_resources, readup_test_data
+from utils import get_profile, get_resources, readup_test_data
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)

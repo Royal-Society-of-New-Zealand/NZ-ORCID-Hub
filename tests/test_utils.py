@@ -21,7 +21,7 @@ from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContri
                               PropertyRecord, PartialDate, Role, Task, TaskType, User, UserInvitation, UserOrg,
                               WorkContributor, WorkExternalId, WorkInvitee, WorkRecord)
 
-from tests.utils import get_profile
+from utils import get_profile
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
