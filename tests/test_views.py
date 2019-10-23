@@ -1295,7 +1295,7 @@ def test_invite_user(client):
 def test_researcher_invitation(client, mocker):
     """Test full researcher invitation flow."""
     mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
-    mocker.patch("orcid_hub.MemberAPI.create_or_update_affiliation")
+    mocker.patch("orcid_hub.MemberAPIV3.create_or_update_affiliation")
     mocker.patch(
         "orcid_hub.views.send_user_invitation.queue",
         lambda *args, **kwargs: (views.send_user_invitation(*args, **kwargs) and Mock()))
