@@ -36,7 +36,7 @@ from pycountry import countries, currencies, languages
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
-from . import app, db, schemas
+from . import app, cache, db, schemas
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -755,6 +755,7 @@ class User(AuditedModel, UserMixin):
                     UserOrg.user_id == self.id))
 
     @lazy_property
+    @cache.memoize(50)
     def org_links(self):
         """Get all user organisation linked directly and indirectly."""
         if self.orcid:
@@ -769,8 +770,9 @@ class User(AuditedModel, UserMixin):
             q = self.userorg_set
 
         return [
-            r for r in q.select(UserOrg.id, UserOrg.org_id, Organisation.name.alias("org_name"))
-            .join(Organisation, on=(
+            r for r in q.select(UserOrg, Organisation.name.alias("org_name"), (
+                Organisation.id == self.organisation_id
+            ).alias("current_org")).join(Organisation, on=(
                 Organisation.id == UserOrg.org_id)).order_by(Organisation.name).objects()
         ]
 

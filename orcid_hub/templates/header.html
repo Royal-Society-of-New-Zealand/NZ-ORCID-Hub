@@ -42,7 +42,7 @@
                                                  title="Current Organisation"
                                                  onchange='location.href="/select/user_org/"+this.value'>
                   {% for ol in current_user.org_links %}
-                    <option data-tokens="{{ol.id}}" value="{{ol.id}}" {{"selected" if current_user.organisation.id == ol.org_id else ''}}>{{ol.org_name}}</option>
+                    <option data-tokens="{{ol.id}}" value="{{ol.id}}" {{"selected" if ol.current_org else ''}}>{{ol.org_name}}</option>
                   {% endfor %}
                 </select>
                 </p>
