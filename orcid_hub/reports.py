@@ -3,18 +3,21 @@
 
 import json
 import re
+import requests
 import zipstream
 
 from datetime import datetime
 from flask import flash, make_response, Response, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from peewee import JOIN, SQL, fn
+from pybtex.plugin import find_plugin
+from pybtex.database import parse_string
 
 from . import app, cache
 from .forms import DateRangeForm
 from .login_provider import roles_required
 from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg, NestedDict
-from .orcid_client import MemberAPI
+from .orcid_client import MemberAPIV3
 
 
 @app.route("/user_summary")
@@ -150,14 +153,14 @@ def user_cv(op=None):
             flash("You haven't granted your organisation necessary access to your profile..",
                   "danger")
             return redirect(url_for("link"))
-        api = MemberAPI(user=user, access_token=token.access_token)
+        api = MemberAPIV3(user=user, access_token=token.access_token)
         try:
             record = api.get_record()
             works = [w for g in record.get("activities-summary", "works", "group") for w in g.get("work-summary")]
             combine_detail_works_summary = []
             for w in works:
-                work_api_response = api.view_work(user.orcid, w.get("put-code"))
-                work_data = json.loads(json.dumps(work_api_response.to_dict()), object_pairs_hook=NestedDict)
+                work_api_response = api.view_workv3(user.orcid, w.get("put-code"), _preload_content=False)
+                work_data = json.loads(work_api_response.data, object_pairs_hook=NestedDict)
                 combine_detail_works_summary.append(work_data)
 
             record['detail-works-summary'] = combine_detail_works_summary
@@ -188,21 +191,70 @@ def user_cv(op=None):
         if record:
             works = record.get("detail-works-summary")
             for w in works:
-                if w.get("type") in ['JOURNAL_ARTICLE', 'JOURNAL_ISSUE']:
-                    work_type_journal.append(w)
-                elif w.get("type") in ['BOOK', 'BOOK_REVIEW']:
-                    work_type_books.append(w)
-                elif w.get("type") in ['BOOK_CHAPTER', 'EDITED_BOOK']:
-                    work_type_book_chapter.append(w)
-                elif w.get("type") in ['CONFERENCE_PAPER', 'CONFERENCE_ABSTRACT', 'CONFERENCE_POSTER']:
-                    work_type_conference.append(w)
-                elif w.get("type") in ['PATENT']:
-                    work_type_patent.append(w)
-                else:
-                    work_type_other.append(w)
+                publications_dissemination = ""
+                # Case 1 of getting Research publications and dissemination: Check for DOI and crossref the value
+                external_id_url = [item.get('external-id-url', 'value') for item in
+                                   w.get("external-ids").get("external-id") if
+                                   item.get('external-id-type') and item.get(
+                                       'external-id-type').lower() == 'doi'] if w.get("external-ids").get(
+                    "external-id") else []
 
-            educations = record.get("activities-summary", "educations", "education-summary")
-            employments = record.get("activities-summary", "employments", "employment-summary")
+                for ex in external_id_url:
+                    try:
+                        resp = requests.get(ex, headers={"Accept": "text/bibliography; style=apa"})
+                        if resp.status_code == 200:
+                            publications_dissemination = resp.text.encode('latin-1').decode('utf-8').strip()
+                            break
+                    except requests.exceptions.RequestException:
+                        continue
+                    except Exception:
+                        continue
+
+                # Case 2 of getting Research publications and dissemination: Check citation types
+                if not publications_dissemination and w.get("citation") and w.get(
+                        "citation", "citation-type") and w.get("citation", "citation-value"):
+
+                    citation_type = w.get("citation", "citation-type").lower()
+                    citation_value = w.get("citation", "citation-value")
+
+                    # Check if the citation is bibtex and try to parse it
+                    if citation_type == "bibtex":
+                        try:
+                            data = parse_string(citation_value, 'bibtex')
+                            apa = find_plugin('pybtex.style.formatting', 'apa')()
+                            formatted_bib = apa.format_bibliography(data)
+                            publications_dissemination = " ".join(
+                                entry.text.render_as('text') for entry in formatted_bib)
+                        except Exception:
+                            # pass any exception and move forward to check for other criteria.
+                            pass
+                    # Case 3: If the citation is other than bibtex and ris, i.e. non standard citation then reproduce.
+                    elif citation_type != "ris":
+                        publications_dissemination = citation_value
+
+                # Case 4 of getting Research publications and dissemination: Simple/Parse of work elements
+                if not publications_dissemination:
+                    publications_dissemination = w
+
+                if w.get("type") in ['journal-article', 'journal-issue']:
+                    work_type_journal.append(publications_dissemination)
+                elif w.get("type") in ['book', 'book-review']:
+                    work_type_books.append(publications_dissemination)
+                elif w.get("type") in ['book-chapter', 'edited-book']:
+                    work_type_book_chapter.append(publications_dissemination)
+                elif w.get("type") in ['conference-paper', 'conference-abstract', 'conference-poster']:
+                    work_type_conference.append(publications_dissemination)
+                elif w.get("type") in ['patent']:
+                    work_type_patent.append(publications_dissemination)
+                else:
+                    work_type_other.append(publications_dissemination)
+
+            educations = [s.get("education-summary") for ag in
+                          record.get("activities-summary", "educations", "affiliation-group", default=[]) for s in
+                          ag.get("summaries", default=[])]
+            employments = [s.get("employment-summary") for ag in
+                           record.get("activities-summary", "employments", "affiliation-group", default=[]) for s in
+                           ag.get("summaries", default=[])]
 
             first_name, *second_names = re.split("[,; \t]", str(
                 record.get("person", "name", "given-names", "value", default=user.first_name)))
