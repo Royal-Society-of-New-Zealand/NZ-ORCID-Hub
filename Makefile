@@ -1,5 +1,5 @@
 NAME = orcidhub/app
-VERSION = 6.5
+VERSION = 6.6
 
 .PHONY: all build test tag
 
