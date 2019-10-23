@@ -3,7 +3,7 @@ oauthlib==2.1.0
 requests
 requests-oauthlib==1.0.0
 psycopg2-binary
-peewee>=3.9.6
+peewee>=3.9.6,<3.11.0
 python-slugify
 emails
 wtf-peewee
