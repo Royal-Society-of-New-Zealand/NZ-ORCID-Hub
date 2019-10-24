@@ -196,8 +196,8 @@ def user_cv(op=None):
                 external_id_url = [item.get('external-id-url', 'value') for item in
                                    w.get("external-ids").get("external-id") if
                                    item.get('external-id-type') and item.get(
-                                       'external-id-type').lower() == 'doi'] if w.get("external-ids").get(
-                    "external-id") else []
+                                       'external-id-type').lower() == 'doi'] if w.get("external-ids") and w.get(
+                    "external-ids").get("external-id") else []
 
                 for ex in external_id_url:
                     try:
