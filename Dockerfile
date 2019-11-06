@@ -36,7 +36,7 @@ RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
     && pip3.6 install -U pip \
     && pip install -U mod_wsgi psycopg2-binary \
     && pip install -U -r requirements.txt \
-    && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
+    && /usr/local/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
     && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
     && echo $'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n' > /etc/sysconfig/shibd \

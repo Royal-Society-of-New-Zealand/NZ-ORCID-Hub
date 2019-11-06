@@ -140,6 +140,7 @@ def index():
 
 @app.route("/about.html")
 @app.route("/about")
+@cache.cached(timeout=36000)
 def about():
     """Show about page with login buttons."""
     if request.args:
@@ -149,6 +150,7 @@ def about():
 
 @app.route("/faq.html")
 @app.route("/faq")
+@cache.cached(timeout=36000)
 def faq():
     """Show FAQ page with login buttons."""
     if request.args:

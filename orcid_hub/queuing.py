@@ -12,7 +12,7 @@ from . import app, models
 
 REDIS_URL = app.config["REDIS_URL"] = app.config.get("RQ_REDIS_URL")
 __redis_available = bool(REDIS_URL)
-
+# or (app.config.get("RQ_CONNECTION_CLASS") != "fakeredis.FakeStrictRedis") or not (app.config.get("RQ_ASYNC"))
 
 if __redis_available:
     try:

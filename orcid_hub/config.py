@@ -142,3 +142,7 @@ WEB_BACKGROUND = "gray"
 
 # Other flask settings
 JSONIFY_PRETTYPRINT_REGULAR = True
+
+# Caching
+CACHE_TYPE = "simple"
+# CACHE_DEFAULT_TIMEOUT = 600
