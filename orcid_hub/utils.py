@@ -703,8 +703,14 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
                     rr.invitee.add_status_line("ORCID record was created.")
                 else:
                     rr.invitee.add_status_line("ORCID record was updated.")
+
                 if not put_code:
-                    rr.invitee.put_code = resp.headers["Location"].split('/')[-1]
+                    location = resp.headers["Location"]
+                    resp_orcid, resp_put_code = location.split("/")[-3::2]
+                    rr.invitee.put_code = resp_put_code
+                    rr.invitee.orcid = resp_orcid
+                    rec = api.get(location)
+                    rr.invitee.visibility = rec.json.get("visibility")
 
             except ApiException as ex:
                 if ex.status == 404:

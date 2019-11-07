@@ -1497,9 +1497,12 @@ class MemberAPIMixin:
         if method != "GET":
             headers["Content-Type"] = self.content_type
         try:
-            url = f"/{self.version}/{self.user.orcid}"
-            if path:
-                url += '/' + path
+            if path and path.startswith("http"):
+                url = urlparse(path).path
+            else:
+                url = f"/{self.version}/{self.user.orcid}"
+                if path:
+                    url += '/' + path
             resp, *_ = self.api_client.call_api(
                 url,
                 method,

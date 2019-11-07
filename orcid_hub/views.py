@@ -2327,6 +2327,7 @@ def reset_all():
     _url = request.args.get("url") or request.referrer
     task_id = request.form.get("task_id")
     task = Task.get(task_id)
+
     try:
         count = utils.reset_all_records(task)
     except Exception as ex:
