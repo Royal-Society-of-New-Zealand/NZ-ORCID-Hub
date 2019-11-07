@@ -650,7 +650,7 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
             if put_code:
                 for rr in (rr for r in resources for rr in r.get("research-resource-summary")):
                     if rr.get("put-code") == put_code:
-                        record.ri.invitee.visibility = rr.get("visibility")
+                        record.invitee.visibility = rr.get("visibility")
                         break
                 return put_code
 
@@ -689,6 +689,8 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
         for t in records:
             try:
                 rr = t.record
+                if not rr.invitee.orcid:
+                    rr.invitee.orcid = user.orcid
                 put_code = match_record(resources, rr)
                 if "visibility" in rr.msg:
                     del(rr.msg["visibility"])
@@ -706,9 +708,7 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
 
                 if not put_code:
                     location = resp.headers["Location"]
-                    resp_orcid, resp_put_code = location.split("/")[-3::2]
-                    rr.invitee.put_code = resp_put_code
-                    rr.invitee.orcid = resp_orcid
+                    rr.invitee.put_code = location.split('/')[-1]
                     rec = api.get(location)
                     rr.invitee.visibility = rec.json.get("visibility")
 
