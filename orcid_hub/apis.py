@@ -3494,7 +3494,7 @@ def register_webhook(orcid=None, callback_url=None):
 
     else:
         org = current_user.organisation
-        was_enabled, enabled = org.webhook_enabled, False
+        was_enabled, enabled, email_notifications_enabled = org.webhook_enabled, False, False
 
         if request.method == "DELETE":
             if org.webhook_enabled:
