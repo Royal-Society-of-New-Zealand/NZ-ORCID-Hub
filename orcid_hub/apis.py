@@ -3458,7 +3458,7 @@ def exeute_orcid_call_async(method, url, data, headers):
 @app.route("/api/v1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
 @app.route("/api/v1/<string:orcid>/webhook", methods=["PUT", "DELETE"])
 @app.route("/api/v1/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
-@app.route("/api/v1/webhook", methods=["PUT", "POST", "PATCH"])
+@app.route("/api/v1/webhook", methods=["PUT", "POST", "PATCH", "GET"])
 @oauth.require_oauth()
 def register_webhook(orcid=None, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
@@ -3494,7 +3494,7 @@ def register_webhook(orcid=None, callback_url=None):
 
     else:
         org = current_user.organisation
-        was_enabled = org.webhook_enabled
+        was_enabled, enabled = org.webhook_enabled, False
 
         if request.method == "DELETE":
             if org.webhook_enabled:
@@ -3502,25 +3502,26 @@ def register_webhook(orcid=None, callback_url=None):
                 return jsonify({"job-id": job.id}), 200
             return '', 204
         else:
-            data = request.json or {}
-            enabled = data.get("enabled")
-            url = data.get("url", callback_url)
-            append_orcid = data.get("append-orcid")
-            apikey = data.get("apikey")
-            email_notifications_enabled = data.get("email-notifications-enabled")
-            notification_email = data.get("notification-email")
+            if request.method != "GET":
+                data = request.json or {}
+                enabled = data.get("enabled")
+                url = data.get("url", callback_url)
+                append_orcid = data.get("append-orcid")
+                apikey = data.get("apikey")
+                email_notifications_enabled = data.get("email-notifications-enabled")
+                notification_email = data.get("notification-email")
 
-            if url is not None:
-                org.webhook_url = url
-            if append_orcid is not None:
-                org.webhook_append_orcid = bool(append_orcid)
-            if apikey is not None:
-                org.webhook_apikey = apikey
-            if email_notifications_enabled is not None:
-                org.email_notifications_enabled = bool(email_notifications_enabled)
-            if notification_email is not None:
-                org.notification_email = notification_email
-            org.save()
+                if url is not None:
+                    org.webhook_url = url
+                if append_orcid is not None:
+                    org.webhook_append_orcid = bool(append_orcid)
+                if apikey is not None:
+                    org.webhook_apikey = apikey
+                if email_notifications_enabled is not None:
+                    org.email_notifications_enabled = bool(email_notifications_enabled)
+                if notification_email is not None:
+                    org.notification_email = notification_email
+                org.save()
 
             data = {k: v for (k, v) in [
                 ("enabled", org.webhook_enabled),
@@ -3531,7 +3532,7 @@ def register_webhook(orcid=None, callback_url=None):
                 ("notification-email", org.notification_email),
             ] if v is not None}
 
-            if enabled or email_notifications_enabled:
+            if request.method != "GET" and enabled or email_notifications_enabled:
                 job = utils.enable_org_webhook.queue(org)
                 data["job-id"] = job.id
 
