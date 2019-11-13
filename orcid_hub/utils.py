@@ -1760,26 +1760,27 @@ def process_affiliation_records(max_rows=20, record_id=None):
             orcid_rec_count = task.affiliation_records.select(
                 AffiliationRecord.orcid).distinct().count()
 
-            with app.app_context():
-                export_url = flask.url_for(
-                    "affiliationrecord.export",
-                    export_type="csv",
-                    _scheme="http" if EXTERNAL_SP else "https",
-                    task_id=task.id,
-                    _external=True)
-                try:
-                    send_email(
-                        "email/task_completed.html",
-                        subject="Affiliation Process Update",
-                        recipient=(task.created_by.name, task.created_by.email),
-                        error_count=error_count,
-                        row_count=row_count,
-                        orcid_rec_count=orcid_rec_count,
-                        export_url=export_url,
-                        filename=task.filename)
-                except Exception:
-                    logger.exception(
-                        "Failed to send batch process comletion notification message.")
+            if task.filename and "INTEGRATION" not in task.filename:
+                with app.app_context():
+                    export_url = flask.url_for(
+                        "affiliationrecord.export",
+                        export_type="csv",
+                        _scheme="http" if EXTERNAL_SP else "https",
+                        task_id=task.id,
+                        _external=True)
+                    try:
+                        send_email(
+                            "email/task_completed.html",
+                            subject="Affiliation Process Update",
+                            recipient=(task.created_by.name, task.created_by.email),
+                            error_count=error_count,
+                            row_count=row_count,
+                            orcid_rec_count=orcid_rec_count,
+                            export_url=export_url,
+                            filename=task.filename)
+                    except Exception:
+                        logger.exception(
+                            "Failed to send batch process comletion notification message.")
 
 
 @rq.job(timeout=300)
@@ -2262,6 +2263,9 @@ def process_tasks(max_rows=20):
 
         if not task.task_type or task.records is None:
             app.logger.error(f"Unknown task \"{task}\" (ID: {task.id}) task type.")
+            continue
+
+        if task.filename and "INTEGRATION" in task.filename:
             continue
 
         export_model = task.record_model._meta.name + ".export"
