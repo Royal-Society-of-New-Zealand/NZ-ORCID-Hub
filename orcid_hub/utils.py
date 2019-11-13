@@ -2399,6 +2399,7 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             url += orcid
 
     try:
+        app.logger.info(f"Invoking webhook: {url} with payload: {message}")
         if apikey:
             resp = requests.post(url, json=message, headers=dict(apikey=apikey))
         else:

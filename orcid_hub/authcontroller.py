@@ -354,7 +354,7 @@ def handle_login():
         app.logger.exception(f"Failed to save user {user} data.")
 
     login_user(user)
-    app.logger.info("User %r from %r logged in.", user, org)
+    app.logger.info(f"User {user} from {org} logged in.")
 
     if _next:
         return redirect(_next)
