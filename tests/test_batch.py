@@ -298,6 +298,7 @@ def test_message_records(client, mocker):
     # Edit invitees
     for r in task.records:
         for i in r.invitees:
+            resp = client.get(f"/admin/invitee/details/?id={i.id}")
             resp = client.post(
                 f"/admin/invitee/edit/?id={i.id}&url=/admin/invitee/%2F%3Frecord_id={r.id}",
                 data=dict(
@@ -305,7 +306,9 @@ def test_message_records(client, mocker):
                     # email="researcher@test0.edu",
                     first_name=i.first_name or "FN",
                     last_name=i.first_name or "LN",
-                    visibility=(i.visibility or "limited").lower()))
+                    visibility="limited"),
+                follow_redirects=True)
+            resp = client.get(f"/admin/invitee/details/?id={i.id}")
             invitee = Invitee.get(i.id)
             assert invitee.identifier == f"ID-{i.id}"
 
