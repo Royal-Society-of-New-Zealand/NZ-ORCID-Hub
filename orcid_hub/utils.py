@@ -2097,8 +2097,8 @@ def process_message_records(max_rows=20, record_id=None):
     RecordInvitee = MessageRecord.invitees.get_through_model()  # noqa: N806
 
     set_server_name()
-    # task_ids = set()
-    # record_ids = set()
+    record_ids = set()
+    task_ids = set()
 
     tasks = Task.select(Task, MessageRecord, RecordInvitee, Invitee, User, OrcidToken).where(
         Task.is_raw, Invitee.processed_at.is_null(), MessageRecord.is_active).join(
@@ -2126,6 +2126,7 @@ def process_message_records(max_rows=20, record_id=None):
             tasks.where(OrcidToken.id.is_null()).order_by(Task.id, Invitee.email,
                                                           Invitee.first_name, Invitee.last_name),
             lambda t: t.id):
+        task_ids.add(task_id)
         invitees = set((
                 t.created_by,
                 t.org,
@@ -2141,82 +2142,46 @@ def process_message_records(max_rows=20, record_id=None):
             tasks.where(OrcidToken.id.is_null(False)).order_by(Task.id, User.id, MessageRecord.id),
             lambda t: (t.id, t.task_type, t.org_id, t.record.ri.invitee.user)):
         # TODO: in the future - implememnt for other types:
+        task_ids.add(task_id)
+        records = list(records)
         create_or_update_record_from_messages(records)
+        record_ids.update(r.record.id for r in records)
 
-    # tasks = list(tasks)
+    for record in MessageRecord.select().where(MessageRecord.id << record_ids):
+        # The Work record is processed for all invitees
+        if not (RecordInvitee.select().join(Invitee).where(
+                RecordInvitee.messagerecord_id == record.id,
+                Invitee.processed_at.is_null()).exists()):
+            record.processed_at = datetime.utcnow()
+            if not record.status or "error" not in record.status:
+                record.add_status_line("record is processed.")
+            record.save()
 
-    # for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
-    #         t.id,
-    #         t.org_id,
-    #         t.record.id,
-    #         (lambda r: r.user if r.user.id else None)(t.record.invitee),)):
-    #     # If we have the token associated to the user then update the work record,
-    #     # otherwise send him an invite
-    #     if (user is None or user.orcid is None or not OrcidToken.select().where(
-    #         (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
-    #             & (OrcidToken.scopes.contains("/activities/update"))).exists()):  # noqa: E127, E129
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (Once all records are processed):
+        if not (MessageRecord.select().where(MessageRecord.task_id == task.id,
+                                             MessageRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.utcnow()
+            task.save()
+            error_count = MessageRecord.select().where(
+                MessageRecord.task_id == task.id, MessageRecord.status**"%error%").count()
+            row_count = task.record_count
 
-    #         for k, tasks in groupby(
-    #                 tasks_by_user,
-    #                 lambda t: (
-    #                     t.created_by,
-    #                     t.org,
-    #                     t.record.invitee.email,
-    #                     t.record.invitee.first_name,
-    #                     t.record.invitee.last_name, )
-    #         ):  # noqa: E501
-    #             email = k[2]
-    #             try:
-    #                 send_user_invitation(
-    #                     *k,
-    #                     task_id=task_id)
-    #             except Exception as ex:
-    #                 (WorkInvitee.update(
-    #                     processed_at=datetime.utcnow(),
-    #                     status=f"Failed to send an invitation: {ex}.").where(
-    #                         WorkInvitee.email == email,
-    #                         WorkInvitee.record_id == record_id,
-    #                         WorkInvitee.processed_at.is_null())).execute()
-    #     else:
-    #         create_or_update_work(user, org_id, tasks_by_user)
-    #     task_ids.add(task_id)
-    #     work_ids.add(record_id)
-
-    # for record in WorkRecord.select().where(WorkRecord.id << work_ids):
-    #     # The Work record is processed for all invitees
-    #     if not (WorkInvitee.select().where(
-    #             WorkInvitee.record_id == record.id,
-    #             WorkInvitee.processed_at.is_null()).exists()):
-    #         record.processed_at = datetime.utcnow()
-    #         if not record.status or "error" not in record.status:
-    #             record.add_status_line("Work record is processed.")
-    #         record.save()
-
-    # for task in Task.select().where(Task.id << task_ids):
-    #     # The task is completed (Once all records are processed):
-    #     if not (WorkRecord.select().where(WorkRecord.task_id == task.id, WorkRecord.processed_at.is_null()).exists()):
-    #         task.completed_at = datetime.utcnow()
-    #         task.save()
-    #         error_count = WorkRecord.select().where(
-    #             WorkRecord.task_id == task.id, WorkRecord.status**"%error%").count()
-    #         row_count = task.record_count
-
-    #         with app.app_context():
-    #             export_url = flask.url_for(
-    #                 "workrecord.export",
-    #                 export_type="json",
-    #                 _scheme="http" if EXTERNAL_SP else "https",
-    #                 task_id=task.id,
-    #                 _external=True)
-    #             send_email(
-    #                 "email/work_task_completed.html",
-    #                 subject="Work Process Update",
-    #                 recipient=(task.created_by.name, task.created_by.email),
-    #                 error_count=error_count,
-    #                 row_count=row_count,
-    #                 export_url=export_url,
-    #                 task_name="Work",
-    #                 filename=task.filename)
+            with app.app_context():
+                export_url = flask.url_for(
+                    "messagerecord.export",
+                    export_type="json",
+                    _scheme="http" if EXTERNAL_SP else "https",
+                    task_id=task.id,
+                    _external=True)
+                send_email(
+                    "email/task_completed.html",
+                    subject=f"Batch Process Update: {task.filename}",
+                    recipient=(task.created_by.name, task.created_by.email),
+                    error_count=error_count,
+                    row_count=row_count,
+                    export_url=export_url,
+                    filename=task.filename)
 
 
 @rq.job(timeout=300)

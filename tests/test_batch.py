@@ -351,6 +351,41 @@ def test_message_records(client, mocker):
         assert t.is_raw
 
 
+def test_message_records_completed(client, mocker):
+    """Test message records processing with handling the complition of the task."""
+    admin = client.data["admin"]
+    user = OrcidToken.select().join(User).where(User.orcid.is_null(False)).first().user
+    org = user.organisation
+    mocker.patch(
+        "orcid_hub.orcid_client.MemberAPIV3.get_resources",
+        return_value=get_resources(org=user.organisation, user=user))
+    send = mocker.patch("emails.message.MessageSendMixin.send")
+    execute = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.execute",
+                            return_value=Mock(headers={"Location": f"{user.orcid}/ABC/123456"},
+                                                json=dict(visibility="public")))
+    task = Task.create(is_active=True,
+                       created_by=admin,
+                       filename="messages.json",
+                       task_type=TaskType.RESOURCE,
+                       is_raw=True,
+                       org=org)
+    record = MessageRecord.create(task=task, message="{}", is_active=True)
+    invitee = Invitee.create(email=user.email, orcid=user.orcid)
+    record.invitees.add(invitee)
+    record.save()
+    utils.process_message_records(record_id=record.id)
+    send.assert_called_once()
+
+    MessageRecord.update(processed_at=None).execute()
+    Invitee.update(processed_at=None).execute()
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    utils.process_message_records(record_id=record.id)
+    send_email.assert_called_once()
+    args, _ = send_email.call_args
+    assert args[0] == "email/task_completed.html"
+    assert Task.get(task.id).completed_at is not None
+
+
 def test_affiliation_records(client, mocker):
     """Test affiliation records processing."""
     user = client.data["admin"]
