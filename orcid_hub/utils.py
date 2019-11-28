@@ -185,8 +185,8 @@ def send_email(template,
         mail_from=(app.config.get("APP_NAME", "ORCID Hub"), app.config.get("MAIL_DEFAULT_SENDER")),
         html=html_msg,
         text=plain_msg)
-    dkim_key_path = app.config["DKIM_KEY_PATH"]
-    if os.path.exists(dkim_key_path):
+    dkim_key_path = app.config.get("DKIM_KEY_PATH")
+    if dkim_key_path and os.path.exists(dkim_key_path):
         with open(dkim_key_path) as key_file:
             msg.dkim(key=key_file, domain="orcidhub.org.nz", selector="default")
     elif dkim_key_path:
