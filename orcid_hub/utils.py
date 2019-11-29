@@ -2318,13 +2318,11 @@ def notify_about_update(user, event_type="UPDATED"):
     for org in user.organisations.where(Organisation.webhook_enabled
                                         | Organisation.email_notifications_enabled):
         if org.webhook_enabled and org.webhook_url:
-            invoke_webhook_handler.queue(org.webhook_url,
+            invoke_webhook_handler.queue(org.id,
                                          user.orcid,
                                          user.created_at or user.updated_at,
                                          user.updated_at or user.created_at,
-                                         apikey=org.webhook_apikey,
-                                         event_type=event_type,
-                                         append_orcid=org.webhook_append_orcid)
+                                         event_type=event_type)
 
         if org.email_notifications_enabled:
             url = app.config["ORCID_BASE_URL"] + user.orcid
@@ -2339,8 +2337,13 @@ def notify_about_update(user, event_type="UPDATED"):
 
 
 @rq.job(timeout=300)
-def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, updated_at=None, message=None,
-                           apikey=None, event_type="UPDATED", url=None, attempts=5, append_orcid=False):
+def invoke_webhook_handler(org_id,
+                           orcid=None,
+                           created_at=None,
+                           updated_at=None,
+                           message=None,
+                           event_type="UPDATED",
+                           attempts=5):
     """Propagate 'updated' event to the organisation event handler URL."""
     if not message:
         url = app.config["ORCID_BASE_URL"] + orcid
@@ -2355,22 +2358,24 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             message["updated-at"] = updated_at.isoformat(timespec="seconds")
 
         if orcid:
-            user = User.select().where(User.orcid == orcid).order_by(User.id.desc()).limit(1).first()
+            user = User.select().where(User.orcid == orcid).order_by(
+                User.id.desc()).limit(1).first()
             if user:
                 message["email"] = user.email
                 if user.eppn:
                     message["eppn"] = user.eppn
 
-        url = webhook_url
-        if append_orcid:
-            if not url.endswith('/'):
-                url += '/'
-            url += orcid
+    org = Organisation.get(id=org_id)
+    url = org.webhook_url
+    if org.webhook_append_orcid:
+        if not url.endswith('/'):
+            url += '/'
+        url += orcid
 
     try:
         app.logger.info(f"Invoking webhook: {url} with payload: {message}")
-        if apikey:
-            resp = requests.post(url, json=message, headers=dict(apikey=apikey))
+        if org.webhook_apikey:
+            resp = requests.post(url, json=message, headers=dict(apikey=org.webhook_apikey))
         else:
             resp = requests.post(url, json=message)
     except:
@@ -2381,9 +2386,8 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
         if attempts > 1:
             invoke_webhook_handler.schedule(timedelta(minutes=5 *
                                                       (6 - attempts) if attempts < 6 else 5),
+                                            org_id=org_id,
                                             message=message,
-                                            apikey=apikey,
-                                            url=url,
                                             attempts=attempts - 1)
         else:
             raise Exception(f"Failed to propaged the event. Status code: {resp.status_code}")
