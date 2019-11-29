@@ -3450,24 +3450,27 @@ def manage_email_template():
             pass
         elif form.send.data:
             logo = org.logo if form.email_template_enabled.data else None
+            email = current_user.email
+            recipient = (current_user.name, email)
             utils.send_email(
                 "email/test.html",
-                recipient=(current_user.name, current_user.email),
-                reply_to=(current_user.name, current_user.email),
-                cc_email=(current_user.name, current_user.email),
-                sender=(current_user.name, current_user.email),
+                recipient=recipient,
+                reply_to=recipient,
+                cc_email=recipient,
+                sender=recipient,
                 subject="TEST EMAIL",
                 org_name=org.name,
                 logo=url_for("logo_image", token=logo.token, _external=True) if logo else None,
                 base=form.email_template.data
                 if form.email_template_enabled.data else default_template)
+            flash(f"Test email sent to the address <b>{email}</b>", "info")
         elif form.save.data:
             # form.populate_obj(org)
             if any(x in form.email_template.data for x in ['{MESSAGE}', '{INCLUDED_URL}']):
                 org.email_template = form.email_template.data
                 org.email_template_enabled = form.email_template_enabled.data
                 org.save()
-                flash("Saved organisation email template'", "info")
+                flash("Saved organisation email template", "info")
             else:
                 flash("Are you sure? Without a {MESSAGE} or {INCLUDED_URL} "
                       "your users will be unable to respond to your invitations.", "danger")

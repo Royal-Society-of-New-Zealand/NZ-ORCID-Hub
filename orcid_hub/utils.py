@@ -185,8 +185,8 @@ def send_email(template,
         mail_from=(app.config.get("APP_NAME", "ORCID Hub"), app.config.get("MAIL_DEFAULT_SENDER")),
         html=html_msg,
         text=plain_msg)
-    dkim_key_path = app.config["DKIM_KEY_PATH"]
-    if os.path.exists(dkim_key_path):
+    dkim_key_path = app.config.get("DKIM_KEY_PATH")
+    if dkim_key_path and os.path.exists(dkim_key_path):
         with open(dkim_key_path) as key_file:
             msg.dkim(key=key_file, domain="orcidhub.org.nz", selector="default")
     elif dkim_key_path:
@@ -650,7 +650,7 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
             if put_code:
                 for rr in (rr for r in resources for rr in r.get("research-resource-summary")):
                     if rr.get("put-code") == put_code:
-                        record.ri.invitee.visibility = rr.get("visibility")
+                        record.invitee.visibility = rr.get("visibility")
                         break
                 return put_code
 
@@ -689,6 +689,8 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
         for t in records:
             try:
                 rr = t.record
+                if not rr.invitee.orcid:
+                    rr.invitee.orcid = user.orcid
                 put_code = match_record(resources, rr)
                 if "visibility" in rr.msg:
                     del(rr.msg["visibility"])
@@ -706,9 +708,7 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
 
                 if not put_code:
                     location = resp.headers["Location"]
-                    resp_orcid, resp_put_code = location.split("/")[-3::2]
-                    rr.invitee.put_code = resp_put_code
-                    rr.invitee.orcid = resp_orcid
+                    rr.invitee.put_code = location.split('/')[-1]
                     rec = api.get(location)
                     rr.invitee.visibility = rec.json.get("visibility")
 
@@ -1760,26 +1760,27 @@ def process_affiliation_records(max_rows=20, record_id=None):
             orcid_rec_count = task.affiliation_records.select(
                 AffiliationRecord.orcid).distinct().count()
 
-            with app.app_context():
-                export_url = flask.url_for(
-                    "affiliationrecord.export",
-                    export_type="csv",
-                    _scheme="http" if EXTERNAL_SP else "https",
-                    task_id=task.id,
-                    _external=True)
-                try:
-                    send_email(
-                        "email/task_completed.html",
-                        subject="Affiliation Process Update",
-                        recipient=(task.created_by.name, task.created_by.email),
-                        error_count=error_count,
-                        row_count=row_count,
-                        orcid_rec_count=orcid_rec_count,
-                        export_url=export_url,
-                        filename=task.filename)
-                except Exception:
-                    logger.exception(
-                        "Failed to send batch process comletion notification message.")
+            if task.filename and "INTEGRATION" not in task.filename:
+                with app.app_context():
+                    export_url = flask.url_for(
+                        "affiliationrecord.export",
+                        export_type="csv",
+                        _scheme="http" if EXTERNAL_SP else "https",
+                        task_id=task.id,
+                        _external=True)
+                    try:
+                        send_email(
+                            "email/task_completed.html",
+                            subject="Affiliation Process Update",
+                            recipient=(task.created_by.name, task.created_by.email),
+                            error_count=error_count,
+                            row_count=row_count,
+                            orcid_rec_count=orcid_rec_count,
+                            export_url=export_url,
+                            filename=task.filename)
+                    except Exception:
+                        logger.exception(
+                            "Failed to send batch process comletion notification message.")
 
 
 @rq.job(timeout=300)
@@ -2229,6 +2230,9 @@ def process_tasks(max_rows=20):
             app.logger.error(f"Unknown task \"{task}\" (ID: {task.id}) task type.")
             continue
 
+        if task.filename and "INTEGRATION" in task.filename:
+            continue
+
         export_model = task.record_model._meta.name + ".export"
         error_count = task.error_count
 
@@ -2364,6 +2368,7 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, created_at=None, update
             url += orcid
 
     try:
+        app.logger.info(f"Invoking webhook: {url} with payload: {message}")
         if apikey:
             resp = requests.post(url, json=message, headers=dict(apikey=apikey))
         else:
