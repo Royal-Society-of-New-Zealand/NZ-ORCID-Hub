@@ -386,6 +386,10 @@ def test_webhook_invokation(client, mocker):
     with pytest.raises(Exception):
         utils.invoke_webhook_handler(org.id, attempts=1, message=message)
 
+    # Test backward compatibility
+    with pytest.raises(Exception):
+        utils.invoke_webhook_handler(orcid=user.orcid, attempts=2, message=message, legacy_kwarg="abc123")
+
 
 def test_org_webhook_api(client, mocker):
     """Test Organisation webhooks."""
