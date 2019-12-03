@@ -9,6 +9,8 @@
 
     :copyright: (c) 2017, 2018, 2019 Royal Society of New Zealand.
     :license: MIT, see LICENSE for more details.
+
+$Format:%CI$ ($Format:%H$)
 """
 
 import logging
@@ -40,6 +42,7 @@ from flask_limiter.util import get_ipaddr
 from flask_caching import Cache
 # from werkzeug.contrib.cache import SimpleCache
 IDENT = "$Id$"
+
 
 try:
     dist = pkg_resources.get_distribution(__name__)

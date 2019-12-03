@@ -1186,7 +1186,7 @@ class Task(AuditedModel):
 
     def to_dict(self, to_dashes=True, recurse=None, exclude=None, include_records=None, only=None):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
-        # TODO: expand for the othe types of the tasks
+        # TODO: expand for the other types of the tasks
         task_dict = super().to_dict(
             recurse=False,
             to_dashes=to_dashes,
@@ -4496,7 +4496,7 @@ class AsyncOrcidResponse(BaseModel):
 
 
 class MailLog(BaseModel):
-    """Email log - the log of email sent form the Hub."""
+    """Email log - the log of email sent from the Hub."""
 
     sent_at = DateTimeField(default=datetime.utcnow)
     org = ForeignKeyField(Organisation, null=True)
