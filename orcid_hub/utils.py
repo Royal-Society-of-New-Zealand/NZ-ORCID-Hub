@@ -2337,13 +2337,13 @@ def notify_about_update(user, event_type="UPDATED"):
 
 
 @rq.job(timeout=300)
-def invoke_webhook_handler(org_id,
+def invoke_webhook_handler(org_id=None,
                            orcid=None,
                            created_at=None,
                            updated_at=None,
                            message=None,
                            event_type="UPDATED",
-                           attempts=5):
+                           attempts=5, *args, **kwargs):
     """Propagate 'updated' event to the organisation event handler URL."""
     if not message:
         url = app.config["ORCID_BASE_URL"] + orcid
@@ -2364,8 +2364,11 @@ def invoke_webhook_handler(org_id,
                 message["email"] = user.email
                 if user.eppn:
                     message["eppn"] = user.eppn
-
-    org = Organisation.get(id=org_id)
+    if org_id:
+        org = Organisation.get(id=org_id)
+    else:
+        org = User.select().where(User.orcid == orcid).first().organisation
+        org_id = org.id
     url = org.webhook_url
     if org.webhook_append_orcid:
         if not url.endswith('/'):
