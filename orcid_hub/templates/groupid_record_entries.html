@@ -10,10 +10,11 @@
 </div>
 <div class="row">
   <div class="col-md-6 col-sm-6 col-xs-12">
-    {{ render_field(form.group_id_name) }}
+    {{ render_field(form.name) }}
     {{ render_field(form.page_size) }}
   </div>
   <div class="col-md-6 col-sm-6 col-xs-12">
+    {{ render_field(form.group_id) }}
     {{ render_field(form.page) }}
     <br>
     <span class="pull-right" style="padding-bottom: 40px;">
@@ -50,8 +51,8 @@
       {% if r.get("group-id") %}
         <td class="list-buttons-column" align="center">
           <form class="icon" method="POST" action="{{url_for('search_group_id_record')}}">
-            <input id="name" name="name" type="hidden" value="{{r.get('name')}}">
-            <input id="group_id" name="group_id" type="hidden" value="{{r.get('group-id')}}">
+            <input id="g_name" name="g_name" type="hidden" value="{{r.get('name')}}">
+            <input id="g_id" name="g_id" type="hidden" value="{{r.get('group-id')}}">
             <input id="description" name="description" type="hidden" value="{{r.get('description')}}">
             <input id="type" name="type" type="hidden" value="{{r.get('type')}}">
             <input id="put_code" name="put_code" type="hidden" value="{{r.get('put-code')}}">

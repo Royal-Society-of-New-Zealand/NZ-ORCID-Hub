@@ -17,7 +17,10 @@ from orcid_hub.data_apis import plural
 from orcid_hub.models import (AffiliationRecord, AsyncOrcidResponse, Client, OrcidToken,
                               Organisation, Task, TaskType, Token, User, UserInvitation)
 from unittest.mock import patch, MagicMock
-from tests import utils
+from utils import get_profile as get_profile_data, get_resources as get_resources_data, readup_test_data
+
+# Test data directory
+data_path = os.path.join(os.path.dirname(__file__), "data")
 
 
 def test_plural():
@@ -1501,7 +1504,6 @@ def test_proxy_get_profile(client):
 
 def test_property_api(client, mocker):
     """Test property API in various formats."""
-    data_path = os.path.join(os.path.dirname(__file__), "data")
     admin = client.data.get("admin")
     resp = client.login(admin, follow_redirects=True)
     resp = client.post("/load/researcher/properties",
@@ -1580,7 +1582,7 @@ def test_property_api(client, mocker):
     user = User.get(orcid="0000-0000-0000-00X3")
     OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
     get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record",
-                               return_value=utils.get_profile(user=user))
+                               return_value=get_profile_data(user=user))
     send_email = mocker.patch("orcid_hub.utils.send_email")
     create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_researcher_url")
     create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.create_or_update_other_name")
@@ -1602,3 +1604,118 @@ def test_property_api(client, mocker):
     create_or_update_other_name.assert_called_once()
     create_or_update_keyword.assert_called_once()
     create_or_update_address.assert_called()
+
+
+def test_resource_api(client, mocker):
+    """Test resource API in various formats."""
+    admin = client.data.get("admin")
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.post("/load/task/RESOURCE",
+                       data={
+                           "file_": (open(os.path.join(data_path, "resources.csv"),
+                                          "rb"), "resources001.csv"),
+                       },
+                       follow_redirects=True)
+    assert resp.status_code == 200
+    assert Task.select().count() == 1
+
+    access_token = client.get_access_token()
+
+    resp = client.get("/api/v1/tasks?type=RESOURCE",
+                      headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    task_id = int(data[0]["id"])
+
+    resp = client.get(f"/api/v1/resources/{task_id}",
+                      headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    assert len(data["records"]) == 2
+    assert data["filename"] == "resources001.csv"
+
+    del (data["id"])
+    resp = client.post("/api/v1/resources/?filename=resources333.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(data))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    records = data["records"]
+    resp = client.post("/api/v1/resources/?filename=resources444.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+    assert Task.get(resp.json["id"]).records.count() == 2
+
+    resp = client.post("/api/v1/resources",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+    assert Task.get(resp.json["id"]).records.count() == 2
+
+    task_id = resp.json["id"]
+    resp = client.post(f"/api/v1/resources/{task_id}",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+    assert Task.get(resp.json["id"]).records.count() == 2
+
+    resp = client.head(f"/api/v1/resources/{task_id}",
+                       headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+    assert resp.status_code == 200
+
+    resp = client.delete(f"/api/v1/resources/{task_id}",
+                         headers=dict(authorization=f"Bearer {access_token}"))
+
+    resp = client.post("/api/v1/resources/?filename=resources333.csv",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="text/csv",
+                       data=readup_test_data("resources.csv", mode="r"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+    data = resp.json
+    records = data["records"]
+    task_id = data["id"]
+    assert Task.get(task_id).records.count() == 2
+
+    resp = client.post("/api/v1/resources/?filename=resources333.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=readup_test_data("resources.json"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 5
+    user = User.get(orcid="0000-0000-0000-00X3")
+    OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record",
+                 return_value=get_profile_data(user=user))
+    get_resources = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_resources",
+                                 return_value=get_resources_data(user=user))
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.put")
+    post = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.post")
+
+    for r in records:
+        r["is-active"] = True
+        r["invitees"].append({
+            "email": "new-researcher@org999.edu",
+            "first-name": "FN",
+            "last-name": "LN"
+        })
+    resp = client.post("/api/v1/resources/?filename=resources777.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 6
+    assert UserInvitation.select().count() == 1
+    get_resources.assert_called()
+    send_email.assert_called()
+    post.assert_called()

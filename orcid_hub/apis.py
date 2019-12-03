@@ -19,11 +19,11 @@ from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 from rq import get_current_job
 
-from . import api, app, models, oauth, rq, schemas
+from . import api, app, models, oauth, rq, schemas, utils
 from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, AsyncOrcidResponse, Client, FundingRecord,
-                     OrcidToken, PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User,
-                     UserOrg, WorkRecord, validate_orcid_id)
+                     OrcidToken, PeerReviewRecord, PropertyRecord, ResourceRecord, Role, Task,
+                     TaskType, User, UserOrg, WorkRecord, validate_orcid_id)
 from .utils import (activate_all_records, dump_yaml, enqueue_task_records, is_valid_url,
                     register_orcid_webhook, reset_all_records)
 
@@ -70,6 +70,11 @@ class AppResource(Resource):
     decorators = [
         oauth.require_oauth(),
     ]
+
+    @property
+    def org(self):
+        """Get the organisation the app belongs to."""
+        return request.oauth.access_token.client.org
 
     def dispatch_request(self, *args, **kwargs):
         """Do some pre-handling and post-handling."""
@@ -239,11 +244,10 @@ class AppResourceList(AppResource):
         """Create and return API response with pagination links."""
         query = query.paginate(self.page, self.page_size)
         records = [
-            r.to_dict(
-                recurse=recurse,
-                to_dashes=True,
-                exclude=exclude,
-                only=only) for r in query
+            r.to_dict(recurse=recurse,
+                      to_dashes=True,
+                      exclude=exclude,
+                      only=only) for r in query
         ]
         resp = yamlfy(records) if prefers_yaml() else jsonify(records)
         resp.headers["Pagination-Page"] = self.page
@@ -301,7 +305,7 @@ class TaskResource(AppResource):
         if request.method != "HEAD":
             if task.task_type in [
                     TaskType.AFFILIATION, TaskType.FUNDING, TaskType.PEER_REVIEW,
-                    TaskType.PROPERTY, TaskType.WORK, TaskType.OTHER_ID
+                    TaskType.PROPERTY, TaskType.WORK, TaskType.OTHER_ID, TaskType.RESOURCE
             ]:
                 resp = jsonify(task.to_export_dict(include_records=include_records))
             else:
@@ -365,7 +369,8 @@ class TaskResource(AppResource):
                 filename=filename,
                 task_id=task_id,
                 skip_schema_validation=True,
-                override=(request.method == "POST"))
+                override=(request.method == "POST"),
+                org=self.org)
         except Exception as ex:
             app.logger.exception("Failed to handle affiliation API request.")
             return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
@@ -450,6 +455,7 @@ class TaskList(TaskResource, AppResourceList):
                 - FUNDING
                 - PEER_REVIEW
                 - PROPERTY
+                - RESOURCE
                 - WORK
               created-at:
                 type: string
@@ -465,6 +471,8 @@ class TaskList(TaskResource, AppResourceList):
                 enum:
                 - ACTIVE
                 - RESET
+              is-raw:
+                type: bool
         parameters:
           - name: "type"
             in: "query"
@@ -476,6 +484,7 @@ class TaskList(TaskResource, AppResourceList):
               - FUNDING
               - PEER_REVIEW
               - PROPERTY
+              - RESOURCE
               - WORK
           - name: "status"
             in: "query"
@@ -487,6 +496,17 @@ class TaskList(TaskResource, AppResourceList):
             enum:
               - ACTIVE
               - INACTIVE
+          - name: "with_records"
+            in: "query"
+            required: false
+            description: Indicates that the records should be included
+            default: false
+            type: "bool"
+            enum:
+              - true
+              - false
+              - 1
+              - 0
           - in: query
             name: page
             description: The number of the page of retrieved data starting counting from 1
@@ -516,6 +536,9 @@ class TaskList(TaskResource, AppResourceList):
         query = Task.select().where(Task.org_id == current_user.organisation_id)
         task_type = request.args.get("type")
         status = request.args.get("status")
+        with_records = request.args.get("with_records")
+        if with_records:
+            with_records = with_records.lower() not in ["0", "no", "false", "f"]
         if task_type:
             query = query.where(Task.task_type == TaskType[task_type.upper()].value)
         if status:
@@ -528,7 +551,7 @@ class TaskList(TaskResource, AppResourceList):
         return self.api_response(
             query,
             exclude=[Task.created_by, Task.updated_by, Task.org],
-            recurse=False)
+            recurse=with_records)
 
 
 class TaskAPI(TaskList):
@@ -836,12 +859,19 @@ class AffiliationListAPI(TaskResource):
                 type: string
               local-id:
                 type: string
-              external-id-type:
-                type: string
-              external-id-value:
-                type: string
-              external-id-relationship:
-                type: string
+              external-id:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    external-id-relationship:
+                      type: string
+                    external-id-type:
+                      type: string
+                    external-id-url:
+                      type: string
+                    external-id-value:
+                      type: string
               is-active:
                 type: boolean
               email:
@@ -858,7 +888,7 @@ class AffiliationListAPI(TaskResource):
                 type: string
               city:
                 type: string
-              state:
+              region:
                 type: string
               country:
                 type: string
@@ -886,7 +916,7 @@ class AffiliationListAPI(TaskResource):
                 description: "User ORCID ID"
         """
         if request.content_type in ["text/csv", "text/tsv"]:
-            task = Task.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            task = AffiliationRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename, org=self.org)
             return self.jsonify_task(task)
         return self.handle_affiliation_task()
 
@@ -1717,17 +1747,12 @@ class PropertyListAPI(TaskResource):
                 type: string
                 enum:
                   - COUNTRY
-                  - EMAIL
-                  - ID
                   - KEYWORD
                   - NAME
                   - URL
-                  - WEBSITE
               name:
                 type: string
               value:
-                type: string
-              external-id:
                 type: string
               is-active:
                 type: boolean
@@ -1745,7 +1770,7 @@ class PropertyListAPI(TaskResource):
                 type: string
               city:
                 type: string
-              state:
+              region:
                 type: string
               country:
                 type: string
@@ -2535,6 +2560,325 @@ class TokenAPI(MethodView):
 app.add_url_rule("/api/v1/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"))
 
 
+class ResourceListAPI(TaskResource):
+    """Resource list API."""
+
+    def load_from_json(self, task=None):
+        """Load records form the JSON upload."""
+        return ResourceRecord.load(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
+    def post(self, *args, **kwargs):
+        """Upload the property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Post the property list task."
+        description: "Post the property list task."
+        consumes:
+        - application/json
+        - text/csv
+        - text/yaml
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          required: false
+          in: "query"
+          description: "The batch process filename."
+          type: "string"
+        - name: body
+          in: body
+          description: "Resource task."
+          schema:
+            $ref: "#/definitions/ResourceTask"
+        responses:
+          200:
+            description: "Successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        definitions:
+        - schema:
+            id: ResourceTask
+            resources:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - PROPERTY
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
+              records:
+                type: array
+                items:
+                  $ref: "#/definitions/ResourceTaskRecord"
+        - schema:
+            id: ResourceTaskRecord
+            required:
+              - type
+              - value
+            resources:
+              id:
+                type: integer
+                format: int64
+              put-code:
+                type: string
+              type:
+                type: string
+                enum:
+                  - COUNTRY
+                  - KEYWORD
+                  - NAME
+                  - URL
+              name:
+                type: string
+              value:
+                type: string
+              is-active:
+                type: boolean
+              email:
+                type: string
+              first-name:
+                type: string
+              last-name:
+                type: string
+              role:
+                type: string
+              organisation:
+                type: string
+              department:
+                type: string
+              city:
+                type: string
+              region:
+                type: string
+              country:
+                type: string
+              disambiguated-id:
+                type: string
+              disambiguated-source:
+                type: string
+              start-date:
+                type: string
+              end-date:
+                type: string
+              processed-at:
+                type: string
+                format: date-time
+              status:
+                type: string
+              orcid:
+                type: string
+                format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
+                description: "User ORCID ID"
+        """
+        if request.content_type in ["text/csv", "text/tsv"]:
+            task = ResourceRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            enqueue_task_records(task)
+            return self.jsonify_task(task)
+        return self.handle_task()
+
+
+class ResourceAPI(ResourceListAPI):
+    """Resource task services."""
+
+    def get(self, task_id):
+        """
+        Retrieve the specified property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Retrieve the specified property task."
+        description: "Retrieve the specified property task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "Resource task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+    def post(self, task_id):
+        """Upload the task and completely override the property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Update the property task."
+        description: "Update the property task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Resource task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: propertyTask
+            description: "Resource task."
+            schema:
+              $ref: "#/definitions/ResourceTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def put(self, task_id):
+        """Update the property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Update the property task."
+        description: "Update the property task."
+        consumes:
+          - application/json
+          - text/yaml
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Resource task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: propertyTask
+            description: "Resource task."
+            schema:
+              $ref: "#/definitions/ResourceTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def patch(self, task_id):
+        """Update the property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Update the property task."
+        description: "Update the property task."
+        consumes:
+          - application/json
+          - text/yaml
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Resource task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: propertyTask
+            description: "Resource task."
+            schema:
+              $ref: "#/definitions/ResourceTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/ResourceTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified property task.
+
+        ---
+        tags:
+          - "resources"
+        summary: "Delete the specified property task."
+        description: "Delete the specified property task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Resource task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.delete_task(task_id)
+
+
+api.add_resource(ResourceListAPI, "/api/v1/resources")
+api.add_resource(ResourceAPI, "/api/v1/resources/<int:task_id>")
+
+
 def get_spec(app):
     """Build API swagger scecifiction."""
     swag = swagger(app)
@@ -3111,15 +3455,18 @@ def exeute_orcid_call_async(method, url, data, headers):
     ar.save()
 
 
-@app.route("/api/v1/<string:orcid>/webhook", methods=["PUT", "DELETE"])
 @app.route("/api/v1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
+@app.route("/api/v1/<string:orcid>/webhook", methods=["PUT", "DELETE"])
+@app.route("/api/v1/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
+@app.route("/api/v1/webhook", methods=["PUT", "POST", "PATCH", "GET"])
 @oauth.require_oauth()
-def register_webhook(orcid, callback_url=None):
+def register_webhook(orcid=None, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
-    try:
-        validate_orcid_id(orcid)
-    except Exception as ex:
-        return jsonify({"error": "Missing or invalid ORCID iD.", "message": str(ex)}), 415
+    if orcid:
+        try:
+            validate_orcid_id(orcid)
+        except Exception as ex:
+            return jsonify({"error": "Missing or invalid ORCID iD.", "message": str(ex)}), 415
     if callback_url == "undefined":
         callback_url = None
     if callback_url:
@@ -3130,17 +3477,63 @@ def register_webhook(orcid, callback_url=None):
                 "message": f"Invalid call-back URL: {callback_url}"
             }), 415
 
-    try:
-        user = User.get(orcid=orcid)
-    except User.DoesNotExist:
-        return jsonify({
-            "error": "Invalid ORCID iD.",
-            "message": f"User with given ORCID ID '{orcid}' doesn't exist."
-        }), 404
+    if orcid:
+        try:
+            user = User.get(orcid=orcid)
+        except User.DoesNotExist:
+            return jsonify({
+                "error": "Invalid ORCID iD.",
+                "message": f"User with given ORCID ID '{orcid}' doesn't exist."
+            }), 404
 
-    orcid_resp = register_orcid_webhook(user, callback_url, delete=request.method == "DELETE")
-    resp = make_response('', orcid_resp.status_code if orcid_resp else 204)
-    if orcid_resp and "Location" in orcid_resp.headers:
-        resp.headers["Location"] = orcid_resp.headers["Location"]
+        orcid_resp = register_orcid_webhook(user, callback_url, delete=request.method == "DELETE")
+        resp = make_response('', orcid_resp.status_code if orcid_resp else 204)
+        if orcid_resp and "Location" in orcid_resp.headers:
+            resp.headers["Location"] = orcid_resp.headers["Location"]
+        return resp
 
-    return resp
+    else:
+        org = current_user.organisation
+        was_enabled, enabled, email_notifications_enabled = org.webhook_enabled, False, False
+
+        if request.method == "DELETE":
+            if org.webhook_enabled:
+                job = utils.disable_org_webhook.queue(org)
+                return jsonify({"job-id": job.id}), 200
+            return '', 204
+        else:
+            if request.method != "GET":
+                data = request.json or {}
+                enabled = data.get("enabled")
+                url = data.get("url", callback_url)
+                append_orcid = data.get("append-orcid")
+                apikey = data.get("apikey")
+                email_notifications_enabled = data.get("email-notifications-enabled")
+                notification_email = data.get("notification-email")
+
+                if url is not None:
+                    org.webhook_url = url
+                if append_orcid is not None:
+                    org.webhook_append_orcid = bool(append_orcid)
+                if apikey is not None:
+                    org.webhook_apikey = apikey
+                if email_notifications_enabled is not None:
+                    org.email_notifications_enabled = bool(email_notifications_enabled)
+                if notification_email is not None:
+                    org.notification_email = notification_email
+                org.save()
+
+            data = {k: v for (k, v) in [
+                ("enabled", org.webhook_enabled),
+                ("url", org.webhook_url),
+                ("append-orcid", org.webhook_append_orcid),
+                ("apikey", org.webhook_apikey),
+                ("email-notifications-enabled", org.email_notifications_enabled),
+                ("notification-email", org.notification_email),
+            ] if v is not None}
+
+            if request.method != "GET" and enabled or email_notifications_enabled:
+                job = utils.enable_org_webhook.queue(org)
+                data["job-id"] = job.id
+
+            return jsonify(data), 201 if (not was_enabled and enabled) else 200

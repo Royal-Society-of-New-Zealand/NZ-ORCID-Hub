@@ -139,3 +139,10 @@ if isinstance(RQ_ASYNC, str):
 # rq-dashboard config:
 RQ_POLL_INTERVAL = 5000  #: Web interface poll period for updates in ms
 WEB_BACKGROUND = "gray"
+
+# Other flask settings
+JSONIFY_PRETTYPRINT_REGULAR = True
+
+# Caching
+CACHE_TYPE = "simple"
+# CACHE_DEFAULT_TIMEOUT = 600

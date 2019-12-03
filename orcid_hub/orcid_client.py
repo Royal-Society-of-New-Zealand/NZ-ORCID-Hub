@@ -124,7 +124,7 @@ class MemberAPIMixin:
         self.source_clientid = SourceClientId(
             host=url.hostname,
             path=org.orcid_client_id,
-            uri="https://" + url.hostname + "/client/" + org.orcid_client_id)
+            uri="https://" + url.hostname + "/client/" + (org.orcid_client_id if org.orcid_client_id else ""))
         self.source = Source(
             source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
 
@@ -144,6 +144,7 @@ class MemberAPIMixin:
 
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
+        resp = self.get()
         try:
             resp, code, headers = self.api_client.call_api(
                 f"/{self.version}/{self.user.orcid}",
@@ -170,6 +171,16 @@ class MemberAPIMixin:
             return None
 
         return json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
+
+    def get_resources(self):
+        """Fetch all research resources linked to the user profile."""
+        resp = self.get("research-resources")
+        if resp.status != 200:
+            app.logger.error(f"Failed to retrieve research resources. Code: {resp.status}.")
+            app.logger.info(f"Headers: {resp.headers}")
+            app.logger.info(f"Body: {resp.data.decode()}")
+            return None
+        return resp.json
 
     def is_emp_or_edu_record_present(self, affiliation_type):
         """Determine if there is already an affiliation record for the user.
@@ -209,7 +220,7 @@ class MemberAPIMixin:
     def create_or_update_record_id_group(self, org=None, group_name=None, group_id=None, description=None,
                                          type=None, put_code=None):
         """Create or update group id record."""
-        rec = GroupIdRecord()  # noqa: F405
+        rec = v3.GroupIdRecord()  # noqa: F405
 
         rec.name = group_name
         rec.group_id = group_id
@@ -219,7 +230,7 @@ class MemberAPIMixin:
             rec.put_code = put_code
 
         try:
-            api_call = self.update_group_id_record if put_code else self.create_group_id_record
+            api_call = self.update_group_id_recordv3 if put_code else self.create_group_id_recordv3
 
             params = dict(body=rec, _preload_content=False)
             if put_code:
@@ -306,7 +317,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=pr.convening_org_city or self.org.city,
             country=pr.convening_org_country or self.org.country,
-            region=pr.convening_org_region or self.org.state)
+            region=pr.convening_org_region or self.org.region)
 
         disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=pr.convening_org_disambiguated_identifier or self.org.disambiguated_id,   # noqa: E501
@@ -360,8 +371,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
@@ -483,8 +493,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
@@ -542,7 +551,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=fr.city or self.org.city,
             country=fr.country or self.org.country,
-            region=fr.region or self.org.state)
+            region=fr.region or self.org.region)
 
         disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=fr.disambiguated_id or self.org.disambiguated_id,
@@ -610,8 +619,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as ex:
             if ex.status == 404:
@@ -628,7 +636,7 @@ class MemberAPIMixin:
     def create_or_update_individual_funding(self, funding_title=None, funding_translated_title=None,
                                             translated_title_language=None, funding_type=None, funding_subtype=None,
                                             funding_description=None, total_funding_amount=None,
-                                            total_funding_amount_currency=None, org_name=None, city=None, state=None,
+                                            total_funding_amount_currency=None, org_name=None, city=None, region=None,
                                             country=None, start_date=None, end_date=None, disambiguated_id=None,
                                             disambiguation_source=None, grant_data_list=None, put_code=None,
                                             url=None, visibility=None, *args, **kwargs):
@@ -661,7 +669,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
-            region=state or self.org.state)
+            region=region or self.org.region)
 
         disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
@@ -733,7 +741,7 @@ class MemberAPIMixin:
             return (put_code, orcid, created)
 
     def create_or_update_individual_peer_review(self, org_name=None, disambiguated_id=None, disambiguation_source=None,
-                                                city=None, state=None, country=None, reviewer_role=None,
+                                                city=None, region=None, country=None, reviewer_role=None,
                                                 review_url=None, review_type=None, review_group_id=None,
                                                 subject_external_identifier_type=None,
                                                 subject_external_identifier_value=None,
@@ -798,7 +806,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
-            region=state or self.org.state)
+            region=region or self.org.region)
 
         disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
@@ -973,7 +981,6 @@ class MemberAPIMixin:
             # NB! affiliation_record has 'organisation' field for organisation name
             organisation=None,
             city=None,
-            state=None,
             region=None,
             country=None,
             disambiguated_id=None,
@@ -1000,12 +1007,10 @@ class MemberAPIMixin:
             department = None
         if not role:
             role = None
-        if not state:
-            state = None
         if not region:
             region = None
-        if not self.org.state:
-            self.org.state = None
+        if not self.org.region:
+            self.org.region = None
 
         if affiliation is None:
             app.logger.warning("Missing affiliation value.")
@@ -1019,7 +1024,7 @@ class MemberAPIMixin:
         organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
-            region=state or region or self.org.state)
+            region=region or self.org.region)
 
         if disambiguation_source:
             disambiguation_source = disambiguation_source.upper()
@@ -1054,7 +1059,7 @@ class MemberAPIMixin:
             rec.put_code = put_code
 
         if visibility:
-            rec.visibility = visibility.replace('_', '-').lower()
+            rec.visibility = visibility.lower()
 
         if display_index:
             rec.display_index = display_index
@@ -1128,8 +1133,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1175,8 +1179,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1221,8 +1224,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1267,8 +1269,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1288,7 +1289,7 @@ class MemberAPIMixin:
         if put_code:
             rec.put_code = put_code
         if type:
-            rec.external_id_type = type.replace('_', '-').lower()
+            rec.external_id_type = type.lower()
         if value:
             rec.external_id_value = value
         if url:
@@ -1319,8 +1320,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1366,8 +1366,7 @@ class MemberAPIMixin:
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
-                visibility = json.loads(resp.data).get("visibility").replace('-', '_').upper() if hasattr(
-                    resp, "data") and json.loads(resp.data).get("visibility") else None
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except (ApiException, v3.rest.ApiException) as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1476,6 +1475,57 @@ class MemberAPIMixin:
         }[section_type]
         return getattr(self, method_name)(self.user.orcid, put_code)
 
+    def get(self, path=None):
+        """Execute 'GET' request."""
+        return self.execute("GET", path)
+
+    def post(self, path, body=None):
+        """Execute 'GET' request."""
+        return self.execute("POST", path, body)
+
+    def put(self, path, body=None):
+        """Execute 'PUT' request."""
+        return self.execute("PUT", path, body)
+
+    def delete(self, path):
+        """Execute 'DELETE' request."""
+        return self.execute("DELETE", path)
+
+    def execute(self, method, path, body=None):
+        """Execute the given request."""
+        headers = {"Accept": self.content_type}
+        if method != "GET":
+            headers["Content-Type"] = self.content_type
+        try:
+            if path and path.startswith("http"):
+                url = urlparse(path).path
+            else:
+                url = f"/{self.version}/{self.user.orcid}"
+                if path:
+                    url += '/' + path
+            resp, *_ = self.api_client.call_api(
+                url,
+                method,
+                header_params=headers,
+                response_type=self.content_type,
+                auth_settings=["orcid_auth"],
+                body=body,
+                _preload_content=False)
+        except (ApiException, v3.rest.ApiException) as ex:
+            if ex.status == 401:
+                orcid_token = self.get_token()
+                if orcid_token:
+                    orcid_token.delete_instance()
+                else:
+                    app.logger.exception("Exception occurred while retrieving ORCID Token")
+            else:
+                app.logger.error(f"ApiException Occurred: {ex}")
+            raise
+
+        if resp.data:
+            resp.json = json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
+        return resp
+
 
 class MemberAPI(MemberAPIMixin, MemberAPIV20Api):
     """ORCID Mmeber API extension."""
@@ -1578,7 +1628,6 @@ class MemberAPIV3(MemberAPIMixin, v3.api.DevelopmentMemberAPIV30Api):
                 self.new_resoucre_item(**ri) for ri in items] if items else None
 
         try:
-
             api_call = self.update_research_resourcev3 if put_code else self.create_research_resourcev3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:

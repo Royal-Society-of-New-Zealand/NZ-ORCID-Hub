@@ -84,14 +84,14 @@ def test_user_cv(client, mocker):
         org=user.organisation,
         scopes="/scope/read-limited")
 
-    mocker.patch("orcid_hub.reports.MemberAPI.get_record", side_effect=Exception("ERROR!!!"))
+    mocker.patch("orcid_hub.reports.MemberAPIV3.get_record", side_effect=Exception("ERROR!!!"))
     resp = client.get("/user_cv", follow_redirects=True)
     assert resp.status_code == 200
     assert b"iframe" not in resp.data
     assert b"ERROR!!!" in resp.data
 
     get_record = mocker.patch(
-        "orcid_hub.reports.MemberAPI.get_record",
+        "orcid_hub.reports.MemberAPIV3.get_record",
         return_value=json.loads(
             json.dumps({
                 "orcid-identifier": {

@@ -221,7 +221,7 @@ class AppForm(FlaskForm):
 class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
-    type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.FUNDING_TYPES]
+    type_choices = [(v, v.replace('-', ' ').title()) for v in [''] + models.FUNDING_TYPES]
 
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
@@ -233,7 +233,7 @@ class FundingForm(FlaskForm):
     total_funding_amount_currency = CurrencySelectField("Currency")
     org_name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
-    state = StringField("State/region", filters=[lambda x: x or None])
+    region = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
@@ -249,9 +249,9 @@ class FundingForm(FlaskForm):
 class PeerReviewForm(FlaskForm):
     """User/researcher Peer review detail form."""
 
-    reviewer_role_choices = [(v, v.replace('_', ' ').title())
+    reviewer_role_choices = [(v, v.title())
                              for v in [''] + models.REVIEWER_ROLES]
-    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.SUBJECT_TYPES]
+    subject_type_choices = [(v, v.replace('-', ' ').title()) for v in [''] + models.SUBJECT_TYPES]
 
     org_name = StringField("Institution", [validators.required()])
     disambiguated_id = StringField("Disambiguated Organisation ID")
@@ -260,7 +260,7 @@ class PeerReviewForm(FlaskForm):
         validators=[optional()],
         choices=EMPTY_CHOICES + models.disambiguation_source_choices)
     city = StringField("City", [validators.required()])
-    state = StringField("State/region", filters=[lambda x: x or None])
+    region = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
     reviewer_role = SelectField(
         choices=reviewer_role_choices,
@@ -356,7 +356,7 @@ class RecordForm(CommonFieldsForm):
 
     org_name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
-    state = StringField("State/region", filters=[lambda x: x or None])
+    region = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
     department = StringField("Department", filters=[lambda x: x or None])
     role = StringField("Role/title", filters=[lambda x: x or None])
@@ -380,7 +380,8 @@ class RecordForm(CommonFieldsForm):
 class GroupIdForm(FlaskForm):
     """GroupID record form."""
 
-    group_id_name = StringField("Group ID Name", [validators.required()])
+    group_id = StringField("Group ID")
+    name = StringField("Name")
     page_size = StringField("Page Size")
     page = StringField("Page")
     search = SubmitField("Search", render_kw={"class": "btn btn-primary"})
@@ -510,7 +511,7 @@ class OrgRegistrationForm(FlaskForm):
         "City", validators=[
             RequiredIf("via_orcid"),
         ])
-    state = StringField("State/Region")
+    region = StringField("State/Region")
     country = CountrySelectField(
         "Country", default=DEFAULT_COUNTRY, validators=[
             RequiredIf("via_orcid"),
@@ -568,7 +569,7 @@ class UserInvitationForm(FlaskForm):
     department = StringField("Campus/Department")
     organisation = StringField("Organisation Name")
     city = StringField("City", [validators.required()])
-    state = StringField("State/Region")
+    region = StringField("State/Region")
     country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
     course_or_role = StringField("Course or Job title")
     start_date = PartialDateField("Start date")
@@ -625,10 +626,12 @@ class WebhookForm(
                 "webhook_enabled",
                 "webhook_url",
                 "webhook_append_orcid",
+                "webhook_apikey",
                 "email_notifications_enabled",
                 "notification_email",
             ],
             field_args=dict(
+                webhook_apikey=dict(validators=[optional()]),
                 notification_email=dict(
                     render_kw={
                         "data-toggle":

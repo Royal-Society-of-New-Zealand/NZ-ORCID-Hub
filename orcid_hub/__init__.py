@@ -31,6 +31,7 @@ from playhouse import db_url
 # disable Sentry if there is no SENTRY_DSN:
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
 from sentry_sdk.integrations.rq import RqIntegration
 
 from . import config
@@ -38,7 +39,8 @@ from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
 from flask_limiter.util import get_ipaddr
-from werkzeug.contrib.cache import SimpleCache
+from flask_caching import Cache
+# from werkzeug.contrib.cache import SimpleCache
 IDENT = "$Id$"
 
 
@@ -56,12 +58,13 @@ except pkg_resources.DistributionNotFound:
 #     pass
 
 
-cache = SimpleCache()
 # instance_relative_config=True  ## Instance directory relative to the app scrip or app module
 instance_path = os.path.join(os.getcwd(), "instance")
 settings_filename = os.path.join(instance_path, "settings.cfg")
 app = Flask(__name__, instance_path=instance_path)
 app.config.from_object(config)
+cache = Cache(app)
+
 if not app.config.from_pyfile(settings_filename, silent=True) and app.debug:
     print(f"*** WARNING: Failed to load local application configuration from '{settings_filename}'")
 # if "DATABASE_URL" in os.environ:
@@ -138,6 +141,7 @@ class JSONEncoder(_JSONEncoder):
         return super().default(o)
 
 
+app.config["JSON_AS_ASCII"] = False
 app.json_encoder = JSONEncoder
 
 
@@ -215,7 +219,7 @@ SENTRY_DSN = app.config.get("SENTRY_DSN")
 if SENTRY_DSN:
     sentry_sdk.init(
         SENTRY_DSN,
-        integrations=[FlaskIntegration(), RqIntegration()],
+        integrations=[FlaskIntegration(), RqIntegration(), RedisIntegration()],
         debug=app.debug,
         environment=app.config.get("ENV"),
         send_default_pii=True)

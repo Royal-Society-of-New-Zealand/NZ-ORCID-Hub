@@ -3,7 +3,7 @@ oauthlib==2.1.0
 requests
 requests-oauthlib==1.0.0
 psycopg2-binary
-peewee>=3.9.6
+peewee>=3.9.6,<3.11.0
 python-slugify
 emails
 wtf-peewee
@@ -13,6 +13,8 @@ tablib
 openpyxl>=2.4.9,<2.5.0
 pyyaml
 pykwalify
+pybtex
+pybtex-apa-style
 Flask
 #flask-admin
 # NB! prefix with a single space for pbr!
@@ -34,6 +36,7 @@ redis<4.0.0
 rq<0.14.0
 rq-scheduler<0.10
 Flask-RQ2[cli]<19.0
+Flask-Caching>=1.7.2,<2.0.0
 rq-dashboard<0.5.0
 zipstream
 #peewee-validates
