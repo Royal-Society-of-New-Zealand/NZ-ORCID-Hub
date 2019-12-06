@@ -2299,7 +2299,11 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     if local_handler:
         set_server_name()
         with app.app_context():
-            callback_url = quote(url_for("update_webhook", user_id=user.id), safe='')
+            callback_url = quote(url_for("update_webhook",
+                                         user_id=user.id,
+                                         _external=True,
+                                         _scheme="https"),
+                                 safe='')
     elif '/' in callback_url or ':' in callback_url:
         callback_url = quote(callback_url, safe='')
     url = f"{app.config['ORCID_API_HOST_URL']}{user.orcid}/webhook/{callback_url}"
