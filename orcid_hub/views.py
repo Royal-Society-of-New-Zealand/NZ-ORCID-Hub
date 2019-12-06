@@ -559,6 +559,7 @@ class OrcidTokenAdmin(AppModelView):
             "page_size": 5
         },
     }
+    column_filters = ["scopes"]
 
 
 class OrcidApiCallAmin(AppModelView):
