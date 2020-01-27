@@ -2287,17 +2287,23 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     """
     local_handler = (callback_url is None)
     # Don't delete the webhook if there is anyther organisation with enabled webhook:
-    if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
+    if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 1:
         return
 
     # Any 'webhook' access token can be used:
-    token = OrcidToken.select().where(OrcidToken.scopes == "/webhook").order_by(OrcidToken.id.desc()).first()
+    token = OrcidToken.select().where(OrcidToken.org == user.organisation,
+                                      OrcidToken.scopes == "/webhook").order_by(
+                                          OrcidToken.id.desc()).first()
     if not token:
         token = get_client_credentials_token(org=user.organisation, scopes="/webhook")
     if local_handler:
         set_server_name()
         with app.app_context():
-            callback_url = quote(url_for("update_webhook", user_id=user.id), safe='')
+            callback_url = quote(url_for("update_webhook",
+                                         user_id=user.id,
+                                         _external=True,
+                                         _scheme="https"),
+                                 safe='')
     elif '/' in callback_url or ':' in callback_url:
         callback_url = quote(callback_url, safe='')
     url = f"{app.config['ORCID_API_HOST_URL']}{user.orcid}/webhook/{callback_url}"
@@ -2307,6 +2313,8 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Content-Length": "0"
     }
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
+    if resp.status_code not in [201, 204]:
+        raise ApiException(f"Failed to register or delete webhook {callback_url}: {resp.text}")
     if local_handler:
         user.webhook_enabled = (resp.status_code in [201, 204]) and not delete
     user.save()
