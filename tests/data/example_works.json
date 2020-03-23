@@ -31,7 +31,14 @@
 		"url": null,
 		"contributors": {
 			"contributor": [
-				{"contributor-attributes": {"contributor-sequence": "FIRST", "contributor-role": "AUTHOR"},
+        {
+          "contributor-orcid": null,
+          "credit-name": { "value": "Gush, J." },
+          "contributor-email": null,
+          "contributor-attributes": null
+        },
+				{
+          "contributor-attributes": {"contributor-sequence": "FIRST", "contributor-role": "AUTHOR"},
 					"credit-name": {"value": "Associate Professor Alice"},
 					"contributor-orcid": {
 						"uri": "https://sandbox.orcid.org/0000-0002-9207-4933",
