@@ -4304,7 +4304,9 @@ class OtherIdRecord(ExternalIdModel):
                             f"{row}."
                         )
 
-                    visibility = val(row, 10, "").replace("_", "-").lower()
+                    visibility = val(row, 10)
+                    if visibility:
+                        visibility = visibility.replace("_", "-").lower()
                     rr = cls(
                         task=task,
                         type=rec_type,
