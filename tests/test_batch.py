@@ -12,7 +12,6 @@ from peewee import Model, SqliteDatabase
 from utils import get_profile, get_resources, readup_test_data
 from orcid_hub import utils
 from orcid_hub.models import *
-from orcid_api_v3.rest import ApiException
 
 
 data_path = os.path.join(os.path.dirname(__file__), "data")
@@ -30,9 +29,11 @@ def test_process_task_from_csv_with_failures(request_ctx):
     FNA	LBA	admin@test0.edu	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
     """,
             filename="TEST.tsv",
-            org=org)
+            org=org,
+        )
         AffiliationRecord.update(is_active=True).where(
-            AffiliationRecord.task_id == task.id).execute()
+            AffiliationRecord.task_id == task.id
+        ).execute()
         mock_msg().send = Mock(side_effect=Exception("FAILED TO SEND EMAIL"))
         utils.process_affiliation_records(10000)
         rec = AffiliationRecord.select().where(AffiliationRecord.task_id == task.id).first()
@@ -54,7 +55,8 @@ def test_upload_affiliation_with_wrong_country(request_ctx, mocker):
 FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09 19:00:00 PM\t\tStaff\tNO COUNTRY
         """,
                 filename="TEST.tsv",
-                org=org)
+                org=org,
+            )
 
         # this should work:
         task = AffiliationRecord.load_from_csv(
@@ -62,7 +64,8 @@ FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manag
 FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09 19:00:00 PM\t\tStaff\t
     """,
             filename="TEST-2.tsv",
-            org=org)
+            org=org,
+        )
         rec = task.records.first()
         assert rec.country is None
     exception.assert_called_once()
@@ -81,7 +84,8 @@ def test_process_tasks(client, mocker):
 FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff\tNew Zealand
 """,
         filename="TEST_TASK.tsv",
-        org=org)
+        org=org,
+    )
     Task.update(created_at=datetime(1999, 1, 1), updated_at=datetime(1999, 1, 1)).execute()
     utils.process_tasks()
     assert Task.select().count() == 1
@@ -92,12 +96,8 @@ FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager 
     assert "email/task_expiration.html" in args
     assert kwargs["error_count"] == 0
 
-    assert kwargs["export_url"].endswith(
-        f"/admin/affiliationrecord/export/csv/?task_id={task.id}")
-    assert kwargs["recipient"] == (
-        admin.name,
-        admin.email,
-    )
+    assert kwargs["export_url"].endswith(f"/admin/affiliationrecord/export/csv/?task_id={task.id}")
+    assert kwargs["recipient"] == (admin.name, admin.email,)
     assert kwargs["subject"] == "Batch process task is about to expire"
     assert kwargs["task"] == task
 
@@ -112,7 +112,8 @@ FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager 
         filename="FUNDING.json",
         created_by=admin,
         updated_by=admin,
-        task_type=TaskType.FUNDING)
+        task_type=TaskType.FUNDING,
+    )
 
     Task.update(updated_at=datetime(1999, 1, 1)).execute()
     assert Task.select().where(Task.expires_at.is_null()).count() == 1
@@ -126,12 +127,8 @@ FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager 
     args, kwargs = send_email.call_args
     assert "email/task_expiration.html" in args
     assert kwargs["error_count"] == 0
-    assert kwargs["export_url"].endswith(
-        f"/admin/fundingrecord/export/csv/?task_id={task.id}")
-    assert kwargs["recipient"] == (
-        admin.name,
-        admin.email,
-    )
+    assert kwargs["export_url"].endswith(f"/admin/fundingrecord/export/csv/?task_id={task.id}")
+    assert kwargs["recipient"] == (admin.name, admin.email,)
     assert kwargs["subject"] == "Batch process task is about to expire"
     assert kwargs["task"] == task
 
@@ -142,7 +139,8 @@ FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager 
         filename="ERROR.err",
         created_by=admin,
         updated_by=admin,
-        task_type=-12345)
+        task_type=-12345,
+    )
 
     Task.update(updated_at=datetime(1999, 1, 1)).execute()
     with patch("orcid_hub.app.logger.error") as error:
@@ -157,7 +155,8 @@ FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager 
             org=org,
             filename="FILE.file",
             created_by=admin,
-            updated_by=admin)
+            updated_by=admin,
+        )
         Task.update(updated_at=datetime(1999, 1, 1)).execute()
         assert Task.select().count() == 1
         utils.process_tasks()
@@ -170,9 +169,11 @@ def test_enqueue_user_records(client, mocker):
 
     mocker.patch("orcid_hub.utils.send_email")
 
-    raw_data =  readup_test_data("example_works.json", "r")
+    raw_data = readup_test_data("example_works.json", "r")
 
-    user = User.select().join(OrcidToken, on=OrcidToken.user).where(User.orcid.is_null(False)).first()
+    user = (
+        User.select().join(OrcidToken, on=OrcidToken.user).where(User.orcid.is_null(False)).first()
+    )
     org = user.organisation
     admin = org.admins.first()
     client.login(admin)
@@ -181,27 +182,36 @@ def test_enqueue_user_records(client, mocker):
     WorkInvitee.update(email=user.email, orcid=user.orcid).execute()
     WorkRecord.update(is_active=True).execute()
 
-    raw_data =  readup_test_data("example_peer_reviews.json", "r")
+    record_ids = [r.id for r in task.records]
+    get_record = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", get_profile)
+    create_or_update_work = mocker.patch(
+        "orcid_hub.orcid_client.MemberAPIV3.create_or_update_work",
+        return_value=(123, user.orcid, True, "PUBLIC"),
+    )
+    utils.process_work_records(record_id=record_ids)
+
+    raw_data = readup_test_data("example_peer_reviews.json", "r")
     task = PeerReviewRecord.load_from_json(raw_data, filename="example_peer_reviews.json", org=org)
     PeerReviewRecord.update(is_active=True).execute()
     PeerReviewInvitee.update(email=user.email, orcid=user.orcid).execute()
 
-    get_record = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", get_profile)
-    create_or_update_work = mocker.patch(
-        "orcid_hub.orcid_client.MemberAPIV3.create_or_update_work",
-        return_value=(123, user.orcid, True, "PUBLIC"))
     create_or_update_affiliation = mocker.patch(
         "orcid_hub.orcid_client.MemberAPIV3.create_or_update_affiliation",
-        return_value=(321, user.orcid, True, "PUBLIC"))
+        return_value=(321, user.orcid, True, "PUBLIC"),
+    )
     task = Task.create(org=org, task_type=TaskType.AFFILIATION, filename="affiliations.csv")
     AffiliationRecord.insert_many(
-        dict(task_id=task.id,
-             is_active=True,
-             email=user.email,
-             orcid=user.orcid,
-             affiliation_type="student" if i % 2 else "staff",
-             organisation=org.name,
-             role=f"ROLE #{i}") for i in range(1, 100)).execute()
+        dict(
+            task_id=task.id,
+            is_active=True,
+            email=user.email,
+            orcid=user.orcid,
+            affiliation_type="student" if i % 2 else "staff",
+            organisation=org.name,
+            role=f"ROLE #{i}",
+        )
+        for i in range(1, 100)
+    ).execute()
     utils.enqueue_user_records(user)
     create_or_update_work.assert_called()
     create_or_update_affiliation.assert_called()
@@ -215,23 +225,28 @@ def test_email_logging(client, mocker):
     client.login_root()
 
     with app.app_context():
-        send = mocker.patch("emails.message.Message.send",
-                            return_value=Mock(success=True, message="All Good!"))
-        utils.send_email("email/test.html",
-                        recipient="test@test.ac.nz",
-                        sender=("SENDER", "sender@test.ac.nz"),
-                        subject="TEST ABC 123")
+        send = mocker.patch(
+            "emails.message.Message.send", return_value=Mock(success=True, message="All Good!")
+        )
+        utils.send_email(
+            "email/test.html",
+            recipient="test@test.ac.nz",
+            sender=("SENDER", "sender@test.ac.nz"),
+            subject="TEST ABC 123",
+        )
         send.assert_called()
         assert MailLog.select().where(MailLog.was_sent_successfully).exists()
 
-
-        send = mocker.patch("emails.message.Message.send",
-                            return_value=Mock(success=False, message="ERROR!"))
+        send = mocker.patch(
+            "emails.message.Message.send", return_value=Mock(success=False, message="ERROR!")
+        )
         with pytest.raises(Exception):
-            utils.send_email("email/test.html",
-                            recipient="test@test.ac.nz",
-                            sender=("SENDER", "sender@test.ac.nz"),
-                            subject="TEST ABC 123")
+            utils.send_email(
+                "email/test.html",
+                recipient="test@test.ac.nz",
+                sender=("SENDER", "sender@test.ac.nz"),
+                subject="TEST ABC 123",
+            )
         send.assert_called()
         assert MailLog.select().where(MailLog.was_sent_successfully.NOT()).exists()
 
@@ -252,7 +267,8 @@ def test_message_records(client, mocker):
     resp = client.post(
         "/load/task/RESOURCE",
         data={"file_": (BytesIO(raw_data0), "resources.json")},
-        follow_redirects=True)
+        follow_redirects=True,
+    )
     assert resp.status_code == 200
     assert b"SYN-18-UOA-333" in resp.data
     assert b"SYN-18-UOA-222" in resp.data
@@ -264,7 +280,8 @@ def test_message_records(client, mocker):
     send = mocker.patch("emails.message.MessageSendMixin.send")
     get_resources_mock = mocker.patch(
         "orcid_hub.orcid_client.MemberAPIV3.get_resources",
-        return_value=get_resources(org=user.organisation, user=user))
+        return_value=get_resources(org=user.organisation, user=user),
+    )
     execute = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.execute")
 
     resp = client.post("/activate_all/?url=/resources", data=dict(task_id=task.id))
@@ -281,16 +298,14 @@ def test_message_records(client, mocker):
     UserInvitation.delete().execute()
     MessageRecord.update(is_active=False).execute()
 
-    resp = client.post("/admin/task/action/",
-                       data=dict(action="activate", rowid=[task.id]))
+    resp = client.post("/admin/task/action/", data=dict(action="activate", rowid=[task.id]))
     assert resp.status_code == 302
     assert resp.location.endswith("/admin/task/")
     assert UserInvitation.select().count() == 3
 
     # via task view - reset all:
     UserInvitation.delete().execute()
-    resp = client.post("/admin/task/action/",
-                       data=dict(action="reset", rowid=[task.id]))
+    resp = client.post("/admin/task/action/", data=dict(action="reset", rowid=[task.id]))
     assert resp.status_code == 302
     assert resp.location.endswith("/admin/task/")
     assert UserInvitation.select().count() == 3
@@ -306,18 +321,24 @@ def test_message_records(client, mocker):
                     # email="researcher@test0.edu",
                     first_name=i.first_name or "FN",
                     last_name=i.first_name or "LN",
-                    visibility="limited"),
-                follow_redirects=True)
+                    visibility="limited",
+                ),
+                follow_redirects=True,
+            )
             resp = client.get(f"/admin/invitee/details/?id={i.id}")
             invitee = Invitee.get(i.id)
             assert invitee.identifier == f"ID-{i.id}"
 
         invitee_count = r.invitees.count()
-        resp = client.post(f"/admin/invitee/new/?url=/admin/invitee/%2F%3Frecord_id={r.id}",
-                           data=dict(email="a-new-one@org1234.edu",
-                                     first_name="FN",
-                                     last_name="LN",
-                                     visibility="limited"))
+        resp = client.post(
+            f"/admin/invitee/new/?url=/admin/invitee/%2F%3Frecord_id={r.id}",
+            data=dict(
+                email="a-new-one@org1234.edu",
+                first_name="FN",
+                last_name="LN",
+                visibility="limited",
+            ),
+        )
         assert r.invitees.count() == invitee_count + 1
 
     # Export and re-import
@@ -325,13 +346,21 @@ def test_message_records(client, mocker):
         resp = client.get(f"/admin/messagerecord/export/{export_type}/?task_id={task.id}")
         data = json.loads(resp.data) if export_type == "json" else yaml.load(resp.data)
         data0 = data.copy()
-        del(data0["id"])
+        del data0["id"]
 
         file_name = f"resources_reimport.{export_type}"
         resp = client.post(
-                "/load/task/RESOURCE",
-                data={"file_": (BytesIO((json.dumps(data0) if export_type == "json" else yaml.dump(data0)).encode()), file_name)},
-                follow_redirects=True)
+            "/load/task/RESOURCE",
+            data={
+                "file_": (
+                    BytesIO(
+                        (json.dumps(data0) if export_type == "json" else yaml.dump(data0)).encode()
+                    ),
+                    file_name,
+                )
+            },
+            follow_redirects=True,
+        )
         assert resp.status_code == 200
         assert b"SYN-18-UOA-333" in resp.data
         assert b"SYN-18-UOA-222" in resp.data
@@ -342,9 +371,17 @@ def test_message_records(client, mocker):
 
         # with the the existing ID
         resp = client.post(
-                "/load/task/RESOURCE",
-                data={"file_": (BytesIO((json.dumps(data) if export_type == "json" else yaml.dump(data)).encode()), file_name)},
-                follow_redirects=True)
+            "/load/task/RESOURCE",
+            data={
+                "file_": (
+                    BytesIO(
+                        (json.dumps(data) if export_type == "json" else yaml.dump(data)).encode()
+                    ),
+                    file_name,
+                )
+            },
+            follow_redirects=True,
+        )
         assert resp.status_code == 200
         assert b"SYN-18-UOA-333" in resp.data
         assert b"SYN-18-UOA-222" in resp.data
@@ -361,17 +398,23 @@ def test_message_records_completed(client, mocker):
     org = user.organisation
     mocker.patch(
         "orcid_hub.orcid_client.MemberAPIV3.get_resources",
-        return_value=get_resources(org=user.organisation, user=user))
+        return_value=get_resources(org=user.organisation, user=user),
+    )
     send = mocker.patch("emails.message.MessageSendMixin.send")
-    execute = mocker.patch("orcid_hub.orcid_client.MemberAPIV3.execute",
-                            return_value=Mock(headers={"Location": f"{user.orcid}/ABC/123456"},
-                                                json=dict(visibility="public")))
-    task = Task.create(is_active=True,
-                       created_by=admin,
-                       filename="messages.json",
-                       task_type=TaskType.RESOURCE,
-                       is_raw=True,
-                       org=org)
+    execute = mocker.patch(
+        "orcid_hub.orcid_client.MemberAPIV3.execute",
+        return_value=Mock(
+            headers={"Location": f"{user.orcid}/ABC/123456"}, json=dict(visibility="public")
+        ),
+    )
+    task = Task.create(
+        is_active=True,
+        created_by=admin,
+        filename="messages.json",
+        task_type=TaskType.RESOURCE,
+        is_raw=True,
+        org=org,
+    )
     record = MessageRecord.create(task=task, message="{}", is_active=True)
     invitee = Invitee.create(email=user.email, orcid=user.orcid)
     record.invitees.add(invitee)
@@ -398,7 +441,8 @@ def test_affiliation_records(client, mocker):
         resp = client.post(
             "/load/task/AFFILIATION",
             data={"file_": (f, "affiliations.csv")},
-            follow_redirects=True)
+            follow_redirects=True,
+        )
     assert resp.status_code == 200
     assert b"55561720" in resp.data
     assert b"208013283/01" in resp.data
@@ -408,9 +452,12 @@ def test_affiliation_records(client, mocker):
     send = mocker.patch("emails.message.MessageSendMixin.send")
     mocker.patch(
         "orcid_hub.orcid_client.MemberAPIV3.get_record",
-        lambda s: get_profile(org=s.org, user=s.user))
-    urlopen = mocker.patch("urllib3.poolmanager.PoolManager.urlopen",
-            return_value=Mock(status_code=201, headers={"Location: /record/424242"}))
+        lambda s: get_profile(org=s.org, user=s.user),
+    )
+    urlopen = mocker.patch(
+        "urllib3.poolmanager.PoolManager.urlopen",
+        return_value=Mock(status_code=201, headers={"Location: /record/424242"}),
+    )
 
     resp = client.post("/activate_all/?url=/affiliations", data=dict(task_id=task.id))
     assert resp.status_code == 302

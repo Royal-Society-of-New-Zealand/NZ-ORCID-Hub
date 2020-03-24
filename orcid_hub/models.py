@@ -26,10 +26,24 @@ from flask import json
 from flask_login import UserMixin, current_user
 from peewee import JOIN, BlobField, SqliteDatabase
 from peewee import BooleanField as BooleanField_
-from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCharField,
-                    ForeignKeyField, IntegerField, ManyToManyField, Model, OperationalError,
-                    PostgresqlDatabase, SmallIntegerField, TextField, fn)
+from peewee import (
+    CharField,
+    DateTimeField,
+    DeferredForeignKey,
+    Field,
+    FixedCharField,
+    ForeignKeyField,
+    IntegerField,
+    ManyToManyField,
+    Model,
+    OperationalError,
+    PostgresqlDatabase,
+    SmallIntegerField,
+    TextField,
+    fn,
+)
 from peewee_validates import ModelValidator
+
 # from playhouse.reflection import generate_models
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries, currencies, languages
@@ -40,32 +54,115 @@ from . import app, cache, db, schemas
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
-SCHEMA_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "schemas"))
+SCHEMA_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "schemas")
+)
 
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-\.]\d+){,2}")
 
 
-AFFILIATION_TYPES = ["student", "education", "staff", "employment", "distinction", "position", "invited-position",
-                     "qualification", "membership", "service"]
+AFFILIATION_TYPES = [
+    "student",
+    "education",
+    "staff",
+    "employment",
+    "distinction",
+    "position",
+    "invited-position",
+    "qualification",
+    "membership",
+    "service",
+]
 DISAMBIGUATION_SOURCES = ["RINGGOLD", "GRID", "FUNDREF", "ISNI"]
 VISIBILITIES = ["public", "private", "registered-only", "limited"]
-visibility_choices = [(v, v.replace('-', ' ').title()) for v in VISIBILITIES]
-EXTERNAL_ID_TYPES = ["agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba", "cienciaiul",
-                     "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir", "isbn",
-                     "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
-                     "pat", "pdb", "pmc", "pmid", "proposal-id", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
-                     "wosuid", "zbl"]
+visibility_choices = [(v, v.replace("-", " ").title()) for v in VISIBILITIES]
+EXTERNAL_ID_TYPES = [
+    "agr",
+    "ark",
+    "arxiv",
+    "asin",
+    "asin-tld",
+    "authenticusid",
+    "bibcode",
+    "cba",
+    "cienciaiul",
+    "cit",
+    "ctx",
+    "dnb",
+    "doi",
+    "eid",
+    "ethos",
+    "grant_number",
+    "handle",
+    "hir",
+    "isbn",
+    "issn",
+    "jfm",
+    "jstor",
+    "kuid",
+    "lccn",
+    "lensid",
+    "mr",
+    "oclc",
+    "ol",
+    "osti",
+    "other-id",
+    "pat",
+    "pdb",
+    "pmc",
+    "pmid",
+    "proposal-id",
+    "rfc",
+    "rrid",
+    "source-work-id",
+    "ssrn",
+    "uri",
+    "urn",
+    "wosuid",
+    "zbl",
+]
 FUNDING_TYPES = ["award", "contract", "grant", "salary-award"]
 SUBJECT_TYPES = [
-    "artistic-performance", "book", "book-chapter", "book-review", "conference-abstract",
-    "conference-paper", "conference-poster", "data-set", "dictionary-entry", "disclosure",
-    "dissertation", "edited-book", "encyclopedia-entry", "invention", "journal-article",
-    "journal-issue", "lecture-speech", "license", "magazine-article", "manual",
-    "newsletter-article", "newspaper-article", "online-resource", "other", "patent",
-    "registered-copyright", "report", "research-technique", "research-tool", "spin-off-company",
-    "standards-and-policy", "supervised-student-publication", "technical-standard", "test",
-    "trademark", "translation", "undefined", "website", "working-paper"
+    "artistic-performance",
+    "book",
+    "book-chapter",
+    "book-review",
+    "conference-abstract",
+    "conference-paper",
+    "conference-poster",
+    "data-set",
+    "dictionary-entry",
+    "disclosure",
+    "dissertation",
+    "edited-book",
+    "encyclopedia-entry",
+    "invention",
+    "journal-article",
+    "journal-issue",
+    "lecture-speech",
+    "license",
+    "magazine-article",
+    "manual",
+    "newsletter-article",
+    "newspaper-article",
+    "online-resource",
+    "other",
+    "patent",
+    "registered-copyright",
+    "report",
+    "research-technique",
+    "research-tool",
+    "spin-off-company",
+    "standards-and-policy",
+    "supervised-student-publication",
+    "technical-standard",
+    "test",
+    "trademark",
+    "translation",
+    "undefined",
+    "website",
+    "working-paper",
 ]
 REVIEWER_ROLES = ["chair", "editor", "member", "organizer", "reviewer"]
 REVIEW_TYPES = ["evaluation", "review"]
@@ -73,23 +170,59 @@ review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
 RELATIONSHIPS = ["part-of", "self"]
 
 WORK_TYPES = [
-    "artistic-performance", "book", "book-chapter", "book-review", "conference-abstract",
-    "conference-paper", "conference-poster", "data-set", "dictionary-entry", "disclosure",
-    "dissertation", "edited-book", "encyclopedia-entry", "invention", "journal-article",
-    "journal-issue", "lecture-speech", "license", "magazine-article", "manual",
-    "newsletter-article", "newspaper-article", "online-resource", "other"
-    "patent", "registered-copyright", "report", "research-technique", "research-tool",
-    "spin-off-company", "standards-and-policy", "supervised-student-publication",
-    "technical-standard", "test", "trademark", "translation", "undefined", "website",
-    "working-paper"
+    "artistic-performance",
+    "book",
+    "book-chapter",
+    "book-review",
+    "conference-abstract",
+    "conference-paper",
+    "conference-poster",
+    "data-set",
+    "dictionary-entry",
+    "disclosure",
+    "dissertation",
+    "edited-book",
+    "encyclopedia-entry",
+    "invention",
+    "journal-article",
+    "journal-issue",
+    "lecture-speech",
+    "license",
+    "magazine-article",
+    "manual",
+    "newsletter-article",
+    "newspaper-article",
+    "online-resource",
+    "other" "patent",
+    "registered-copyright",
+    "report",
+    "research-technique",
+    "research-tool",
+    "spin-off-company",
+    "standards-and-policy",
+    "supervised-student-publication",
+    "technical-standard",
+    "test",
+    "trademark",
+    "translation",
+    "undefined",
+    "website",
+    "working-paper",
 ]
-work_type_choices = [(v, v.replace('-', ' ').title()) for v in WORK_TYPES]
+work_type_choices = [(v, v.replace("-", " ").title()) for v in WORK_TYPES]
 CITATION_TYPES = [
-    "bibtex", "formatted-apa", "formatted-chicago", "formatted-harvard", "formatted-ieee",
-    "formatted-mla", "formatted-unspecified", "formatted-vancouver", "ris"
+    "bibtex",
+    "formatted-apa",
+    "formatted-chicago",
+    "formatted-harvard",
+    "formatted-ieee",
+    "formatted-mla",
+    "formatted-unspecified",
+    "formatted-vancouver",
+    "ris",
 ]
 PROPERTY_TYPES = ["URL", "NAME", "KEYWORD", "COUNTRY"]
-citation_type_choices = [(v, v.replace('-', ' ').title()) for v in CITATION_TYPES]
+citation_type_choices = [(v, v.replace("-", " ").title()) for v in CITATION_TYPES]
 
 country_choices = [(c.alpha_2, c.name) for c in countries]
 country_choices.sort(key=lambda e: e[1])
@@ -97,8 +230,10 @@ language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_
 language_choices.sort(key=lambda e: e[1])
 currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
-external_id_type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in EXTERNAL_ID_TYPES]
-relationship_choices = [(v, v.replace('-', ' ').title()) for v in RELATIONSHIPS]
+external_id_type_choices = [
+    (v, v.replace("_", " ").replace("-", " ").title()) for v in EXTERNAL_ID_TYPES
+]
+relationship_choices = [(v, v.replace("-", " ").title()) for v in RELATIONSHIPS]
 disambiguation_source_choices = [(v, v) for v in DISAMBIGUATION_SOURCES]
 property_type_choices = [(v, v) for v in PROPERTY_TYPES]
 
@@ -133,8 +268,8 @@ def validate_orcid_id(value):
     if not value:
         return
 
-    if '/' in value:
-        value = value.split('/')[-1]
+    if "/" in value:
+        value = value.split("/")[-1]
 
     if not ORCID_ID_REGEX.match(value):
         raise ValueError(
@@ -142,24 +277,27 @@ def validate_orcid_id(value):
         )
     check = 0
     for n in value:
-        if n == '-':
+        if n == "-":
             continue
-        check = (2 * check + int(10 if n == 'X' else n)) % 11
+        check = (2 * check + int(10 if n == "X" else n)) % 11
     if check != 1:
-        raise ValueError(f"Invalid ORCID iD {value} checksum. Make sure you have entered correct ORCID iD.")
+        raise ValueError(
+            f"Invalid ORCID iD {value} checksum. Make sure you have entered correct ORCID iD."
+        )
 
     return value
 
 
 def lazy_property(fn):
     """Make a property lazy-evaluated."""
-    attr_name = '_lazy_' + fn.__name__
+    attr_name = "_lazy_" + fn.__name__
 
     @property
     def _lazy_property(self):
         if not hasattr(self, attr_name):
             setattr(self, attr_name, fn(self))
         return getattr(self, attr_name)
+
     return _lazy_property
 
 
@@ -167,7 +305,7 @@ def normalize_email(value):
     """Extact and normalize email value from the given raw data value, eg, 'Name <test@test.edu>'."""
     if value:
         value = value.strip().lower()
-        return re.match(r"^(.*\<)?([^\>]*)\>?$", value).group(2) if '<' in value else value
+        return re.match(r"^(.*\<)?([^\>]*)\>?$", value).group(2) if "<" in value else value
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
@@ -177,9 +315,12 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         """Return ORCID dictionary representation of the partial date."""
         if self.is_null:
             return None
-        return dict(((f, None if v is None else {
-            "value": ("%04d" if f == "year" else "%02d") % v
-        }) for (f, v) in zip(self._fields, self)))
+        return dict(
+            (
+                (f, None if v is None else {"value": ("%04d" if f == "year" else "%02d") % v})
+                for (f, v) in zip(self._fields, self)
+            )
+        )
 
     @property
     def is_null(self):
@@ -224,16 +365,16 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
             if not match:
                 raise ModelException(f"Wrong partial date value '{value}'")
             value0 = match[0]
-            for sep in ['/', '.']:
+            for sep in ["/", "."]:
                 if sep in value0:
                     parts = value0.split(sep)
                     return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
 
-            return cls(*[int(v) for v in value0.split('-')])
+            return cls(*[int(v) for v in value0.split("-")])
 
         return cls(
-            **{k: int(v.get("value")) if v and v.get("value") else None
-               for k, v in value.items()})
+            **{k: int(v.get("value")) if v and v.get("value") else None for k, v in value.items()}
+        )
 
     def as_datetime(self):
         """Get 'datetime' data representation."""
@@ -242,7 +383,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
     def __str__(self):
         """Get string representation."""
         if self.year is None:
-            return ''
+            return ""
         else:
             res = "%04d" % int(self.year)
             if self.month:
@@ -250,7 +391,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
             return res + "-%02d" % int(self.day) if self.day else res
 
 
-PartialDate.__new__.__defaults__ = (None, ) * len(PartialDate._fields)
+PartialDate.__new__.__defaults__ = (None,) * len(PartialDate._fields)
 
 
 class OrcidIdField(FixedCharField):
@@ -304,11 +445,7 @@ class PartialDateField(Field):
             return None
 
         parts = [int(p) for p in value.split("-") if "*" not in p]
-        return PartialDate(**dict(zip_longest((
-            "year",
-            "month",
-            "day",
-        ), parts)))
+        return PartialDate(**dict(zip_longest(("year", "month", "day",), parts)))
 
 
 class UUIDField(Field):
@@ -318,8 +455,11 @@ class UUIDField(Field):
 
     def db_value(self, value):
         """Return DB representation."""
-        return value.hex if isinstance(
-            value, uuid.UUID) else (value.replace('-', '') if '-' in value else value)
+        return (
+            value.hex
+            if isinstance(value, uuid.UUID)
+            else (value.replace("-", "") if "-" in value else value)
+        )
 
     def python_value(self, value):
         """Return Python representation."""
@@ -344,7 +484,7 @@ class TaskType(IntEnum):
             return self.value == other.value
         elif isinstance(other, int):
             return self.value == other
-        return (self.name == other or self.name == getattr(other, "name", None))
+        return self.name == other or self.name == getattr(other, "name", None)
 
     def __hash__(self):
         return hash(self.name)
@@ -352,7 +492,7 @@ class TaskType(IntEnum):
     @classmethod
     def options(cls):
         """Get list of all types for UI dropown option list."""
-        return [(e, e.name.replace('_', ' ').title()) for e in cls]
+        return [(e, e.name.replace("_", " ").title()) for e in cls]
 
 
 class TaskTypeField(SmallIntegerField):
@@ -384,8 +524,7 @@ class TaskTypeField(SmallIntegerField):
         try:
             return TaskType(value)
         except:
-            app.logger.exception(
-                    f"Failed to map DB value {value} to TaskType, choosing None.")
+            app.logger.exception(f"Failed to map DB value {value} to TaskType, choosing None.")
             return None
 
 
@@ -406,7 +545,7 @@ class Role(IntFlag):
     def __eq__(self, other):
         if isinstance(other, Role):
             return self.value == other.value
-        return (self.name == other or self.name == getattr(other, 'name', None))
+        return self.name == other or self.name == getattr(other, "name", None)
 
     def __hash__(self):
         return hash(self.name)
@@ -423,29 +562,33 @@ class Affiliation(IntFlag):
     EDU = 1  # Education
     EMP = 2  # Employment
     DST = 4  # Distinction
-    POS = 8   # Invited Position
-    QUA = 16   # Qualification
-    MEM = 32   # Membership
-    SER = 64   # Service
+    POS = 8  # Invited Position
+    QUA = 16  # Qualification
+    MEM = 32  # Membership
+    SER = 64  # Service
 
     def __eq__(self, other):
         if isinstance(other, Affiliation):
             return self.value == other.value
-        return (self.name == other or self.name == getattr(other, 'name', None))
+        return self.name == other or self.name == getattr(other, "name", None)
 
     def __hash__(self):
         return hash(self.name)
 
     def __str__(self):
-        return ", ".join({
-            self.EDU: "Education",
-            self.EMP: "Employment",
-            self.DST: "Distinction",
-            self.POS: "Invited-Position",
-            self.QUA: "Qualification",
-            self.MEM: "Membership",
-            self.SER: "Service",
-        }[a] for a in Affiliation if a & self)
+        return ", ".join(
+            {
+                self.EDU: "Education",
+                self.EMP: "Employment",
+                self.DST: "Distinction",
+                self.POS: "Invited-Position",
+                self.QUA: "Qualification",
+                self.MEM: "Membership",
+                self.SER: "Service",
+            }[a]
+            for a in Affiliation
+            if a & self
+        )
 
 
 class BaseModel(Model):
@@ -467,12 +610,12 @@ class BaseModel(Model):
     def add_status_line(self, line):
         """Add a text line to the status for logging processing progress."""
         ts = datetime.utcnow().isoformat(timespec="seconds")
-        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
+        self.status = (self.status + "\n" if self.status else "") + ts + ": " + line
 
     @classmethod
     def get(cls, *query, **kwargs):
         """Get a single model instance."""
-        if query and not kwargs and len(query) == 1 and isinstance(query[0], (int, str, )):
+        if query and not kwargs and len(query) == 1 and isinstance(query[0], (int, str,)):
             return super().get(id=query[0])
         elif not query and not kwargs:
             return cls.select().limit(1).first()
@@ -491,26 +634,28 @@ class BaseModel(Model):
     @classmethod
     def underscore_name(cls):
         """Get the class underscore name of the model."""
-        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', cls.__name__)
-        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+        s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", cls.__name__)
+        return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
     def __to_dashes(self, o):
         """Replace '_' with '-' in the dict keys."""
         if isinstance(o, dict):
-            return {k.replace('_', '-'): self.__to_dashes(v) for k, v in o.items()}
+            return {k.replace("_", "-"): self.__to_dashes(v) for k, v in o.items()}
         return o
 
-    def to_dict(self,
-                to_dashes=False,
-                exclude_nulls=False,
-                recurse=True,
-                backrefs=False,
-                only=None,
-                exclude=None,
-                seen=None,
-                extra_attrs=None,
-                fields_from_query=None,
-                max_depth=None):
+    def to_dict(
+        self,
+        to_dashes=False,
+        exclude_nulls=False,
+        recurse=True,
+        backrefs=False,
+        only=None,
+        exclude=None,
+        seen=None,
+        extra_attrs=None,
+        fields_from_query=None,
+        max_depth=None,
+    ):
         """Get dictionary representation of the model."""
         o = model_to_dict(
             self,
@@ -521,7 +666,8 @@ class BaseModel(Model):
             seen=seen,
             extra_attrs=extra_attrs,
             fields_from_query=fields_from_query,
-            max_depth=max_depth)
+            max_depth=max_depth,
+        )
         if exclude_nulls:
             o = {k: v for (k, v) in o.items() if v is not None}
         for k, v in o.items():
@@ -569,8 +715,8 @@ class AuditedModel(BaseModel):
     # updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
     # created_by = IntegerField(null=True, index=True)
     # updated_by = IntegerField(null=True, index=True)
-    created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref='+')
-    updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref='+')
+    created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref="+")
+    updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True, backref="+")
 
     def save(self, *args, **kwargs):  # noqa: D102
         if self.is_dirty() and self._dirty != {"orcid_updated_at"}:
@@ -630,19 +776,23 @@ class Organisation(AuditedModel):
         backref="tech_contact_of",
         on_delete="SET NULL",
         null=True,
-        help_text="Organisation technical contact")
+        help_text="Organisation technical contact",
+    )
     # created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
     # updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
 
     api_credentials_requested_at = DateTimeField(
         null=True,
-        help_text="The time stamp when the user clicked on the button to register client API.")
+        help_text="The time stamp when the user clicked on the button to register client API.",
+    )
     api_credentials_entered_at = DateTimeField(
-        null=True, help_text="The time stamp when the user entered API Client ID and secret.")
+        null=True, help_text="The time stamp when the user entered API Client ID and secret."
+    )
 
     can_use_api = BooleanField(null=True, help_text="The organisation can access ORCID Hub API.")
     logo = ForeignKeyField(
-        File, on_delete="CASCADE", null=True, help_text="The logo of the organisation")
+        File, on_delete="CASCADE", null=True, help_text="The logo of the organisation"
+    )
     email_template = TextField(null=True)
     email_template_enabled = BooleanField(null=True, default=False)
     webhook_enabled = BooleanField(default=False, null=True)
@@ -650,35 +800,45 @@ class Organisation(AuditedModel):
     webhook_append_orcid = BooleanField(
         null=True,
         verbose_name="Append ORCID iD",
-        help_text="Append the ORCID iD of the user the Webhook URL")
+        help_text="Append the ORCID iD of the user the Webhook URL",
+    )
     webhook_apikey = CharField(null=True, max_length=20)
     email_notifications_enabled = BooleanField(default=False, null=True)
-    notification_email = CharField(max_length=100, null=True, verbose_name="Notification Email Address")
+    notification_email = CharField(
+        max_length=100, null=True, verbose_name="Notification Email Address"
+    )
 
     @property
     def invitation_sent_at(self):
         """Get the timestamp of the most recent invitation sent to the technical contact."""
-        row = self.org_invitations.select(
-            fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
-                OrgInvitation.invitee_id == self.tech_contact_id).first()
+        row = (
+            self.org_invitations.select(fn.MAX(OrgInvitation.created_at).alias("last_sent_at"))
+            .where(OrgInvitation.invitee_id == self.tech_contact_id)
+            .first()
+        )
         if row:
             return row.last_sent_at
 
     @property
     def invitation_confirmed_at(self):
         """Get the timestamp when the invitation link was opened."""
-        row = self.org_invitations.select(
-            fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
-                OrgInvitation.invitee_id == self.tech_contact_id).where(
-                    OrgInvitation.confirmed_at.is_null(False)).first()
+        row = (
+            self.org_invitations.select(
+                fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")
+            )
+            .where(OrgInvitation.invitee_id == self.tech_contact_id)
+            .where(OrgInvitation.confirmed_at.is_null(False))
+            .first()
+        )
         if row:
             return row.last_confirmed_at
 
     @property
     def users(self):
         """Get organisation's user query."""
-        return User.select().join(
-            UserOrg, on=(UserOrg.user_id == User.id)).where(UserOrg.org == self)
+        return (
+            User.select().join(UserOrg, on=(UserOrg.user_id == User.id)).where(UserOrg.org == self)
+        )
 
     @property
     def admins(self):
@@ -731,9 +891,11 @@ class User(AuditedModel, UserMixin):
     # TODO: many-to-many
     # NB! Deprecated!
     # TODO: we still need to remember the organisation that last authenticated the user
-    organisation = ForeignKeyField(Organisation, backref="members", on_delete="SET NULL", null=True)
-    created_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref='+')
-    updated_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref='+')
+    organisation = ForeignKeyField(
+        Organisation, backref="members", on_delete="SET NULL", null=True
+    )
+    created_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref="+")
+    updated_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref="+")
 
     def __str__(self):
         if self.name and (self.eppn or self.email):
@@ -748,41 +910,63 @@ class User(AuditedModel, UserMixin):
     @property
     def organisations(self):
         """Get all linked to the user organisation query."""
-        return (Organisation.select(
-            Organisation, (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
-            ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
-                UserOrg, on=(UserOrg.org_id == Organisation.id)).where(
-                    UserOrg.user_id == self.id))
+        return (
+            Organisation.select(
+                Organisation,
+                (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
+                ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin"),
+            )
+            .join(UserOrg, on=(UserOrg.org_id == Organisation.id))
+            .where(UserOrg.user_id == self.id)
+        )
 
     @lazy_property
     @cache.memoize(50)
     def org_links(self):
         """Get all user organisation linked directly and indirectly."""
         if self.orcid:
-            q = UserOrg.select().join(
-                User,
-                on=((User.id == UserOrg.user_id)
-                    & ((User.email == self.email)
-                       | (User.orcid == self.orcid)))).where((UserOrg.user_id == self.id)
-                                                             | (User.email == self.email)
-                                                             | (User.orcid == self.orcid))
+            q = (
+                UserOrg.select()
+                .join(
+                    User,
+                    on=(
+                        (User.id == UserOrg.user_id)
+                        & ((User.email == self.email) | (User.orcid == self.orcid))
+                    ),
+                )
+                .where(
+                    (UserOrg.user_id == self.id)
+                    | (User.email == self.email)
+                    | (User.orcid == self.orcid)
+                )
+            )
         else:
             q = self.userorg_set
 
         return [
-            r for r in q.select(UserOrg, Organisation.name.alias("org_name"), (
-                Organisation.id == self.organisation_id
-            ).alias("current_org")).join(Organisation, on=(
-                Organisation.id == UserOrg.org_id)).order_by(Organisation.name).objects()
+            r
+            for r in q.select(
+                UserOrg,
+                Organisation.name.alias("org_name"),
+                (Organisation.id == self.organisation_id).alias("current_org"),
+            )
+            .join(Organisation, on=(Organisation.id == UserOrg.org_id))
+            .order_by(Organisation.name)
+            .objects()
         ]
 
     @property
     def available_organisations(self):
         """Get all not yet linked to the user organisation query."""
-        return (Organisation.select(Organisation).where(UserOrg.id.is_null()).join(
-            UserOrg,
-            JOIN.LEFT_OUTER,
-            on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id))))
+        return (
+            Organisation.select(Organisation)
+            .where(UserOrg.id.is_null())
+            .join(
+                UserOrg,
+                JOIN.LEFT_OUTER,
+                on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)),
+            )
+        )
 
     @property
     def admin_for(self):
@@ -837,9 +1021,10 @@ class User(AuditedModel, UserMixin):
         """Return Gravatar service user avatar URL."""
         # TODO: default gravatar image
         # default = "https://www.example.com/default.jpg"
-        gravatar_url = "https://www.gravatar.com/avatar/" + md5(
-            self.email.lower().encode()).hexdigest() + "?"
-        gravatar_url += urlencode({'d': default, 's': str(size)})
+        gravatar_url = (
+            "https://www.gravatar.com/avatar/" + md5(self.email.lower().encode()).hexdigest() + "?"
+        )
+        gravatar_url += urlencode({"d": default, "s": str(size)})
         return gravatar_url
 
     @property
@@ -866,7 +1051,12 @@ class User(AuditedModel, UserMixin):
         """Indicate if the user is the technical contact of the organisation."""
         if org is None:
             org = self.organisation
-        return org and UserOrg.select().where(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
+        return (
+            org
+            and UserOrg.select()
+            .where(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin)
+            .exists()
+        )
 
     @property
     def uuid(self):
@@ -889,17 +1079,19 @@ class OrgInfo(BaseModel):
     email = CharField(null=True, help_text="Contact Person's Email Address")
     phone = CharField(null=True, help_text="Contact Person's Phone")
     is_public = BooleanField(
-        null=True, default=False, help_text="Permission to post contact information to WEB")
+        null=True, default=False, help_text="Permission to post contact information to WEB"
+    )
     country = CharField(null=True, help_text="Country Code", default=DEFAULT_COUNTRY)
     city = CharField(null=True, help_text="City of Home Campus")
     disambiguated_id = CharField(
-        null=True, verbose_name="Identifier",
-        help_text="Organisation disambiguated identifier")
+        null=True, verbose_name="Identifier", help_text="Organisation disambiguated identifier"
+    )
     disambiguation_source = CharField(
         null=True,
         verbose_name="Source",
         help_text="Organisation disambiguated ID source",
-        choices=disambiguation_source_choices)
+        choices=disambiguation_source_choices,
+    )
 
     def __str__(self):
         return self.name or self.disambiguated_id or super().__str__()
@@ -911,20 +1103,32 @@ class OrgInfo(BaseModel):
     def load_from_csv(cls, source):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source, newline='')
+            source = StringIO(source, newline="")
         reader = csv.reader(source)
         header = next(reader)
 
-        assert len(header) >= 3, \
-            "Wrong number of fields. Expected at least 3 fields " \
-            "(name, disambiguated organisation ID, and disambiguation source). " \
+        assert len(header) >= 3, (
+            "Wrong number of fields. Expected at least 3 fields "
+            "(name, disambiguated organisation ID, and disambiguation source). "
             "Read header: %s" % header
+        )
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in ("organisation|name", "title", r"first\s*(name)?", r"last\s*(name)?", "role",
-                       "email", "phone", "public|permission to post to web", r"country\s*(code)?",
-                       "city", "(common:)?disambiguated.*identifier",
-                       "(common:)?disambiguation.*source", r"tuakiri\s*(name)?")
+            for ex in (
+                "organisation|name",
+                "title",
+                r"first\s*(name)?",
+                r"last\s*(name)?",
+                "role",
+                "email",
+                "phone",
+                "public|permission to post to web",
+                r"country\s*(code)?",
+                "city",
+                "(common:)?disambiguated.*identifier",
+                "(common:)?disambiguation.*source",
+                r"tuakiri\s*(name)?",
+            )
         ]
 
         def index(rex):
@@ -942,11 +1146,11 @@ class OrgInfo(BaseModel):
                 return default
             else:
                 v = row[idxs[i]].strip()
-                return None if v == '' else v
+                return None if v == "" else v
 
         for row in reader:
             # skip empty lines:
-            if not row or row is None or len(row) == 0 or (len(row) == 1 and row[0].strip() == ''):
+            if not row or row is None or len(row) == 0 or (len(row) == 1 and row[0].strip() == ""):
                 continue
 
             name = val(row, 0)
@@ -974,19 +1178,23 @@ class OrgInvitation(AuditedModel):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
-        User, on_delete="CASCADE", null=True, backref="received_org_invitations")
+        User, on_delete="CASCADE", null=True, backref="received_org_invitations"
+    )
     inviter = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, backref="sent_org_invitations")
+        User, on_delete="SET NULL", null=True, backref="sent_org_invitations"
+    )
     org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
     email = TextField(
         help_text="The email address the invitation was sent to.",
-        verbose_name="Invitee Email Address")
+        verbose_name="Invitee Email Address",
+    )
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
     tech_contact = BooleanField(
         null=True,
         help_text="The invitee is the technical contact of the organisation.",
-        verbose_name="Is Tech.contact")
+        verbose_name="Is Tech.contact",
+    )
     url = CharField(null=True)
 
     @property
@@ -1003,9 +1211,15 @@ class UserOrg(AuditedModel):
 
     user = ForeignKeyField(User, on_delete="CASCADE", index=True, backref="user_orgs")
     org = ForeignKeyField(
-        Organisation, on_delete="CASCADE", index=True, verbose_name="Organisation", backref="user_orgs")
+        Organisation,
+        on_delete="CASCADE",
+        index=True,
+        verbose_name="Organisation",
+        backref="user_orgs",
+    )
     is_admin = BooleanField(
-        null=True, default=False, help_text="User is an administrator for the organisation")
+        null=True, default=False, help_text="User is an administrator for the organisation"
+    )
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
@@ -1024,8 +1238,16 @@ class UserOrg(AuditedModel):
             #     self.org  # just enforce re-querying
             user = self.user
             if self.is_admin != user.is_admin:
-                if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & (
-                        UserOrg.org_id != self.org_id) & UserOrg.is_admin).exists():  # noqa: E125
+                if (
+                    self.is_admin
+                    or UserOrg.select()
+                    .where(
+                        (UserOrg.user_id == self.user_id)
+                        & (UserOrg.org_id != self.org_id)
+                        & UserOrg.is_admin
+                    )
+                    .exists()
+                ):  # noqa: E125
                     user.roles |= Role.ADMIN
                     app.logger.info(f"Added ADMIN role to user {user}")
                 else:
@@ -1037,16 +1259,18 @@ class UserOrg(AuditedModel):
 
     class Meta:  # noqa: D101,D106
         table_alias = "uo"
-        indexes = ((("user", "org"), True), )
+        indexes = ((("user", "org"), True),)
 
 
 class OrcidToken(AuditedModel):
     """For Keeping ORCID token in the table."""
 
     user = ForeignKeyField(
-        User, null=True, index=True, backref="orcid_tokens",
-        on_delete="CASCADE")  # TODO: add validation for 3-legged authorization tokens
-    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation", backref="orcid_tokens")
+        User, null=True, index=True, backref="orcid_tokens", on_delete="CASCADE"
+    )  # TODO: add validation for 3-legged authorization tokens
+    org = ForeignKeyField(
+        Organisation, index=True, verbose_name="Organisation", backref="orcid_tokens"
+    )
     scopes = TextField(null=True)
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.utcnow)
@@ -1064,10 +1288,12 @@ class UserOrgAffiliation(AuditedModel):
 
     user = ForeignKeyField(User, on_delete="CASCADE", backref="org_affiliations")
     organisation = ForeignKeyField(
-        Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation")
+        Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation"
+    )
     disambiguated_id = CharField(verbose_name="Disambiguation ORG Id", null=True)
     disambiguation_source = CharField(
-        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
+        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices
+    )
     name = TextField(null=True, verbose_name="Institution/employer")
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
@@ -1106,7 +1332,9 @@ class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True, default=None, on_delete="SET NULL", backref="orcid_auth_calls")
+    user = ForeignKeyField(
+        User, null=True, default=None, on_delete="SET NULL", backref="orcid_auth_calls"
+    )
     method = TextField(null=True, default="GET")
     url = TextField(null=True)
     token = TextField(null=True)
@@ -1121,20 +1349,27 @@ class Task(AuditedModel):
     """Batch processing task created form CSV/TSV file."""
 
     org = ForeignKeyField(
-        Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE", backref="tasks")
+        Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE", backref="tasks"
+    )
     completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
     is_raw = BooleanField(null=True, default=False)
     task_type = TaskTypeField(
-        default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
+        default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value]
+    )
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
     status = CharField(null=True, max_length=10, choices=[(v, v) for v in ["ACTIVE", "RESET"]])
 
     def __str__(self):
-        return ("Synchronization task" if self.task_type == TaskType.SYNC else (
-            self.filename
-            or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"))
+        return (
+            "Synchronization task"
+            if self.task_type == TaskType.SYNC
+            else (
+                self.filename
+                or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"
+            )
+        )
 
     @property
     def is_expiry_email_sent(self):
@@ -1168,7 +1403,7 @@ class Task(AuditedModel):
     @lazy_property
     def completed_percent(self):
         """Get the percentage of completed rows."""
-        return (100. * self.completed_count) / self.record_count if self.record_count else 0.
+        return (100.0 * self.completed_count) / self.record_count if self.record_count else 0.0
 
     @property
     def error_count(self):
@@ -1191,28 +1426,43 @@ class Task(AuditedModel):
             recurse=False,
             to_dashes=to_dashes,
             exclude=exclude,
-            only=only or [
-                Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at,
-                Task.status, Task.is_raw
-            ])
+            only=only
+            or [
+                Task.id,
+                Task.filename,
+                Task.task_type,
+                Task.created_at,
+                Task.updated_at,
+                Task.status,
+                Task.is_raw,
+            ],
+        )
         # TODO: refactor for funding task to get records here not in API or export
-        if (recurse or include_records
-                or recurse is None) and self.task_type not in [TaskType.FUNDING, TaskType.SYNC]:
+        if (recurse or include_records or recurse is None) and self.task_type not in [
+            TaskType.FUNDING,
+            TaskType.SYNC,
+        ]:
             if self.task_type == TaskType.AFFILIATION:
                 task_dict["records"] = [
                     r.to_dict(
-                        external_id=[ae.to_export_dict() for ae in AffiliationExternalId.select().where(
-                            AffiliationExternalId.record_id == r.id)],
+                        external_id=[
+                            ae.to_export_dict()
+                            for ae in AffiliationExternalId.select().where(
+                                AffiliationExternalId.record_id == r.id
+                            )
+                        ],
                         to_dashes=to_dashes,
                         recurse=recurse,
-                        exclude=[self.record_model.task]) for r in self.records
+                        exclude=[self.record_model.task],
+                    )
+                    for r in self.records
                 ]
             else:
                 task_dict["records"] = [
                     r.to_dict(
-                        to_dashes=to_dashes,
-                        recurse=recurse,
-                        exclude=[self.record_model.task]) for r in self.records
+                        to_dashes=to_dashes, recurse=recurse, exclude=[self.record_model.task]
+                    )
+                    for r in self.records
                 ]
         return task_dict
 
@@ -1225,7 +1475,8 @@ class Task(AuditedModel):
                 recurse=False,
                 to_dashes=True,
                 include_records=False,
-                exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
+                exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type],
+            )
             task_dict["task-type"] = self.task_type.name
             if include_records:
                 task_dict["records"] = [r.to_export_dict() for r in self.records]
@@ -1239,14 +1490,15 @@ class Log(BaseModel):
     """Task log entries."""
 
     created_at = DateTimeField(default=datetime.utcnow)
-    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref='+')
+    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True, backref="+")
     task = ForeignKeyField(
         Task,
         on_delete="CASCADE",
         null=True,
         index=True,
         verbose_name="Task",
-        backref="log_entries")
+        backref="log_entries",
+    )
     message = TextField(null=True)
 
     class Meta:  # noqa: D101,D106
@@ -1264,23 +1516,32 @@ class UserInvitation(AuditedModel):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
-        User, on_delete="CASCADE", null=True, backref="received_user_invitations")
+        User, on_delete="CASCADE", null=True, backref="received_user_invitations"
+    )
     inviter = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, backref="sent_user_invitations")
-    org = ForeignKeyField(Organisation,
-                          on_delete="CASCADE",
-                          null=True,
-                          verbose_name="Organisation",
-                          backref="user_invitations")
-    task = ForeignKeyField(Task,
-                           on_delete="CASCADE",
-                           null=True,
-                           index=True,
-                           verbose_name="Task",
-                           backref="user_invitations")
+        User, on_delete="SET NULL", null=True, backref="sent_user_invitations"
+    )
+    org = ForeignKeyField(
+        Organisation,
+        on_delete="CASCADE",
+        null=True,
+        verbose_name="Organisation",
+        backref="user_invitations",
+    )
+    task = ForeignKeyField(
+        Task,
+        on_delete="CASCADE",
+        null=True,
+        index=True,
+        verbose_name="Task",
+        backref="user_invitations",
+    )
     email = CharField(
-        index=True, null=True, max_length=80,
-        help_text="The email address the invitation was sent to.")
+        index=True,
+        null=True,
+        max_length=80,
+        help_text="The email address the invitation was sent to.",
+    )
     first_name = TextField(null=True)
     last_name = TextField(null=True)
     orcid = OrcidIdField(null=True)
@@ -1292,16 +1553,20 @@ class UserInvitation(AuditedModel):
     course_or_role = TextField(verbose_name="Course or Job title", null=True)
     start_date = PartialDateField(verbose_name="Start date", null=True)
     end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
-    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True, default=Affiliation.NONE)
+    affiliations = SmallIntegerField(
+        verbose_name="User affiliations", null=True, default=Affiliation.NONE
+    )
     disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
     disambiguation_source = TextField(
-        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
+        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices
+    )
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
     is_person_update_invite = BooleanField(
         default=False,
         verbose_name="'Person/Update' Invitation",
-        help_text="Invitation to grant 'Person/Update' scope")
+        help_text="Invitation to grant 'Person/Update' scope",
+    )
 
     @property
     def sent_at(self):
@@ -1337,10 +1602,10 @@ class RecordModel(BaseModel):
         if hasattr(self, "org_name"):
             d["organization"] = {
                 "disambiguated-organization": {
-                    "disambiguated-organization-identifier":
-                    self.disambiguated_id or org.disambiguated_id,
-                    "disambiguation-source":
-                    self.disambiguation_source or org.disambiguation_source,
+                    "disambiguated-organization-identifier": self.disambiguated_id
+                    or org.disambiguated_id,
+                    "disambiguation-source": self.disambiguation_source
+                    or org.disambiguation_source,
                 },
                 "name": self.org_name or org.name,
                 "address": {
@@ -1351,13 +1616,11 @@ class RecordModel(BaseModel):
             }
         if self.has_field("title"):
             d["title"] = {
-                "title": {
-                    "value": self.title,
-                },
+                "title": {"value": self.title},
                 "translated-title": {
                     "value": self.translated_title,
                     "language-code": self.translated_title_language_code,
-                }
+                },
             }
         if hasattr(self, "invitees") and self.invitees:
             d["invitees"] = [r.to_export_dict() for r in self.invitees]
@@ -1380,7 +1643,7 @@ class RecordModel(BaseModel):
 
         ei = {
             "external-id-type": type or self.external_id_type,
-            "external-id-value": value or self.external_id_value
+            "external-id-value": value or self.external_id_value,
         }
 
         if self.external_id_relationship:
@@ -1395,30 +1658,47 @@ class RecordModel(BaseModel):
 class GroupIdRecord(RecordModel):
     """GroupID records."""
 
-    type_choices = [("publisher", "publisher"), ("institution", "institution"), ("journal", "journal"),
-                    ("conference", "conference"), ("newspaper", "newspaper"), ("newsletter", "newsletter"),
-                    ("magazine", "magazine"), ("peer-review service", "peer-review service")]
+    type_choices = [
+        ("publisher", "publisher"),
+        ("institution", "institution"),
+        ("journal", "journal"),
+        ("conference", "conference"),
+        ("newspaper", "newspaper"),
+        ("newsletter", "newsletter"),
+        ("magazine", "magazine"),
+        ("peer-review service", "peer-review service"),
+    ]
     type_choices.sort(key=lambda e: e[1])
     type_choices.insert(0, ("", ""))
     put_code = IntegerField(null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
-    name = CharField(max_length=120,
-                     help_text="The name of the group. This can be the name of a journal (Journal of Criminal Justice),"
-                               " a publisher (Society of Criminal Justice), or non-specific description (Legal Journal)"
-                               " as required.")
-    group_id = CharField(max_length=120,
-                         help_text="The group's identifier, formatted as type:identifier, e.g. ringgold:12345678. "
-                                   "This can be as specific (e.g. the journal's ISSN) or vague as required. "
-                                   "Valid types include: ringgold:|issn:|orcid-generated:|fundref:|publons:")
-    description = CharField(max_length=1000,
-                            help_text="A brief textual description of the group. "
-                                      "This can be as specific or vague as required.")
-    type = CharField(max_length=80, choices=type_choices,
-                     help_text="One of the specified types: publisher; institution; journal; conference; newspaper; "
-                               "newsletter; magazine; peer-review service.")
+    name = CharField(
+        max_length=120,
+        help_text="The name of the group. This can be the name of a journal (Journal of Criminal Justice),"
+        " a publisher (Society of Criminal Justice), or non-specific description (Legal Journal)"
+        " as required.",
+    )
+    group_id = CharField(
+        max_length=120,
+        help_text="The group's identifier, formatted as type:identifier, e.g. ringgold:12345678. "
+        "This can be as specific (e.g. the journal's ISSN) or vague as required. "
+        "Valid types include: ringgold:|issn:|orcid-generated:|fundref:|publons:",
+    )
+    description = CharField(
+        max_length=1000,
+        help_text="A brief textual description of the group. "
+        "This can be as specific or vague as required.",
+    )
+    type = CharField(
+        max_length=80,
+        choices=type_choices,
+        help_text="One of the specified types: publisher; institution; journal; conference; newspaper; "
+        "newsletter; magazine; peer-review service.",
+    )
     organisation = ForeignKeyField(
-        Organisation, backref="group_id_records", on_delete="CASCADE", null=True)
+        Organisation, backref="group_id_records", on_delete="CASCADE", null=True
+    )
 
     class Meta:  # noqa: D101,D106
         table_alias = "gid"
@@ -1428,14 +1708,16 @@ class AffiliationRecord(RecordModel):
     """Affiliation record loaded from CSV file for batch processing."""
 
     is_active = BooleanField(
-        default=False, help_text="The record is marked 'active' for batch processing", null=True)
+        default=False, help_text="The record is marked 'active' for batch processing", null=True
+    )
     task = ForeignKeyField(Task, backref="affiliation_records", on_delete="CASCADE")
     put_code = IntegerField(null=True)
     local_id = CharField(
         max_length=100,
         null=True,
         verbose_name="Local ID",
-        help_text="Record identifier used in the data source system.")
+        help_text="Record identifier used in the data source system.",
+    )
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
     first_name = CharField(null=True, max_length=120)
@@ -1443,8 +1725,11 @@ class AffiliationRecord(RecordModel):
     email = CharField(max_length=80, null=True)
     orcid = OrcidIdField(null=True)
     organisation = CharField(null=True, index=True, max_length=200)
-    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v.replace('-', ' ').title())
-                                                                    for v in AFFILIATION_TYPES])
+    affiliation_type = CharField(
+        null=True,
+        max_length=20,
+        choices=[(v, v.replace("-", " ").title()) for v in AFFILIATION_TYPES],
+    )
     role = CharField(null=True, verbose_name="Role/Course", max_length=100)
     department = CharField(null=True, max_length=200)
     start_date = PartialDateField(null=True)
@@ -1452,12 +1737,10 @@ class AffiliationRecord(RecordModel):
     city = CharField(null=True, max_length=200)
     region = CharField(null=True, verbose_name="State/Region", max_length=100)
     country = CharField(null=True, max_length=2, choices=country_choices)
-    disambiguated_id = CharField(
-        null=True, verbose_name="Disambiguated Organization Identifier")
+    disambiguated_id = CharField(null=True, verbose_name="Disambiguated Organization Identifier")
     disambiguation_source = CharField(
-        null=True,
-        max_length=100,
-        choices=disambiguation_source_choices)
+        null=True, max_length=100, choices=disambiguation_source_choices
+    )
     delete_record = BooleanField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     url = CharField(max_length=200, null=True)
@@ -1494,8 +1777,16 @@ class AffiliationRecord(RecordModel):
         return rd
 
     @classmethod
-    def load(cls, data, task=None, task_id=None, filename=None, override=True,
-             skip_schema_validation=False, org=None):
+    def load(
+        cls,
+        data,
+        task=None,
+        task_id=None,
+        filename=None,
+        override=True,
+        skip_schema_validation=False,
+        org=None,
+    ):
         """Load afffiliation record task form JSON/YAML. Data shoud be already deserialize."""
         if isinstance(data, str):
             data = json.loads(data) if filename.lower().endswith(".json") else yaml.load(data)
@@ -1511,10 +1802,12 @@ class AffiliationRecord(RecordModel):
         with db.atomic() as transaction:
             try:
                 if not task:
-                    filename = (filename or data.get("filename")
-                                or datetime.utcnow().isoformat(timespec="seconds"))
-                    task = Task.create(
-                            org=org, filename=filename, task_type=TaskType.AFFILIATION)
+                    filename = (
+                        filename
+                        or data.get("filename")
+                        or datetime.utcnow().isoformat(timespec="seconds")
+                    )
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 elif override:
                     AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
                 record_fields = AffiliationRecord._meta.fields.keys()
@@ -1527,13 +1820,13 @@ class AffiliationRecord(RecordModel):
                     for k, v in r.items():
                         if k == "id" or k.startswith(("external", "status", "processed")):
                             continue
-                        k = k.replace('-', '_')
+                        k = k.replace("-", "_")
                         if k == "is_active" and v:
                             is_enqueue = v
                         if k in ["disambiguation_source"] and v:
                             v = v.upper()
                         if k in ["visibility", "affiliation_type"] and v:
-                            v = v.replace('_', '-').lower()
+                            v = v.replace("_", "-").lower()
                         if k in record_fields and rec.__data__.get(k) != v:
                             rec.__data__[k] = PartialDate.create(v) if k.endswith("date") else v
                             rec._dirty.add(k)
@@ -1542,17 +1835,24 @@ class AffiliationRecord(RecordModel):
                         if not validator.validate():
                             raise ModelException(f"Invalid record: {validator.errors}")
                         rec.save()
-                        if r.get('external-id'):
-                            for exi in r.get('external-id'):
-                                ext_data = {k.replace('-', '_').replace('external_id_', ''): v.lower() if v else None
-                                            for k, v in exi.items()}
+                        if r.get("external-id"):
+                            for exi in r.get("external-id"):
+                                ext_data = {
+                                    k.replace("-", "_").replace("external_id_", ""): v.lower()
+                                    if v
+                                    else None
+                                    for k, v in exi.items()
+                                }
                                 if ext_data.get("type") and ext_data.get("value"):
                                     ext_id = AffiliationExternalId.create(record=rec, **ext_data)
                                     if not ModelValidator(ext_id).validate():
-                                        raise ModelException(f"Invalid affiliation exteral-id: {validator.errors}")
+                                        raise ModelException(
+                                            f"Invalid affiliation exteral-id: {validator.errors}"
+                                        )
                                     ext_id.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
             except:
                 transaction.rollback()
@@ -1564,7 +1864,7 @@ class AffiliationRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source, newline='')
+            source = StringIO(source, newline="")
         reader = csv.reader(source)
         header = next(reader)
         if filename is None:
@@ -1573,9 +1873,9 @@ class AffiliationRecord(RecordModel):
             else:
                 filename = datetime.utcnow().isoformat(timespec="seconds")
 
-        if len(header) == 1 and '\t' in header[0]:
+        if len(header) == 1 and "\t" in header[0]:
             source.seek(0)
-            reader = csv.reader(source, delimiter='\t')
+            reader = csv.reader(source, delimiter="\t")
             header = next(reader)
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
@@ -1584,19 +1884,39 @@ class AffiliationRecord(RecordModel):
             raise ModelException(
                 "Wrong number of fields. Expected at least 4 fields "
                 "(first name, last name, email address or another unique identifier, student/staff). "
-                f"Read header: {header}")
+                f"Read header: {header}"
+            )
 
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in [r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
-                       "campus|department", "city", "state|region", "course|title|role",
-                       r"start\s*(date)?", r"end\s*(date)?",
-                       r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", "orcid.*", "local.*|.*identifier",
-                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", r"(display)?.*index",
-                       r"(external)?\s*id(entifier)?\s+type$", r"(external)?\s*id(entifier)?\s*(value)?$",
-                       r"(external)?\s*id(entifier)?\s*url", r"(external)?\s*id(entifier)?\s*rel(ationship)?",
-                       r"(is)?\s*active$", ]
+            for ex in [
+                r"first\s*(name)?",
+                r"last\s*(name)?",
+                "email",
+                "organisation|^name",
+                "campus|department",
+                "city",
+                "state|region",
+                "course|title|role",
+                r"start\s*(date)?",
+                r"end\s*(date)?",
+                r"affiliation(s)?\s*(type)?|student|staff",
+                "country",
+                r"disambiguat.*id",
+                r"disambiguat.*source",
+                r"put|code",
+                "orcid.*",
+                "local.*|.*identifier",
+                "delete(.*record)?",
+                r"(is)?\s*visib(bility|le)?",
+                r"url",
+                r"(display)?.*index",
+                r"(external)?\s*id(entifier)?\s+type$",
+                r"(external)?\s*id(entifier)?\s*(value)?$",
+                r"(external)?\s*id(entifier)?\s*url",
+                r"(external)?\s*id(entifier)?\s*rel(ationship)?",
+                r"(is)?\s*active$",
+            ]
         ]
 
         def index(rex):
@@ -1620,7 +1940,7 @@ class AffiliationRecord(RecordModel):
                 return default
             else:
                 v = row[idxs[i]].strip()
-                return default if v == '' else v
+                return default if v == "" else v
 
         with db.atomic() as transaction:
             try:
@@ -1630,19 +1950,24 @@ class AffiliationRecord(RecordModel):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
                         continue
-                    if len(row) == 1 and row[0].strip() == '':
+                    if len(row) == 1 and row[0].strip() == "":
                         continue
 
                     put_code = val(row, 14)
                     delete_record = val(row, 17)
                     delete_record = delete_record and delete_record.lower() in [
-                        'y', "yes", "ok", "delete", '1'
+                        "y",
+                        "yes",
+                        "ok",
+                        "delete",
+                        "1",
                     ]
                     if delete_record:
                         if not put_code:
                             raise ModelException(
                                 f"Missing put-code. Cannot delete a record without put-code. "
-                                f"#{row_no+2}: {row}. Header: {header}")
+                                f"#{row_no+2}: {row}. Header: {header}"
+                            )
 
                     email = normalize_email(val(row, 2, ""))
                     orcid = validate_orcid_id(val(row, 15))
@@ -1660,41 +1985,47 @@ class AffiliationRecord(RecordModel):
                         except Exception:
                             raise ModelException(
                                 f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                                f"#{row_no+2}: {row}. Header: {header}")
+                                f"#{row_no+2}: {row}. Header: {header}"
+                            )
 
                     if not delete_record and not (email or orcid):
                         raise ModelException(
                             f"Missing user identifier (email address or ORCID iD) in the row "
-                            f"#{row_no+2}: {row}. Header: {header}")
+                            f"#{row_no+2}: {row}. Header: {header}"
+                        )
 
                     if email and not validators.email(email):
                         raise ValueError(
-                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}"
+                        )
 
                     affiliation_type = val(row, 10)
                     if affiliation_type:
-                        affiliation_type = affiliation_type.replace('_', '-').lower()
-                    if not delete_record and (not affiliation_type
-                                              or affiliation_type.lower() not in AFFILIATION_TYPES):
+                        affiliation_type = affiliation_type.replace("_", "-").lower()
+                    if not delete_record and (
+                        not affiliation_type or affiliation_type.lower() not in AFFILIATION_TYPES
+                    ):
                         raise ValueError(
                             f"Invalid affiliation type '{affiliation_type}' in the row #{row_no+2}: {row}. "
-                            f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}.")
+                            f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}."
+                        )
 
                     first_name = val(row, 0)
                     last_name = val(row, 1)
-                    if not delete_record and not(email or orcid):
+                    if not delete_record and not (email or orcid):
                         raise ModelException(
                             "Wrong number of fields. Expected at least 4 fields "
                             "(first name, last name, email address or another unique identifier, "
-                            f"student/staff): {row}")
+                            f"student/staff): {row}"
+                        )
                     disambiguation_source = val(row, 13)
                     if disambiguation_source:
                         disambiguation_source = disambiguation_source.upper()
                     visibility = val(row, 18)
                     if visibility:
-                        visibility = visibility.replace('_', '-').lower()
+                        visibility = visibility.replace("_", "-").lower()
 
-                    is_active = val(row, 25, '').lower() in ['y', "yes", "1", "true"]
+                    is_active = val(row, 25, "").lower() in ["y", "yes", "1", "true"]
                     if is_active:
                         is_enqueue = is_active
 
@@ -1721,7 +2052,8 @@ class AffiliationRecord(RecordModel):
                         url=val(row, 19),
                         display_index=val(row, 20),
                         visibility=visibility,
-                        is_active=is_active)
+                        is_active=is_active,
+                    )
                     validator = ModelValidator(af)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
@@ -1730,7 +2062,9 @@ class AffiliationRecord(RecordModel):
                     external_id_type = val(row, 21, "").lower()
                     external_id_relationship = val(row, 24)
                     if external_id_relationship:
-                        external_id_relationship = external_id_relationship.replace('_', '-').lower()
+                        external_id_relationship = external_id_relationship.replace(
+                            "_", "-"
+                        ).lower()
                     external_id_value = val(row, 22)
 
                     if external_id_type and external_id_value:
@@ -1740,7 +2074,8 @@ class AffiliationRecord(RecordModel):
                             type=external_id_type,
                             value=external_id_value,
                             url=val(row, 23),
-                            relationship=external_id_relationship)
+                            relationship=external_id_relationship,
+                        )
 
                         validator = ModelValidator(ae)
                         if not validator.validate():
@@ -1748,6 +2083,7 @@ class AffiliationRecord(RecordModel):
                         ae.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
             except Exception:
                 transaction.rollback()
@@ -1760,7 +2096,7 @@ class AffiliationRecord(RecordModel):
 class FundingRecord(RecordModel):
     """Funding record loaded from JSON file for batch processing."""
 
-    funiding_type_choices = [(v, v.replace('-', ' ').title()) for v in FUNDING_TYPES]
+    funiding_type_choices = [(v, v.replace("-", " ").title()) for v in FUNDING_TYPES]
 
     task = ForeignKeyField(Task, backref="funding_records", on_delete="CASCADE")
     title = CharField(max_length=255)
@@ -1779,9 +2115,11 @@ class FundingRecord(RecordModel):
     country = CharField(null=True, max_length=255, choices=country_choices)
     disambiguated_id = CharField(null=True)
     disambiguation_source = CharField(
-        null=True, max_length=255, choices=disambiguation_source_choices)
+        null=True, max_length=255, choices=disambiguation_source_choices
+    )
     is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
+        default=False, help_text="The record is marked for batch processing", null=True
+    )
     processed_at = DateTimeField(null=True)
     url = CharField(max_length=200, null=True)
     status = TextField(null=True, help_text="Record processing status.")
@@ -1799,22 +2137,23 @@ class FundingRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source, newline='')
+            source = StringIO(source, newline="")
         if filename is None:
             filename = datetime.utcnow().isoformat(timespec="seconds")
         reader = csv.reader(source)
         header = next(reader)
 
-        if len(header) == 1 and '\t' in header[0]:
+        if len(header) == 1 and "\t" in header[0]:
             source.seek(0)
-            reader = csv.reader(source, delimiter='\t')
+            reader = csv.reader(source, delimiter="\t")
             header = next(reader)
 
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
         header_rexs = [
-            re.compile(ex, re.I) for ex in [
+            re.compile(ex, re.I)
+            for ex in [
                 "title$",
                 r"translated\s+(title)?",
                 r"translat(ed)?(ion)?\s+(title)?\s*lang(uage)?.*(code)?",
@@ -1843,7 +2182,7 @@ class FundingRecord(RecordModel):
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
                 "local.*|.*identifier",
-                r"url"
+                r"url",
             ]
         ]
 
@@ -1868,7 +2207,7 @@ class FundingRecord(RecordModel):
                 return default
             else:
                 v = row[idxs[i]].strip()
-            return default if v == '' else v
+            return default if v == "" else v
 
         rows = []
         cached_row = []
@@ -1877,18 +2216,17 @@ class FundingRecord(RecordModel):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
                 continue
-            if len(row) == 1 and row[0].strip() == '':
+            if len(row) == 1 and row[0].strip() == "":
                 continue
 
             orcid, email = val(row, 17), normalize_email(val(row, 18, ""))
             orcid = validate_orcid_id(orcid)
             if email and not validators.email(email):
-                raise ValueError(
-                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+                raise ValueError(f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
             visibility = val(row, 24)
             if visibility:
-                visibility = visibility.replace('_', '-').lower()
+                visibility = visibility.replace("_", "-").lower()
 
             invitee = dict(
                 identifier=val(row, 27),
@@ -1903,44 +2241,50 @@ class FundingRecord(RecordModel):
             title = val(row, 0)
             external_id_type = val(row, 19, "").lower()
             external_id_value = val(row, 20)
-            external_id_relationship = val(row, 22, "").replace('_', '-').lower()
+            external_id_relationship = val(row, 22, "").replace("_", "-").lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
+                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers"
+                )
 
             if not external_id_value:
                 raise ModelException(
-                    f"Invalid External Id Value or Funding Id: {external_id_value}, #{row_no+2}: {row}.")
+                    f"Invalid External Id Value or Funding Id: {external_id_value}, #{row_no+2}: {row}."
+                )
 
             if not title:
-                raise ModelException(
-                    f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
+                raise ModelException(f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
 
             if external_id_relationship not in RELATIONSHIPS:
                 raise ModelException(
                     f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
-                    f"{RELATIONSHIPS}, #{row_no+2}: {row}.")
+                    f"{RELATIONSHIPS}, #{row_no+2}: {row}."
+                )
 
-            if cached_row and title.lower() == val(cached_row, 0).lower() and \
-                    external_id_type.lower() == val(cached_row, 19).lower() and \
-                    external_id_value.lower() == val(cached_row, 20).lower() and \
-                    external_id_relationship.lower() == val(cached_row, 22).lower():
+            if (
+                cached_row
+                and title.lower() == val(cached_row, 0).lower()
+                and external_id_type.lower() == val(cached_row, 19).lower()
+                and external_id_value.lower() == val(cached_row, 20).lower()
+                and external_id_relationship.lower() == val(cached_row, 22).lower()
+            ):
                 row = cached_row
             else:
                 cached_row = row
 
-            is_active = val(row, 16, '').lower() in ['y', "yes", "1", "true"]
+            is_active = val(row, 16, "").lower() in ["y", "yes", "1", "true"]
             if is_active:
                 is_enqueue = is_active
 
             funding_type = val(row, 3)
             if not funding_type:
                 raise ModelException(
-                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}"
+                )
             else:
-                funding_type = funding_type.replace('_', '-').lower()
+                funding_type = funding_type.replace("_", "-").lower()
 
             # The uploaded country must be from ISO 3166-1 alpha-2
             country = val(row, 13)
@@ -1950,7 +2294,8 @@ class FundingRecord(RecordModel):
                 except Exception:
                     raise ModelException(
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                        f"#{row_no+2}: {row}. Header: {header}")
+                        f"#{row_no+2}: {row}. Header: {header}"
+                    )
 
             rows.append(
                 dict(
@@ -1972,13 +2317,18 @@ class FundingRecord(RecordModel):
                         url=val(row, 28),
                         is_active=is_active,
                         disambiguated_id=val(row, 14) or org.disambiguated_id,
-                        disambiguation_source=val(row, 15, "").upper() or org.disambiguation_source),
+                        disambiguation_source=val(row, 15, "").upper()
+                        or org.disambiguation_source,
+                    ),
                     invitee=invitee,
                     external_id=dict(
                         type=external_id_type,
                         value=external_id_value,
                         url=val(row, 21),
-                        relationship=external_id_relationship)))
+                        relationship=external_id_relationship,
+                    ),
+                )
+            )
 
         with db.atomic() as transaction:
             try:
@@ -1993,14 +2343,16 @@ class FundingRecord(RecordModel):
                     fr.save()
 
                     for external_id in set(
-                            tuple(r["external_id"].items()) for r in records
-                            if r["external_id"]["type"] and r["external_id"]["value"]):
+                        tuple(r["external_id"].items())
+                        for r in records
+                        if r["external_id"]["type"] and r["external_id"]["value"]
+                    ):
                         ei = ExternalId(record=fr, **dict(external_id))
                         ei.save()
 
                     for invitee in set(
-                            tuple(r["invitee"].items()) for r in records
-                            if r["invitee"]["email"]):
+                        tuple(r["invitee"].items()) for r in records if r["invitee"]["email"]
+                    ):
                         rec = FundingInvitee(record=fr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
@@ -2008,6 +2360,7 @@ class FundingRecord(RecordModel):
                         rec.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
                 return task
 
@@ -2030,7 +2383,8 @@ class FundingRecord(RecordModel):
             # Adding schema validation for funding
             validator = Core(
                 source_data=validation_source_data,
-                schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
+                schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")],
+            )
             validator.validate(raise_exception=True)
 
         with db.atomic() as transaction:
@@ -2047,11 +2401,12 @@ class FundingRecord(RecordModel):
 
                     title = r.get("title", "title", "value")
                     translated_title = r.get("title", "translated-title", "value")
-                    translated_title_language_code = r.get("title", "translated-title",
-                                                           "language-code")
+                    translated_title_language_code = r.get(
+                        "title", "translated-title", "language-code"
+                    )
                     rec_type = r.get("type")
                     if rec_type:
-                        rec_type = rec_type.replace('_', '-').lower()
+                        rec_type = rec_type.replace("_", "-").lower()
                     organization_defined_type = r.get("organization-defined-type", "value")
                     short_description = r.get("short-description")
                     amount = r.get("amount", "value")
@@ -2063,14 +2418,22 @@ class FundingRecord(RecordModel):
                     city = r.get("organization", "address", "city")
                     region = r.get("organization", "address", "region")
                     country = r.get("organization", "address", "country")
-                    disambiguated_id = r.get("organization", "disambiguated-organization",
-                                             "disambiguated-organization-identifier")
-                    disambiguation_source = r.get("organization", "disambiguated-organization",
-                                                  "disambiguation-source")
+                    disambiguated_id = r.get(
+                        "organization",
+                        "disambiguated-organization",
+                        "disambiguated-organization-identifier",
+                    )
+                    disambiguation_source = r.get(
+                        "organization", "disambiguated-organization", "disambiguation-source"
+                    )
                     if disambiguation_source:
                         disambiguation_source = disambiguation_source.upper()
 
-                    is_active = r.get("is-active").lower() in ['y', "yes", "1", "true"] if r.get("is-active") else False
+                    is_active = (
+                        r.get("is-active").lower() in ["y", "yes", "1", "true"]
+                        if r.get("is-active")
+                        else False
+                    )
                     if is_active:
                         is_enqueue = is_active
 
@@ -2093,12 +2456,15 @@ class FundingRecord(RecordModel):
                         disambiguated_id=disambiguated_id,
                         disambiguation_source=disambiguation_source,
                         start_date=start_date,
-                        end_date=end_date)
+                        end_date=end_date,
+                    )
 
                     invitees = r.get("invitees", default=[])
                     if invitees:
                         for invitee in invitees:
-                            identifier = invitee.get("local-identifier") or invitee.get("identifier")
+                            identifier = invitee.get("local-identifier") or invitee.get(
+                                "identifier"
+                            )
                             email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
@@ -2106,7 +2472,7 @@ class FundingRecord(RecordModel):
                             put_code = invitee.get("put-code")
                             visibility = invitee.get("visibility")
                             if visibility:
-                                visibility = visibility.replace('_', '-').lower()
+                                visibility = visibility.replace("_", "-").lower()
 
                             FundingInvitee.create(
                                 record=record,
@@ -2116,10 +2482,13 @@ class FundingRecord(RecordModel):
                                 last_name=last_name,
                                 orcid=orcid,
                                 visibility=visibility,
-                                put_code=put_code)
+                                put_code=put_code,
+                            )
                     else:
-                        raise SchemaError(u"Schema validation failed:\n - "
-                                          u"Expecting Invitees for which the funding record will be written")
+                        raise SchemaError(
+                            "Schema validation failed:\n - "
+                            "Expecting Invitees for which the funding record will be written"
+                        )
 
                     contributors = r.get("contributors", "contributor", default=[])
                     if contributors:
@@ -2130,11 +2499,8 @@ class FundingRecord(RecordModel):
                             role = contributor.get("contributor-attributes", "contributor-role")
 
                             FundingContributor.create(
-                                record=record,
-                                orcid=orcid,
-                                name=name,
-                                email=email,
-                                role=role)
+                                record=record, orcid=orcid, name=name, email=email, role=role
+                            )
 
                     external_ids = r.get("external-ids", "external-id", default=[])
                     if external_ids:
@@ -2146,17 +2512,21 @@ class FundingRecord(RecordModel):
                             if id_type:
                                 id_type = id_type.lower()
                             if relationship:
-                                relationship = relationship.replace('_', '-').lower()
+                                relationship = relationship.replace("_", "-").lower()
                             ExternalId.create(
                                 record=record,
                                 type=id_type,
                                 value=value,
                                 url=url,
-                                relationship=relationship)
+                                relationship=relationship,
+                            )
                     else:
-                        raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
+                        raise SchemaError(
+                            "Schema validation failed:\n - An external identifier is required"
+                        )
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
                 return task
 
@@ -2172,97 +2542,114 @@ class FundingRecord(RecordModel):
 class PeerReviewRecord(RecordModel):
     """Peer Review record loaded from Json file for batch processing."""
 
-    subject_type_choices = [(v, v.replace('-', ' ').title()) for v in SUBJECT_TYPES]
+    subject_type_choices = [(v, v.replace("-", " ").title()) for v in SUBJECT_TYPES]
     reviewer_role_choices = [(v, v.title()) for v in REVIEWER_ROLES]
 
     task = ForeignKeyField(Task, backref="peer_review_records", on_delete="CASCADE")
     review_group_id = CharField(
-        max_length=255, verbose_name="Group ID", help_text="Review Group ID")
+        max_length=255, verbose_name="Group ID", help_text="Review Group ID"
+    )
     reviewer_role = CharField(
         null=True,
         max_length=255,
         choices=reviewer_role_choices,
         verbose_name="Role",
-        help_text="Reviewer Role")
+        help_text="Reviewer Role",
+    )
     review_url = CharField(null=True, max_length=255, verbose_name="URL", help_text="Review URL")
     review_type = CharField(
         null=True,
         max_length=255,
         choices=review_type_choices,
         verbose_name="Type",
-        help_text="Review Type")
+        help_text="Review Type",
+    )
     review_completion_date = PartialDateField(
-        null=True, verbose_name="Completed On", help_text="Review Completion Date")
+        null=True, verbose_name="Completed On", help_text="Review Completion Date"
+    )
     subject_external_id_type = CharField(
-        null=True, max_length=255, verbose_name="Type", help_text="Subject External ID Type")
+        null=True, max_length=255, verbose_name="Type", help_text="Subject External ID Type"
+    )
     subject_external_id_value = CharField(
-        null=True, max_length=255, verbose_name="Value", help_text="Subject External ID Value")
+        null=True, max_length=255, verbose_name="Value", help_text="Subject External ID Value"
+    )
     subject_external_id_url = CharField(
-        null=True, max_length=255, verbose_name="URL", help_text="Subject External ID URL")
+        null=True, max_length=255, verbose_name="URL", help_text="Subject External ID URL"
+    )
     subject_external_id_relationship = CharField(
         null=True,
         max_length=255,
         choices=relationship_choices,
         verbose_name="Relationship",
-        help_text="Subject External ID Relationship")
+        help_text="Subject External ID Relationship",
+    )
 
     subject_container_name = CharField(
         null=True,
         max_length=255,
         verbose_name="Container Name",
-        help_text="Subject Container Name")
+        help_text="Subject Container Name",
+    )
     subject_type = CharField(
         max_length=80,
         choices=subject_type_choices,
         null=True,
         verbose_name="Type",
-        help_text="Subject Container Type")
+        help_text="Subject Container Type",
+    )
     subject_name_title = CharField(
-        null=True, max_length=255, verbose_name="Title", help_text="Subject Name Title")
+        null=True, max_length=255, verbose_name="Title", help_text="Subject Name Title"
+    )
     subject_name_subtitle = CharField(
-        null=True, max_length=255, verbose_name="Subtitle", help_text="Subject Name Subtitle")
+        null=True, max_length=255, verbose_name="Subtitle", help_text="Subject Name Subtitle"
+    )
     subject_name_translated_title_lang_code = CharField(
         null=True,
         max_length=10,
         verbose_name="Language",
         choices=language_choices,
-        help_text="Subject Name Translated Title Lang Code")
+        help_text="Subject Name Translated Title Lang Code",
+    )
     subject_name_translated_title = CharField(
         null=True,
         max_length=255,
         verbose_name="Translated Title",
-        help_text="Subject Name Translated Title")
-    subject_url = CharField(
-        null=True,
-        max_length=255)
+        help_text="Subject Name Translated Title",
+    )
+    subject_url = CharField(null=True, max_length=255)
 
     convening_org_name = CharField(
-        null=True, max_length=255, verbose_name="Name", help_text="Convening Organisation ")
+        null=True, max_length=255, verbose_name="Name", help_text="Convening Organisation "
+    )
     convening_org_city = CharField(
-        null=True, max_length=255, verbose_name="City", help_text="Convening Organisation City")
+        null=True, max_length=255, verbose_name="City", help_text="Convening Organisation City"
+    )
     convening_org_region = CharField(
-        null=True,
-        max_length=255,
-        verbose_name="Region",
-        help_text="Convening Organisation Region")
+        null=True, max_length=255, verbose_name="Region", help_text="Convening Organisation Region"
+    )
     convening_org_country = CharField(
         null=True,
         max_length=255,
         verbose_name="Country",
         choices=country_choices,
-        help_text="Convening Organisation Country")
+        help_text="Convening Organisation Country",
+    )
     convening_org_disambiguated_identifier = CharField(
         null=True,
         max_length=255,
         verbose_name="Disambiguated Identifier",
-        help_text="Convening Organisation Disambiguated Identifier")
+        help_text="Convening Organisation Disambiguated Identifier",
+    )
     convening_org_disambiguation_source = CharField(
         null=True,
         max_length=255,
         verbose_name="Disambiguation Source",
-        help_text="Convening Organisation Disambiguation Source", choices=disambiguation_source_choices)
+        help_text="Convening Organisation Disambiguation Source",
+        choices=disambiguation_source_choices,
+    )
     is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
+        default=False, help_text="The record is marked for batch processing", null=True
+    )
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
@@ -2286,22 +2673,23 @@ class PeerReviewRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source, newline='')
+            source = StringIO(source, newline="")
         if filename is None:
             filename = datetime.utcnow().isoformat(timespec="seconds")
         reader = csv.reader(source)
         header = next(reader)
 
-        if len(header) == 1 and '\t' in header[0]:
+        if len(header) == 1 and "\t" in header[0]:
             source.seek(0)
-            reader = csv.reader(source, delimiter='\t')
+            reader = csv.reader(source, delimiter="\t")
             header = next(reader)
 
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
         header_rexs = [
-            re.compile(ex, re.I) for ex in [
+            re.compile(ex, re.I)
+            for ex in [
                 r"review\s*group\s*id(entifier)?$",
                 r"(reviewer)?\s*role$",
                 r"review\s*url$",
@@ -2335,7 +2723,9 @@ class PeerReviewRecord(RecordModel):
                 r"((external)?\s*id(entifier)?\s+value|peer\s*review.*id)$",
                 r"(external)?\s*id(entifier)?\s*url",
                 r"(external)?\s*id(entifier)?\s*rel(ationship)?",
-                r"(is)?\s*active$", ]]
+                r"(is)?\s*active$",
+            ]
+        ]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -2358,7 +2748,7 @@ class PeerReviewRecord(RecordModel):
                 return default
             else:
                 v = row[idxs[i]].strip()
-            return default if v == '' else v
+            return default if v == "" else v
 
         rows = []
         cached_row = []
@@ -2367,18 +2757,17 @@ class PeerReviewRecord(RecordModel):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
                 continue
-            if len(row) == 1 and row[0].strip() == '':
+            if len(row) == 1 and row[0].strip() == "":
                 continue
 
             orcid, email = val(row, 23), normalize_email(val(row, 22, ""))
             orcid = validate_orcid_id(orcid)
             if email and not validators.email(email):
-                raise ValueError(
-                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+                raise ValueError(f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
             visibility = val(row, 28)
             if visibility:
-                visibility = visibility.replace('_', '-').lower()
+                visibility = visibility.replace("_", "-").lower()
 
             invitee = dict(
                 email=email,
@@ -2393,35 +2782,42 @@ class PeerReviewRecord(RecordModel):
             review_group_id = val(row, 0)
             if not review_group_id:
                 raise ModelException(
-                    f"Review Group ID is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Review Group ID is mandatory, #{row_no+2}: {row}. Header: {header}"
+                )
 
             external_id_type = val(row, 29, "").lower()
             external_id_value = val(row, 30)
-            external_id_relationship = val(row, 32, "").replace('_', '-').lower()
+            external_id_relationship = val(row, 32, "").replace("_", "-").lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
+                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers"
+                )
 
             if not external_id_value:
                 raise ModelException(
-                    f"Invalid External Id Value or Peer Review Id: {external_id_value}, #{row_no+2}: {row}.")
+                    f"Invalid External Id Value or Peer Review Id: {external_id_value}, #{row_no+2}: {row}."
+                )
 
             if external_id_relationship not in RELATIONSHIPS:
                 raise ModelException(
                     f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
-                    f"{RELATIONSHIPS}, #{row_no+2}: {row}.")
+                    f"{RELATIONSHIPS}, #{row_no+2}: {row}."
+                )
 
-            if cached_row and review_group_id.lower() == val(cached_row, 0).lower() and \
-                    external_id_type.lower() == val(cached_row, 29).lower() and \
-                    external_id_value.lower() == val(cached_row, 30).lower() and \
-                    external_id_relationship.lower() == val(cached_row, 32).lower():
+            if (
+                cached_row
+                and review_group_id.lower() == val(cached_row, 0).lower()
+                and external_id_type.lower() == val(cached_row, 29).lower()
+                and external_id_value.lower() == val(cached_row, 30).lower()
+                and external_id_relationship.lower() == val(cached_row, 32).lower()
+            ):
                 row = cached_row
             else:
                 cached_row = row
 
-            is_active = val(row, 33, '').lower() in ['y', "yes", "1", "true"]
+            is_active = val(row, 33, "").lower() in ["y", "yes", "1", "true"]
             if is_active:
                 is_enqueue = is_active
 
@@ -2432,7 +2828,8 @@ class PeerReviewRecord(RecordModel):
             if not (convening_org_name and convening_org_city and convening_org_country):
                 raise ModelException(
                     f"Information about Convening Organisation (Name, City and Country) is mandatory, "
-                    f"#{row_no+2}: {row}. Header: {header}")
+                    f"#{row_no+2}: {row}. Header: {header}"
+                )
 
             # The uploaded country must be from ISO 3166-1 alpha-2
             if convening_org_country:
@@ -2441,12 +2838,13 @@ class PeerReviewRecord(RecordModel):
                 except Exception:
                     raise ModelException(
                         f" (Convening Org Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                        f"#{row_no+2}: {row}. Header: {header}")
+                        f"#{row_no+2}: {row}. Header: {header}"
+                    )
 
-            reviewer_role = val(row, 1, "").replace('_', '-').lower()
-            review_type = val(row, 3, "").replace('_', '-').lower()
-            subject_type = val(row, 10, "").replace('_', '-').lower()
-            subject_external_id_relationship = val(row, 8, "").replace('_', '-').lower()
+            reviewer_role = val(row, 1, "").replace("_", "-").lower()
+            review_type = val(row, 3, "").replace("_", "-").lower()
+            subject_type = val(row, 10, "").replace("_", "-").lower()
+            subject_external_id_relationship = val(row, 8, "").replace("_", "-").lower()
             convening_org_disambiguation_source = val(row, 21, "").upper()
             subject_external_id_type = val(row, 5, "").lower()
             review_completion_date = val(row, 4)
@@ -2478,19 +2876,24 @@ class PeerReviewRecord(RecordModel):
                         convening_org_country=convening_org_country,
                         convening_org_disambiguated_identifier=val(row, 20),
                         convening_org_disambiguation_source=convening_org_disambiguation_source,
-                        is_active=is_active
+                        is_active=is_active,
                     ),
                     invitee=invitee,
                     external_id=dict(
                         type=external_id_type,
                         value=external_id_value,
                         url=val(row, 31),
-                        relationship=external_id_relationship)))
+                        relationship=external_id_relationship,
+                    ),
+                )
+            )
 
         with db.atomic() as transaction:
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
-                for peer_review, records in groupby(rows, key=lambda row: row["peer_review"].items()):
+                for peer_review, records in groupby(
+                    rows, key=lambda row: row["peer_review"].items()
+                ):
                     records = list(records)
 
                     prr = cls(task=task, **dict(peer_review))
@@ -2499,12 +2902,17 @@ class PeerReviewRecord(RecordModel):
                         raise ModelException(f"Invalid record: {validator.errors}")
                     prr.save()
 
-                    for external_id in set(tuple(r["external_id"].items()) for r in records if
-                                           r["external_id"]["type"] and r["external_id"]["value"]):
+                    for external_id in set(
+                        tuple(r["external_id"].items())
+                        for r in records
+                        if r["external_id"]["type"] and r["external_id"]["value"]
+                    ):
                         ei = PeerReviewExternalId(record=prr, **dict(external_id))
                         ei.save()
 
-                    for invitee in set(tuple(r["invitee"].items()) for r in records if r["invitee"]["email"]):
+                    for invitee in set(
+                        tuple(r["invitee"].items()) for r in records if r["invitee"]["email"]
+                    ):
                         rec = PeerReviewInvitee(record=prr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
@@ -2512,6 +2920,7 @@ class PeerReviewRecord(RecordModel):
                         rec.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
                 return task
 
@@ -2529,8 +2938,9 @@ class PeerReviewRecord(RecordModel):
             if isinstance(data_list, dict):
                 filename = data_list.get("filename")
             else:
-                filename = "peer_review_" + datetime.utcnow().isoformat(
-                    timespec="seconds") + ".json"
+                filename = (
+                    "peer_review_" + datetime.utcnow().isoformat(timespec="seconds") + ".json"
+                )
         if isinstance(data_list, dict):
             data_list = data_list.get("records")
 
@@ -2540,7 +2950,8 @@ class PeerReviewRecord(RecordModel):
 
             validator = Core(
                 source_data=validation_source_data,
-                schema_files=[os.path.join(SCHEMA_DIR, "peer_review_schema.yaml")])
+                schema_files=[os.path.join(SCHEMA_DIR, "peer_review_schema.yaml")],
+            )
             validator.validate(raise_exception=True)
 
         with db.atomic() as transaction:
@@ -2558,56 +2969,74 @@ class PeerReviewRecord(RecordModel):
                     review_group_id = data.get("review-group-id")
                     reviewer_role = data.get("reviewer-role")
                     if reviewer_role:
-                        reviewer_role = reviewer_role.strip().replace('_', '-').lower()
+                        reviewer_role = reviewer_role.strip().replace("_", "-").lower()
 
                     review_url = data.get("review-url", "value")
                     review_type = data.get("review-type")
                     if review_type:
-                        review_type = review_type.strip().replace('_', '-').lower()
+                        review_type = review_type.strip().replace("_", "-").lower()
 
                     review_completion_date = PartialDate.create(data.get("review-completion-date"))
-                    subject_external_id_type = data.get("subject-external-identifier",
-                                                        "external-id-type")
+                    subject_external_id_type = data.get(
+                        "subject-external-identifier", "external-id-type"
+                    )
                     if subject_external_id_type:
                         subject_external_id_type = subject_external_id_type.strip().lower()
 
-                    subject_external_id_value = data.get("subject-external-identifier",
-                                                         "external-id-value")
-                    subject_external_id_url = data.get("subject-external-identifier",
-                                                       "external-id-url", "value")
-                    subject_external_id_relationship = data.get("subject-external-identifier",
-                                                                "external-id-relationship")
+                    subject_external_id_value = data.get(
+                        "subject-external-identifier", "external-id-value"
+                    )
+                    subject_external_id_url = data.get(
+                        "subject-external-identifier", "external-id-url", "value"
+                    )
+                    subject_external_id_relationship = data.get(
+                        "subject-external-identifier", "external-id-relationship"
+                    )
                     if subject_external_id_relationship:
-                        subject_external_id_relationship = subject_external_id_relationship.replace('_', '-').lower()
+                        subject_external_id_relationship = subject_external_id_relationship.replace(
+                            "_", "-"
+                        ).lower()
 
                     subject_container_name = data.get("subject-container-name", "value")
                     subject_type = data.get("subject-type")
                     if subject_type:
-                        subject_type = subject_type.strip().replace('_', '-').lower()
+                        subject_type = subject_type.strip().replace("_", "-").lower()
 
                     subject_name_title = data.get("subject-name", "title", "value")
                     subject_name_subtitle = data.get("subject-name", "subtitle", "value")
                     subject_name_translated_title_lang_code = data.get(
-                        "subject-name", "translated-title", "language-code")
-                    subject_name_translated_title = data.get("subject-name", "translated-title",
-                                                             "value")
+                        "subject-name", "translated-title", "language-code"
+                    )
+                    subject_name_translated_title = data.get(
+                        "subject-name", "translated-title", "value"
+                    )
                     subject_url = data.get("subject-url", "value")
                     convening_org_name = data.get("convening-organization", "name")
                     convening_org_city = data.get("convening-organization", "address", "city")
                     convening_org_region = data.get("convening-organization", "address", "region")
-                    convening_org_country = data.get("convening-organization", "address",
-                                                     "country")
+                    convening_org_country = data.get(
+                        "convening-organization", "address", "country"
+                    )
                     convening_org_disambiguated_identifier = data.get(
-                        "convening-organization", "disambiguated-organization",
-                        "disambiguated-organization-identifier")
-                    convening_org_disambiguation_source = data.get("convening-organization",
-                                                                   "disambiguated-organization",
-                                                                   "disambiguation-source")
+                        "convening-organization",
+                        "disambiguated-organization",
+                        "disambiguated-organization-identifier",
+                    )
+                    convening_org_disambiguation_source = data.get(
+                        "convening-organization",
+                        "disambiguated-organization",
+                        "disambiguation-source",
+                    )
                     if convening_org_disambiguation_source:
-                        convening_org_disambiguation_source = convening_org_disambiguation_source.upper()
+                        convening_org_disambiguation_source = (
+                            convening_org_disambiguation_source.upper()
+                        )
 
-                    is_active = data.get("is-active").lower() in ['y', "yes", "1", "true"] if data.get(
-                        "is-active") else False
+                    is_active = (
+                        data.get("is-active").lower() in ["y", "yes", "1", "true"]
+                        if data.get("is-active")
+                        else False
+                    )
                     if is_active:
                         is_enqueue = is_active
 
@@ -2635,12 +3064,15 @@ class PeerReviewRecord(RecordModel):
                         convening_org_country=convening_org_country,
                         convening_org_disambiguated_identifier=convening_org_disambiguated_identifier,
                         convening_org_disambiguation_source=convening_org_disambiguation_source,
-                        is_active=is_active)
+                        is_active=is_active,
+                    )
 
                     invitee_list = data.get("invitees")
                     if invitee_list:
                         for invitee in invitee_list:
-                            identifier = invitee.get("local-identifier") or invitee.get("identifier")
+                            identifier = invitee.get("local-identifier") or invitee.get(
+                                "identifier"
+                            )
                             email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
@@ -2648,7 +3080,7 @@ class PeerReviewRecord(RecordModel):
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
                             if visibility:
-                                visibility = visibility.replace('_', '-').lower()
+                                visibility = visibility.replace("_", "-").lower()
 
                             PeerReviewInvitee.create(
                                 record=record,
@@ -2658,13 +3090,19 @@ class PeerReviewRecord(RecordModel):
                                 last_name=last_name,
                                 orcid=orcid_id,
                                 visibility=visibility,
-                                put_code=put_code)
+                                put_code=put_code,
+                            )
                     else:
-                        raise SchemaError(u"Schema validation failed:\n - "
-                                          u"Expecting Invitees for which the peer review record will be written")
+                        raise SchemaError(
+                            "Schema validation failed:\n - "
+                            "Expecting Invitees for which the peer review record will be written"
+                        )
 
-                    external_ids_list = data.get("review-identifiers").get("external-id") if \
-                        data.get("review-identifiers") else None
+                    external_ids_list = (
+                        data.get("review-identifiers").get("external-id")
+                        if data.get("review-identifiers")
+                        else None
+                    )
                     if external_ids_list:
                         for external_id in external_ids_list:
                             id_type = external_id.get("external-id-type")
@@ -2672,23 +3110,30 @@ class PeerReviewRecord(RecordModel):
                                 id_type = id_type.lower()
 
                             value = external_id.get("external-id-value")
-                            url = external_id.get("external-id-url").get("value") if \
-                                external_id.get("external-id-url") else None
+                            url = (
+                                external_id.get("external-id-url").get("value")
+                                if external_id.get("external-id-url")
+                                else None
+                            )
                             relationship = external_id.get("external-id-relationship")
                             if relationship:
-                                relationship = relationship.replace('_', '-').lower()
+                                relationship = relationship.replace("_", "-").lower()
 
                             PeerReviewExternalId.create(
                                 record=record,
                                 type=id_type,
                                 value=value,
                                 url=url,
-                                relationship=relationship)
+                                relationship=relationship,
+                            )
                     else:
-                        raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
+                        raise SchemaError(
+                            "Schema validation failed:\n - An external identifier is required"
+                        )
 
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
                 return task
             except Exception:
@@ -2705,10 +3150,8 @@ class PeerReviewRecord(RecordModel):
             d["subject-external-identifier"] = {
                 "external-id-type": self.subject_external_id_type,
                 "external-id-value": self.subject_external_id_value,
-                "external-id-url": {
-                    "value": self.subject_external_id_url
-                },
-                "external-id-relationship": self.subject_external_id_relationship
+                "external-id-url": {"value": self.subject_external_id_url},
+                "external-id-relationship": self.subject_external_id_relationship,
             }
         if self.subject_container_name:
             d["subject-container-name"] = {"value": self.subject_container_name}
@@ -2728,7 +3171,9 @@ class PeerReviewRecord(RecordModel):
             if self.subject_name_translated_title:
                 sn["translated-title"] = {"value": self.subject_name_translated_title}
                 if self.subject_name_translated_title_lang_code:
-                    sn["translated-title"]["language-code"] = self.subject_name_translated_title_lang_code
+                    sn["translated-title"][
+                        "language-code"
+                    ] = self.subject_name_translated_title_lang_code
             d["subject-name"] = sn
         if self.subject_url:
             d["subject-url"] = dict(value=self.subject_url)
@@ -2739,15 +3184,13 @@ class PeerReviewRecord(RecordModel):
                     "city": self.convening_org_city,
                     "region": self.convening_org_region,
                     "country": self.convening_org_country,
-                }
+                },
             }
             if self.convening_org_disambiguated_identifier:
                 pass
                 co["disambiguated-organization"] = {
-                    "disambiguated-organization-identifier":
-                    self.convening_org_disambiguated_identifier,
-                    "disambiguation-source":
-                    self.convening_org_disambiguation_source,
+                    "disambiguated-organization-identifier": self.convening_org_disambiguated_identifier,
+                    "disambiguation-source": self.convening_org_disambiguation_source,
                 }
             d["convening-organization"] = co
         return d
@@ -2762,13 +3205,14 @@ class PropertyRecord(RecordModel):
     task = ForeignKeyField(Task, backref="property_records", on_delete="CASCADE")
     type = CharField(verbose_name="Property Type", choices=property_type_choices)
     display_index = IntegerField(null=True)
-    name = CharField(null=True,
-                     max_length=255,
-                     verbose_name="Property Name",
-                     help_text="Website name.")
-    value = CharField(max_length=255,
-                      verbose_name="Property Value",
-                      help_text="URL, Also known as, Keyword, Other ID, or Country value.")
+    name = CharField(
+        null=True, max_length=255, verbose_name="Property Name", help_text="Website name."
+    )
+    value = CharField(
+        max_length=255,
+        verbose_name="Property Value",
+        help_text="URL, Also known as, Keyword, Other ID, or Country value.",
+    )
     email = CharField(max_length=120, null=True)
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
@@ -2776,7 +3220,8 @@ class PropertyRecord(RecordModel):
     put_code = IntegerField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
+        default=False, help_text="The record is marked for batch processing", null=True
+    )
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
@@ -2784,7 +3229,7 @@ class PropertyRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None, file_property_type=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source, newline='')
+            source = StringIO(source, newline="")
         if filename is None:
             if hasattr(source, "name"):
                 filename = source.name
@@ -2793,9 +3238,9 @@ class PropertyRecord(RecordModel):
         reader = csv.reader(source)
         header = next(reader)
 
-        if len(header) == 1 and '\t' in header[0]:
+        if len(header) == 1 and "\t" in header[0]:
             source.seek(0)
-            reader = csv.reader(source, delimiter='\t')
+            reader = csv.reader(source, delimiter="\t")
             header = next(reader)
 
         if len(header) < 2:
@@ -2805,13 +3250,23 @@ class PropertyRecord(RecordModel):
             raise ModelException(
                 "Wrong number of fields. Expected at least 3 fields "
                 "(email address or another unique identifier, name and/or value) "
-                f"and property type. Read header: {header}")
+                f"and property type. Read header: {header}"
+            )
 
         header_rexs = [
-            re.compile(ex, re.I) for ex in [
-                r"(url)?.*name", r".*value|.*content|.*country", r"(display)?.*index", "email",
-                r"first\s*(name)?", r"(last|sur)\s*(name)?", "orcid.*", r"put|code",
-                r"(is)?\s*visib(bility|le)?", "(propery)?.*type", r"(is)?\s*active$",
+            re.compile(ex, re.I)
+            for ex in [
+                r"(url)?.*name",
+                r".*value|.*content|.*country",
+                r"(display)?.*index",
+                "email",
+                r"first\s*(name)?",
+                r"(last|sur)\s*(name)?",
+                "orcid.*",
+                r"put|code",
+                r"(is)?\s*visib(bility|le)?",
+                "(propery)?.*type",
+                r"(is)?\s*active$",
             ]
         ]
 
@@ -2836,7 +3291,7 @@ class PropertyRecord(RecordModel):
                 return default
             else:
                 v = row[idxs[i]].strip()
-            return default if v == '' else v
+            return default if v == "" else v
 
         with db.atomic() as transaction:
             try:
@@ -2846,7 +3301,7 @@ class PropertyRecord(RecordModel):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
                         continue
-                    if len(row) == 1 and row[0].strip() == '':
+                    if len(row) == 1 and row[0].strip() == "":
                         continue
 
                     email = normalize_email(val(row, 3, ""))
@@ -2855,17 +3310,19 @@ class PropertyRecord(RecordModel):
                     if not (email or orcid):
                         raise ModelException(
                             f"Missing user identifier (email address or ORCID iD) in the row "
-                            f"#{row_no+2}: {row}. Header: {header}")
+                            f"#{row_no+2}: {row}. Header: {header}"
+                        )
 
                     if email and not validators.email(email):
                         raise ValueError(
-                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}"
+                        )
 
                     value = val(row, 1, "")
                     first_name = val(row, 4)
                     last_name = val(row, 5)
                     property_type = val(row, 9) or file_property_type
-                    is_active = val(row, 10, '').lower() in ['y', "yes", "1", "true"]
+                    is_active = val(row, 10, "").lower() in ["y", "yes", "1", "true"]
                     if is_active:
                         is_enqueue = is_active
 
@@ -2873,14 +3330,17 @@ class PropertyRecord(RecordModel):
                         property_type = property_type.strip().upper()
 
                     if not property_type or property_type not in PROPERTY_TYPES:
-                        raise ModelException("Missing or incorrect property type. "
-                                             f"(expected: {','.join(PROPERTY_TYPES)}: {row}")
+                        raise ModelException(
+                            "Missing or incorrect property type. "
+                            f"(expected: {','.join(PROPERTY_TYPES)}: {row}"
+                        )
                     name = None
                     if property_type == "URL":
                         name = val(row, 0, "")
                         if not name:
                             raise ModelException(
-                                f"Missing URL Name. For Researcher URL Name is expected: {row}.")
+                                f"Missing URL Name. For Researcher URL Name is expected: {row}."
+                            )
                     elif property_type == "COUNTRY":
                         # The uploaded country must be from ISO 3166-1 alpha-2
                         if value:
@@ -2889,16 +3349,18 @@ class PropertyRecord(RecordModel):
                             except Exception:
                                 raise ModelException(
                                     f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                                    f"#{row_no+2}: {row}. Header: {header}")
+                                    f"#{row_no+2}: {row}. Header: {header}"
+                                )
 
                     if not value:
                         raise ModelException(
                             "Wrong number of fields. Expected at least fields ( content or value or country and "
-                            f"email address or another unique identifier): {row}")
+                            f"email address or another unique identifier): {row}"
+                        )
 
                     visibility = val(row, 8)
                     if visibility:
-                        visibility = visibility.replace('_', '-').lower()
+                        visibility = visibility.replace("_", "-").lower()
                     rr = cls(
                         task=task,
                         type=property_type,
@@ -2911,13 +3373,15 @@ class PropertyRecord(RecordModel):
                         last_name=last_name,
                         orcid=orcid,
                         put_code=val(row, 7),
-                        visibility=visibility)
+                        visibility=visibility,
+                    )
                     validator = ModelValidator(rr)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     rr.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
             except Exception:
                 transaction.rollback()
@@ -2927,13 +3391,15 @@ class PropertyRecord(RecordModel):
         return task
 
     @classmethod
-    def load_from_json(cls,
-                       source,
-                       filename=None,
-                       org=None,
-                       task=None,
-                       skip_schema_validation=False,
-                       file_property_type=None):
+    def load_from_json(
+        cls,
+        source,
+        filename=None,
+        org=None,
+        task=None,
+        skip_schema_validation=False,
+        file_property_type=None,
+    ):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
         if not skip_schema_validation:
@@ -2952,7 +3418,7 @@ class PropertyRecord(RecordModel):
                     "RESEARCHER_URL": "URL",
                     "OTHER_NAME": "NAME",
                     "KEYWORD": "KEYWORD",
-                    "COUNTRY": "COUNTRY"
+                    "COUNTRY": "COUNTRY",
                 }.get(task_type)
         else:
             records = data
@@ -2968,8 +3434,13 @@ class PropertyRecord(RecordModel):
                 is_enqueue = False
                 for r in records:
 
-                    value = r.get("value") or r.get(
-                        "url", "value") or r.get("url-value") or r.get("content") or r.get("country")
+                    value = (
+                        r.get("value")
+                        or r.get("url", "value")
+                        or r.get("url-value")
+                        or r.get("content")
+                        or r.get("country")
+                    )
                     display_index = r.get("display-index")
                     property_type = r.get("type") or file_property_type
                     if property_type:
@@ -2981,20 +3452,23 @@ class PropertyRecord(RecordModel):
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
                     if visibility:
-                        visibility = visibility.replace('_', '-').lower()
+                        visibility = visibility.replace("_", "-").lower()
                     is_active = bool(r.get("is-active"))
                     if is_active:
                         is_enqueue = is_active
 
                     if not property_type or property_type not in PROPERTY_TYPES:
-                        raise ModelException("Missing or incorrect property type. "
-                                             f"(expected: {','.join(PROPERTY_TYPES)}: {r}")
+                        raise ModelException(
+                            "Missing or incorrect property type. "
+                            f"(expected: {','.join(PROPERTY_TYPES)}: {r}"
+                        )
                     name = None
                     if property_type == "URL":
                         name = r.get("name") or r.get("url-name")
                         if not name:
                             raise ModelException(
-                                f"Missing URL Name. For Researcher URL Name is expected: {r}.")
+                                f"Missing URL Name. For Researcher URL Name is expected: {r}."
+                            )
                     elif property_type == "COUNTRY":
                         # The uploaded country must be from ISO 3166-1 alpha-2
                         if value:
@@ -3002,7 +3476,8 @@ class PropertyRecord(RecordModel):
                                 value = countries.lookup(value).alpha_2
                             except Exception:
                                 raise ModelException(
-                                    f"(Country {value} must be 2 character from ISO 3166-1 alpha-2): {r}.")
+                                    f"(Country {value} must be 2 character from ISO 3166-1 alpha-2): {r}."
+                                )
                     cls.create(
                         task=task,
                         type=property_type,
@@ -3015,10 +3490,12 @@ class PropertyRecord(RecordModel):
                         last_name=last_name,
                         orcid=orcid,
                         visibility=visibility,
-                        put_code=put_code)
+                        put_code=put_code,
+                    )
 
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
                 return task
 
@@ -3030,7 +3507,11 @@ class PropertyRecord(RecordModel):
     def to_export_dict(self):
         """Map the property record to dict for export into JSON/YAML."""
         d = super().to_export_dict()
-        d.update(self.to_dict(recurse=False, to_dashes=True, exclude=[PropertyRecord.type, PropertyRecord.task]))
+        d.update(
+            self.to_dict(
+                recurse=False, to_dashes=True, exclude=[PropertyRecord.type, PropertyRecord.task]
+            )
+        )
         return d
 
     class Meta:  # noqa: D101,D106
@@ -3056,7 +3537,8 @@ class WorkRecord(RecordModel):
     country = CharField(null=True, max_length=255, choices=country_choices)
 
     is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
+        default=False, help_text="The record is marked for batch processing", null=True
+    )
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
@@ -3064,22 +3546,23 @@ class WorkRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source, newline='')
+            source = StringIO(source, newline="")
         if filename is None:
             filename = datetime.utcnow().isoformat(timespec="seconds")
         reader = csv.reader(source)
         header = next(reader)
 
-        if len(header) == 1 and '\t' in header[0]:
+        if len(header) == 1 and "\t" in header[0]:
             source.seek(0)
-            reader = csv.reader(source, delimiter='\t')
+            reader = csv.reader(source, delimiter="\t")
             header = next(reader)
 
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
         header_rexs = [
-            re.compile(ex, re.I) for ex in [
+            re.compile(ex, re.I)
+            for ex in [
                 "title$",
                 r"sub.*(title)?$",
                 r"translated\s+(title)?",
@@ -3130,7 +3613,7 @@ class WorkRecord(RecordModel):
                 return default
             else:
                 v = row[idxs[i]].strip()
-            return default if v == '' else v
+            return default if v == "" else v
 
         rows = []
         cached_row = []
@@ -3139,19 +3622,18 @@ class WorkRecord(RecordModel):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
                 continue
-            if len(row) == 1 and row[0].strip() == '':
+            if len(row) == 1 and row[0].strip() == "":
                 continue
 
             orcid, email = val(row, 15), normalize_email(val(row, 16))
             if orcid:
                 orcid = validate_orcid_id(orcid)
             if email and not validators.email(email):
-                raise ValueError(
-                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+                raise ValueError(f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
             visibility = val(row, 22)
             if visibility:
-                visibility = visibility.replace('_', '-').lower()
+                visibility = visibility.replace("_", "-").lower()
 
             invitee = dict(
                 identifier=val(row, 25),
@@ -3166,42 +3648,48 @@ class WorkRecord(RecordModel):
             title = val(row, 0)
             external_id_type = val(row, 17, "").lower()
             external_id_value = val(row, 18)
-            external_id_relationship = val(row, 20, "").replace('_', '-').lower()
+            external_id_relationship = val(row, 20, "").replace("_", "-").lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
-                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
+                    f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers"
+                )
 
             if not external_id_value:
                 raise ModelException(
-                    f"Invalid External Id Value or Work Id: {external_id_value}, #{row_no+2}: {row}.")
+                    f"Invalid External Id Value or Work Id: {external_id_value}, #{row_no+2}: {row}."
+                )
 
             if not title:
-                raise ModelException(
-                    f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
+                raise ModelException(f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
 
             if external_id_relationship not in RELATIONSHIPS:
                 raise ModelException(
                     f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
-                    f"{RELATIONSHIPS}, #{row_no+2}: {row}.")
+                    f"{RELATIONSHIPS}, #{row_no+2}: {row}."
+                )
 
-            if cached_row and title.lower() == val(cached_row, 0).lower() and \
-                    external_id_type.lower() == val(cached_row, 17).lower() and \
-                    external_id_value.lower() == val(cached_row, 18).lower() and \
-                    external_id_relationship.lower() == val(cached_row, 20).lower():
+            if (
+                cached_row
+                and title.lower() == val(cached_row, 0).lower()
+                and external_id_type.lower() == val(cached_row, 17).lower()
+                and external_id_value.lower() == val(cached_row, 18).lower()
+                and external_id_relationship.lower() == val(cached_row, 20).lower()
+            ):
                 row = cached_row
             else:
                 cached_row = row
 
-            is_active = val(row, 14, '').lower() in ['y', "yes", "1", "true"]
+            is_active = val(row, 14, "").lower() in ["y", "yes", "1", "true"]
             if is_active:
                 is_enqueue = is_active
 
-            work_type = val(row, 5, "").replace('_', '-').lower()
+            work_type = val(row, 5, "").replace("_", "-").lower()
             if not work_type:
                 raise ModelException(
-                    f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}"
+                )
 
             # The uploaded country must be from ISO 3166-1 alpha-2
             country = val(row, 13)
@@ -3211,12 +3699,13 @@ class WorkRecord(RecordModel):
                 except Exception:
                     raise ModelException(
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                        f"#{row_no+2}: {row}. Header: {header}")
+                        f"#{row_no+2}: {row}. Header: {header}"
+                    )
 
             publication_date = val(row, 9)
             citation_type = val(row, 7)
             if citation_type:
-                citation_type = citation_type.replace('_', '-').lower()
+                citation_type = citation_type.replace("_", "-").lower()
 
             if publication_date:
                 publication_date = PartialDate.create(publication_date)
@@ -3243,7 +3732,10 @@ class WorkRecord(RecordModel):
                         type=external_id_type,
                         value=external_id_value,
                         url=val(row, 19),
-                        relationship=external_id_relationship)))
+                        relationship=external_id_relationship,
+                    ),
+                )
+            )
 
         with db.atomic() as transaction:
             try:
@@ -3258,14 +3750,16 @@ class WorkRecord(RecordModel):
                     wr.save()
 
                     for external_id in set(
-                            tuple(r["external_id"].items()) for r in records
-                            if r["external_id"]["type"] and r["external_id"]["value"]):
+                        tuple(r["external_id"].items())
+                        for r in records
+                        if r["external_id"]["type"] and r["external_id"]["value"]
+                    ):
                         ei = WorkExternalId(record=wr, **dict(external_id))
                         ei.save()
 
                     for invitee in set(
-                            tuple(r["invitee"].items()) for r in records
-                            if r["invitee"]["email"]):
+                        tuple(r["invitee"].items()) for r in records if r["invitee"]["email"]
+                    ):
                         rec = WorkInvitee(record=wr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
@@ -3273,6 +3767,7 @@ class WorkRecord(RecordModel):
                         rec.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
                 return task
 
@@ -3299,7 +3794,8 @@ class WorkRecord(RecordModel):
             # Adding schema validation for Work
             validator = Core(
                 source_data=validation_source_data,
-                schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")])
+                schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")],
+            )
             validator.validate(raise_exception=True)
 
         with db.atomic() as transaction:
@@ -3315,20 +3811,26 @@ class WorkRecord(RecordModel):
                     title = r.get("title", "title", "value")
                     subtitle = r.get("title", "subtitle", "value")
                     translated_title = r.get("title", "translated-title", "value")
-                    translated_title_language_code = r.get("title", "translated-title", "language-code")
+                    translated_title_language_code = r.get(
+                        "title", "translated-title", "language-code"
+                    )
                     journal_title = r.get("journal-title", "value")
                     short_description = r.get("short-description")
                     citation_type = r.get("citation", "citation-type")
                     if citation_type:
-                        citation_type = citation_type.strip().replace('_', '-').lower()
+                        citation_type = citation_type.strip().replace("_", "-").lower()
                     citation_value = r.get("citation", "citation-value")
                     rec_type = r.get("type")
                     if rec_type:
-                        rec_type = rec_type.strip().replace('_', '-').lower()
+                        rec_type = rec_type.strip().replace("_", "-").lower()
                     url = r.get("url", "value")
                     language_code = r.get("language-code")
                     country = r.get("country", "value")
-                    is_active = r.get("is-active").lower() in ['y', "yes", "1", "true"] if r.get("is-active") else False
+                    is_active = (
+                        r.get("is-active").lower() in ["y", "yes", "1", "true"]
+                        if r.get("is-active")
+                        else False
+                    )
                     if is_active:
                         is_enqueue = is_active
 
@@ -3349,7 +3851,8 @@ class WorkRecord(RecordModel):
                         url=url,
                         is_active=is_active,
                         language_code=language_code,
-                        country=country)
+                        country=country,
+                    )
 
                     validator = ModelValidator(record)
                     if not validator.validate():
@@ -3358,7 +3861,9 @@ class WorkRecord(RecordModel):
                     invitee_list = r.get("invitees")
                     if invitee_list:
                         for invitee in invitee_list:
-                            identifier = invitee.get("local-identifier") or invitee.get("identifier")
+                            identifier = invitee.get("local-identifier") or invitee.get(
+                                "identifier"
+                            )
                             email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
@@ -3366,7 +3871,7 @@ class WorkRecord(RecordModel):
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
                             if visibility:
-                                visibility = visibility.replace('_', '-').lower()
+                                visibility = visibility.replace("_", "-").lower()
 
                             WorkInvitee.create(
                                 record=record,
@@ -3376,20 +3881,28 @@ class WorkRecord(RecordModel):
                                 last_name=last_name,
                                 orcid=orcid,
                                 visibility=visibility,
-                                put_code=put_code)
+                                put_code=put_code,
+                            )
                     else:
-                        raise SchemaError(u"Schema validation failed:\n - "
-                                          u"Expecting Invitees for which the work record will be written")
+                        raise SchemaError(
+                            "Schema validation failed:\n - "
+                            "Expecting Invitees for which the work record will be written"
+                        )
 
                     contributor_list = r.get("contributors", "contributor")
                     if contributor_list:
                         for contributor in contributor_list:
                             orcid = contributor.get_orcid("contributor-orcid", "path")
                             name = get_val(contributor, "credit-name", "value")
-                            email = normalize_email(get_val(contributor, "contributor-email", "value"))
-                            role = get_val(contributor, "contributor-attributes", "contributor-role")
-                            contributor_sequence = get_val(contributor, "contributor-attributes",
-                                                           "contributor-sequence")
+                            email = normalize_email(
+                                get_val(contributor, "contributor-email", "value")
+                            )
+                            role = get_val(
+                                contributor, "contributor-attributes", "contributor-role"
+                            )
+                            contributor_sequence = get_val(
+                                contributor, "contributor-attributes", "contributor-sequence"
+                            )
 
                             WorkContributor.create(
                                 record=record,
@@ -3397,10 +3910,12 @@ class WorkRecord(RecordModel):
                                 name=name,
                                 email=email,
                                 role=role,
-                                contributor_sequence=contributor_sequence)
+                                contributor_sequence=contributor_sequence,
+                            )
 
-                    external_ids_list = r.get("external-ids").get("external-id") if \
-                        r.get("external-ids") else None
+                    external_ids_list = (
+                        r.get("external-ids").get("external-id") if r.get("external-ids") else None
+                    )
                     if external_ids_list:
                         for external_id in external_ids_list:
                             id_type = external_id.get("external-id-type")
@@ -3410,19 +3925,23 @@ class WorkRecord(RecordModel):
                             url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             if relationship:
-                                relationship = relationship.replace('_', '-').lower()
+                                relationship = relationship.replace("_", "-").lower()
 
                             WorkExternalId.create(
                                 record=record,
                                 type=id_type,
                                 value=value,
                                 url=url,
-                                relationship=relationship)
+                                relationship=relationship,
+                            )
                     else:
-                        raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
+                        raise SchemaError(
+                            "Schema validation failed:\n - An external identifier is required"
+                        )
 
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
                 return task
             except Exception:
@@ -3444,7 +3963,7 @@ class WorkRecord(RecordModel):
         if self.citation_type or self.citation_value:
             d["citation"] = {
                 "citation-type": self.citation_type,
-                "citation-value": self.citation_value
+                "citation-value": self.citation_value,
             }
         if self.country:
             d["country"] = dict(value=self.country)
@@ -3464,18 +3983,20 @@ class ContributorModel(BaseModel):
 
     def to_export_dict(self):
         """Map the contributor record to dict for export into JSON/YAML."""
-        return {
-                "contributor-attributes": {"contributor-role": self.role},
-                "contributor-email": dict(value=self.email),
-                "credit-name": dict(value=self.name),
-                "contributor-orcid": dict(path=self.orcid), }
+        d = {
+            "contributor-email": dict(value=self.email),
+            "credit-name": dict(value=self.name),
+            "contributor-orcid": dict(path=self.orcid),
+        }
+        if self.role:
+            d["contributor-attributes"] = {"contributor-role": self.role}
+        return d
 
 
 class WorkContributor(ContributorModel):
     """Researcher or contributor - related to work."""
 
-    record = ForeignKeyField(
-        WorkRecord, backref="contributors", on_delete="CASCADE")
+    record = ForeignKeyField(WorkRecord, backref="contributors", on_delete="CASCADE")
     contributor_sequence = CharField(max_length=120, null=True)
 
     class Meta:  # noqa: D101,D106
@@ -3484,7 +4005,13 @@ class WorkContributor(ContributorModel):
     def to_export_dict(self):
         """Map the contributor record to dict for export into JSON/YAML."""
         d = super().to_export_dict()
-        d["contributor-attributes"].update({"contributor-sequence": self.contributor_sequence})
+        if self.contributor_sequence:
+            if "contributor-attributes" in d:
+                d["contributor-attributes"].update(
+                    {"contributor-sequence": self.contributor_sequence}
+                )
+            else:
+                d["contributor-attributes"] = {"contributor-sequence": self.contributor_sequence}
         return d
 
 
@@ -3517,7 +4044,8 @@ class Invitee(BaseModel):
             to_dashes=True,
             exclude_nulls=True,
             only=[c.identifier, c.email, c.first_name, c.last_name, c.put_code, c.visibility],
-            recurse=False)
+            recurse=False,
+        )
         if self.orcid:
             d["ORCID-iD"] = self.orcid
         return d
@@ -3529,8 +4057,7 @@ class Invitee(BaseModel):
 class PeerReviewInvitee(Invitee):
     """Researcher or Invitee - related to peer review."""
 
-    record = ForeignKeyField(
-        PeerReviewRecord, backref="invitees", on_delete="CASCADE")
+    record = ForeignKeyField(PeerReviewRecord, backref="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_alias = "pi"
@@ -3539,8 +4066,7 @@ class PeerReviewInvitee(Invitee):
 class WorkInvitee(Invitee):
     """Researcher or Invitee - related to work."""
 
-    record = ForeignKeyField(
-        WorkRecord, backref="invitees", on_delete="CASCADE")
+    record = ForeignKeyField(WorkRecord, backref="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_alias = "wi"
@@ -3549,8 +4075,7 @@ class WorkInvitee(Invitee):
 class FundingInvitee(Invitee):
     """Researcher or Invitee - related to funding."""
 
-    record = ForeignKeyField(
-        FundingRecord, backref="invitees", on_delete="CASCADE")
+    record = ForeignKeyField(FundingRecord, backref="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_alias = "fi"
@@ -3579,8 +4104,7 @@ class ExternalIdModel(BaseModel):
 class WorkExternalId(ExternalIdModel):
     """Work ExternalId loaded for batch processing."""
 
-    record = ForeignKeyField(
-        WorkRecord, backref="external_ids", on_delete="CASCADE")
+    record = ForeignKeyField(WorkRecord, backref="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_alias = "wei"
@@ -3589,8 +4113,7 @@ class WorkExternalId(ExternalIdModel):
 class PeerReviewExternalId(ExternalIdModel):
     """Peer Review ExternalId loaded for batch processing."""
 
-    record = ForeignKeyField(
-        PeerReviewRecord, backref="external_ids", on_delete="CASCADE")
+    record = ForeignKeyField(PeerReviewRecord, backref="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_alias = "pei"
@@ -3635,7 +4158,7 @@ class AffiliationExternalId(ExternalIdModel):
             "external-id-type": self.type,
             "external-id-value": self.value,
             "external-id-relationship": self.relationship,
-            "external-id-url": self.url
+            "external-id-url": self.url,
         }
         return d
 
@@ -3655,7 +4178,8 @@ class OtherIdRecord(ExternalIdModel):
     put_code = IntegerField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
+        default=False, help_text="The record is marked for batch processing", null=True
+    )
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
@@ -3672,9 +4196,9 @@ class OtherIdRecord(ExternalIdModel):
         reader = csv.reader(source)
         header = next(reader)
 
-        if len(header) == 1 and '\t' in header[0]:
+        if len(header) == 1 and "\t" in header[0]:
             source.seek(0)
-            reader = csv.reader(source, delimiter='\t')
+            reader = csv.reader(source, delimiter="\t")
             header = next(reader)
 
         if len(header) < 2:
@@ -3684,16 +4208,26 @@ class OtherIdRecord(ExternalIdModel):
             raise ModelException(
                 "Wrong number of fields. Expected at least 5 fields "
                 "(email address or another unique identifier, External ID Type, External ID Value, External ID URL, "
-                f"External ID Relationship). Read header: {header}")
+                f"External ID Relationship). Read header: {header}"
+            )
 
         header_rexs = [
-            re.compile(ex, re.I) for ex in (r"(display)?.*index",
-                                            r"((external)?\s*id(entifier)?\s+type|.*type)$",
-                                            r"((external)?\s*id(entifier)?\s+value|.*value)$",
-                                            r"((external)?\s*id(entifier)?\s*url|.*url)$",
-                                            r"((external)?\s*id(entifier)?\s*rel(ationship)?|.*relationship)$",
-                                            "email", r"first\s*(name)?", r"(last|sur)\s*(name)?",
-                                            "orcid.*", r"put|code", r"(is)?\s*visib(bility|le)?", r"(is)?\s*active$")]
+            re.compile(ex, re.I)
+            for ex in (
+                r"(display)?.*index",
+                r"((external)?\s*id(entifier)?\s+type|.*type)$",
+                r"((external)?\s*id(entifier)?\s+value|.*value)$",
+                r"((external)?\s*id(entifier)?\s*url|.*url)$",
+                r"((external)?\s*id(entifier)?\s*rel(ationship)?|.*relationship)$",
+                "email",
+                r"first\s*(name)?",
+                r"(last|sur)\s*(name)?",
+                "orcid.*",
+                r"put|code",
+                r"(is)?\s*visib(bility|le)?",
+                r"(is)?\s*active$",
+            )
+        ]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -3716,7 +4250,7 @@ class OtherIdRecord(ExternalIdModel):
                 return default
             else:
                 v = row[idxs[i]].strip()
-            return default if v == '' else v
+            return default if v == "" else v
 
         with db.atomic() as transaction:
             try:
@@ -3726,7 +4260,7 @@ class OtherIdRecord(ExternalIdModel):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
                         continue
-                    if len(row) == 1 and row[0].strip() == '':
+                    if len(row) == 1 and row[0].strip() == "":
                         continue
 
                     email = normalize_email(val(row, 5))
@@ -3735,37 +4269,42 @@ class OtherIdRecord(ExternalIdModel):
                     if not (email or orcid):
                         raise ModelException(
                             f"Missing user identifier (email address or ORCID iD) in the row "
-                            f"#{row_no+2}: {row}. Header: {header}")
+                            f"#{row_no+2}: {row}. Header: {header}"
+                        )
 
                     if email and not validators.email(email):
                         raise ValueError(
-                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}"
+                        )
 
                     rec_type = val(row, 1, "").lower()
                     value = val(row, 2)
                     url = val(row, 3)
-                    relationship = val(row, 4, "").replace('_', '-').lower()
+                    relationship = val(row, 4, "").replace("_", "-").lower()
                     first_name = val(row, 6)
                     last_name = val(row, 7)
-                    is_active = val(row, 11, '').lower() in ['y', "yes", "1", "true"]
+                    is_active = val(row, 11, "").lower() in ["y", "yes", "1", "true"]
                     if is_active:
                         is_enqueue = is_active
 
                     if rec_type not in EXTERNAL_ID_TYPES:
                         raise ModelException(
                             f"Invalid External Id Type: '{rec_type}', Use 'doi', 'issn' "
-                            f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers")
+                            f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers"
+                        )
 
                     if not value:
                         raise ModelException(
-                            f"Missing External Id Value: {value}, #{row_no+2}: {row}.")
+                            f"Missing External Id Value: {value}, #{row_no+2}: {row}."
+                        )
 
                     if not (url and relationship):
                         raise ModelException(
                             f"Missing External Id Url: {url} or External Id Relationship: {relationship} #{row_no+2}: "
-                            f"{row}.")
+                            f"{row}."
+                        )
 
-                    visibility = val(row, 10, "").replace('_', '-').lower()
+                    visibility = val(row, 10, "").replace("_", "-").lower()
                     rr = cls(
                         task=task,
                         type=rec_type,
@@ -3779,13 +4318,15 @@ class OtherIdRecord(ExternalIdModel):
                         orcid=orcid,
                         put_code=val(row, 9),
                         visibility=visibility,
-                        is_active=is_active)
+                        is_active=is_active,
+                    )
                     validator = ModelValidator(rr)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     rr.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
             except Exception:
                 transaction.rollback()
@@ -3795,7 +4336,9 @@ class OtherIdRecord(ExternalIdModel):
         return task
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+    def load_from_json(
+        cls, source, filename=None, org=None, task=None, skip_schema_validation=False
+    ):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
         if not skip_schema_validation:
@@ -3818,10 +4361,14 @@ class OtherIdRecord(ExternalIdModel):
                     if id_type:
                         id_type = id_type.lower()
                     value = r.get("value") or r.get("external-id-value")
-                    url = r.get("url") or r.get("external-id-url", "value") or r.get("external-id-url")
+                    url = (
+                        r.get("url")
+                        or r.get("external-id-url", "value")
+                        or r.get("external-id-url")
+                    )
                     relationship = r.get("relationship") or r.get("external-id-relationship")
                     if relationship:
-                        relationship = relationship.replace('_', '-').lower()
+                        relationship = relationship.replace("_", "-").lower()
                     display_index = r.get("display-index")
                     email = normalize_email(r.get("email"))
                     first_name = r.get("first-name")
@@ -3830,7 +4377,7 @@ class OtherIdRecord(ExternalIdModel):
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
                     if visibility:
-                        visibility = visibility.replace('_', '-').lower()
+                        visibility = visibility.replace("_", "-").lower()
                     is_active = bool(r.get("is-active"))
                     if is_active:
                         is_enqueue = is_active
@@ -3848,10 +4395,12 @@ class OtherIdRecord(ExternalIdModel):
                         orcid=orcid,
                         visibility=visibility,
                         put_code=put_code,
-                        is_active=is_active)
+                        is_active=is_active,
+                    )
 
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
                 return task
 
@@ -3873,7 +4422,8 @@ class OrgRecord(RecordModel):
     country = CharField(max_length=2, null=True, choices=country_choices)
     disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
     disambiguation_source = TextField(
-        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
+        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices
+    )
 
     class Meta:  # noqa: D101,D106
         table_alias = "or"
@@ -3895,59 +4445,109 @@ class ResourceRecord(RecordModel, Invitee):
     host_name = CharField(max_length=1000, verbose_name="Name", help_text="Resource Host Name")
     host_city = CharField(null=True, verbose_name="City", help_text="Resource Host City")
     host_region = CharField(
-        max_length=300, null=True, verbose_name="Region", help_text="Resource Host Region")
+        max_length=300, null=True, verbose_name="Region", help_text="Resource Host Region"
+    )
     host_country = CharField(
-        max_length=2, null=True, choices=country_choices,
-        verbose_name="Country", help_text="Resource Host Country")
+        max_length=2,
+        null=True,
+        choices=country_choices,
+        verbose_name="Country",
+        help_text="Resource Host Country",
+    )
     host_disambiguated_id = CharField(
-        null=True, verbose_name="Disambiguated ID", help_text="Resource Host Disambiguated ID")
+        null=True, verbose_name="Disambiguated ID", help_text="Resource Host Disambiguated ID"
+    )
     host_disambiguation_source = CharField(
-        null=True, choices=disambiguation_source_choices,
-        verbose_name="Disambiguation Source", help_text="Resource Host Disambiguation Source")
+        null=True,
+        choices=disambiguation_source_choices,
+        verbose_name="Disambiguation Source",
+        help_text="Resource Host Disambiguation Source",
+    )
 
     external_id_type = CharField(
-        max_length=255, choices=external_id_type_choices, verbose_name="Type", help_text="External ID Type")
-    external_id_value = CharField(max_length=255, verbose_name="Value", help_text="External ID Value")
-    external_id_url = CharField(max_length=200, null=True, verbose_name="URL", help_text="External ID URL")
+        max_length=255,
+        choices=external_id_type_choices,
+        verbose_name="Type",
+        help_text="External ID Type",
+    )
+    external_id_value = CharField(
+        max_length=255, verbose_name="Value", help_text="External ID Value"
+    )
+    external_id_url = CharField(
+        max_length=200, null=True, verbose_name="URL", help_text="External ID URL"
+    )
     external_id_relationship = CharField(
-        null=True, max_length=255, choices=relationship_choices,
-        verbose_name="Relationship", help_text="External ID Relationship")
+        null=True,
+        max_length=255,
+        choices=relationship_choices,
+        verbose_name="Relationship",
+        help_text="External ID Relationship",
+    )
 
     # Proposal
     proposal_title = CharField(max_length=1000, verbose_name="Title", help_text="Proposal Title")
     proposal_start_date = PartialDateField(
-        null=True, verbose_name="Start Date", help_text="Proposal Start Date")
-    proposal_end_date = PartialDateField(null=True, verbose_name="End Date", help_text="Proposal End Date")
-    proposal_url = CharField(max_length=200, null=True, verbose_name="URL", help_text="Proposal URL")
-    proposal_host_name = CharField(max_length=1000, verbose_name="Name", help_text="Proposal Host Name")
+        null=True, verbose_name="Start Date", help_text="Proposal Start Date"
+    )
+    proposal_end_date = PartialDateField(
+        null=True, verbose_name="End Date", help_text="Proposal End Date"
+    )
+    proposal_url = CharField(
+        max_length=200, null=True, verbose_name="URL", help_text="Proposal URL"
+    )
+    proposal_host_name = CharField(
+        max_length=1000, verbose_name="Name", help_text="Proposal Host Name"
+    )
     proposal_host_city = CharField(null=True, verbose_name="City", help_text="Proposal Host City")
     proposal_host_region = CharField(
-        max_length=300, null=True, verbose_name="Region", help_text="Proposal Host Region")
+        max_length=300, null=True, verbose_name="Region", help_text="Proposal Host Region"
+    )
     proposal_host_country = CharField(
-        max_length=2, null=True, choices=country_choices,
-        verbose_name="City", help_text="Proposal Host City")
+        max_length=2,
+        null=True,
+        choices=country_choices,
+        verbose_name="City",
+        help_text="Proposal Host City",
+    )
     proposal_host_disambiguated_id = CharField(
-        null=True, verbose_name="Disambiguated ID", help_text="Proposal Host Disambiguated ID")
+        null=True, verbose_name="Disambiguated ID", help_text="Proposal Host Disambiguated ID"
+    )
     proposal_host_disambiguation_source = CharField(
-        null=True, choices=disambiguation_source_choices,
-        verbose_name="Disabmiguation Source", help_text="Propasal Host Disambiguation Source")
+        null=True,
+        choices=disambiguation_source_choices,
+        verbose_name="Disabmiguation Source",
+        help_text="Propasal Host Disambiguation Source",
+    )
     proposal_external_id_type = CharField(
-        max_length=255, choices=external_id_type_choices,
-        verbose_name="Type", help_text="Proposal Externa ID Type")
+        max_length=255,
+        choices=external_id_type_choices,
+        verbose_name="Type",
+        help_text="Proposal Externa ID Type",
+    )
     proposal_external_id_value = CharField(
-        max_length=255, verbose_name="Value", help_text="Proposal External ID Value")
+        max_length=255, verbose_name="Value", help_text="Proposal External ID Value"
+    )
     proposal_external_id_url = CharField(
-        max_length=200, null=True, verbose_name="URL", help_text="Proposal External ID URL")
+        max_length=200, null=True, verbose_name="URL", help_text="Proposal External ID URL"
+    )
     proposal_external_id_relationship = CharField(
-        null=True, max_length=255, choices=relationship_choices,
-        verbose_name="Relationship", help_text="Proposal External ID Relationship")
+        null=True,
+        max_length=255,
+        choices=relationship_choices,
+        verbose_name="Relationship",
+        help_text="Proposal External ID Relationship",
+    )
 
     is_active = BooleanField(
-        default=False, help_text="The record is marked 'active' for batch processing", null=True)
+        default=False, help_text="The record is marked 'active' for batch processing", null=True
+    )
     processed_at = DateTimeField(null=True)
     local_id = CharField(
-        max_length=100, null=True, verbose_name="Local ID",
-        help_text="Record identifier used in the data source system.")
+        max_length=100,
+        null=True,
+        verbose_name="Local ID",
+        help_text="Record identifier used in the data source system.",
+    )
 
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     status = TextField(null=True, help_text="Record processing status.")
@@ -3959,23 +4559,25 @@ class ResourceRecord(RecordModel, Invitee):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source, newline='')
+            source = StringIO(source, newline="")
         if filename is None:
-            filename = datetime.utcnow().isoformat(
-                timespec="seconds") + (".tsv" if '\t' in source else ".csv")
+            filename = datetime.utcnow().isoformat(timespec="seconds") + (
+                ".tsv" if "\t" in source else ".csv"
+            )
         reader = csv.reader(source)
         header = next(reader)
 
-        if len(header) == 1 and '\t' in header[0]:
+        if len(header) == 1 and "\t" in header[0]:
             source.seek(0)
-            reader = csv.reader(source, delimiter='\t')
+            reader = csv.reader(source, delimiter="\t")
             header = next(reader)
 
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
         header_rexs = [
-            (re.compile(ex, re.I), c) for (ex, c) in [
+            (re.compile(ex, re.I), c)
+            for (ex, c) in [
                 (r"local.*|.*identifier", "identifier"),
                 (r"email", "email"),
                 (r"orcid\s*id", "orcid"),
@@ -3983,7 +4585,6 @@ class ResourceRecord(RecordModel, Invitee):
                 (r"last\s*name", "last_name"),
                 (r"put\s*code", "put_code"),
                 (r"visibility", "visibility"),
-
                 (r"proposal\s*title", "proposal_title"),
                 (r"proposal\s*start\s*date", "proposal_start_date"),
                 (r"proposal\s*end\s*date", "proposal_end_date"),
@@ -3998,15 +4599,12 @@ class ResourceRecord(RecordModel, Invitee):
                 (r"proposal\s*host\s*country", "proposal_host_country"),
                 (r"proposal\s*host\s*disambiguat.*id", "proposal_host_disambiguated_id"),
                 (r"proposal\s*host\s*disambiguat.*source", "proposal_host_disambiguation_source"),
-
                 (r"resource\s*name", "name"),
                 (r"resource\s*type", "type"),
-
                 (r"(resource\s*)?external\s*id\s*type", "external_id_type"),
                 (r"(resource\s*)?external\s*id\s*value", "external_id_value"),
                 (r"(resource\s*)?external\s*id\s*url", "external_id_url"),
                 (r"(resource\s*)?external\s*id\s*relationship", "external_id_relationship"),
-
                 (r"(resource\s*)?host\s*name", "host_name"),
                 (r"(resource\s*)?host\s*city", "host_city"),
                 (r"(resource\s*)?host\s*region", "host_region"),
@@ -4047,7 +4645,8 @@ class ResourceRecord(RecordModel, Invitee):
                 except Exception:
                     raise ModelException(
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                        f"#{row_no+2}: {row}. Header: {header}")
+                        f"#{row_no+2}: {row}. Header: {header}"
+                    )
             return country
 
         with db.atomic() as transaction:
@@ -4057,7 +4656,7 @@ class ResourceRecord(RecordModel, Invitee):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
                         continue
-                    if len(row) == 1 and row[0].strip() == '':
+                    if len(row) == 1 and row[0].strip() == "":
                         continue
 
                     orcid, email = val(row, "orcid"), normalize_email(val(row, "email"))
@@ -4065,28 +4664,37 @@ class ResourceRecord(RecordModel, Invitee):
                         orcid = validate_orcid_id(orcid)
                     if email and not validators.email(email):
                         raise ValueError(
-                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}"
+                        )
 
                     visibility = val(row, "visibility")
                     if visibility:
                         visibility = visibility.lower()
 
-                    rec = cls.create(task=task,
-                                     visibility=visibility,
-                                     email=email,
-                                     orcid=orcid,
-                                     **{
-                                         c: v
-                                         for c, v in ((c, val(row, c)) for c in idxs
-                                                      if c not in ["email", "orcid", "visibility"])
-                                         if v
-                                     })
+                    rec = cls.create(
+                        task=task,
+                        visibility=visibility,
+                        email=email,
+                        orcid=orcid,
+                        **{
+                            c: v
+                            for c, v in (
+                                (c, val(row, c))
+                                for c in idxs
+                                if c not in ["email", "orcid", "visibility"]
+                            )
+                            if v
+                        },
+                    )
                     validator = ModelValidator(rec)
                     # TODO: removed the exclude paramtere after we sortout the
                     # valid domain values.
-                    if not validator.validate(exclude=[cls.external_id_relationship, cls.visibility]):
+                    if not validator.validate(
+                        exclude=[cls.external_id_relationship, cls.visibility]
+                    ):
                         raise ValueError(
-                            f"Invalid data in the row #{row_no+2}: {validator.errors}")
+                            f"Invalid data in the row #{row_no+2}: {validator.errors}"
+                        )
 
                 transaction.commit()
                 return task
@@ -4098,6 +4706,7 @@ class ResourceRecord(RecordModel, Invitee):
 
         if task.is_ready:
             from .utils import enqueue_task_records
+
             enqueue_task_records(task)
 
         return task
@@ -4110,13 +4719,15 @@ class ResourceRecord(RecordModel, Invitee):
         host_org = {"name": self.host_name}
         if self.host_city or self.host_region or self.host_country:
             host_org["address"] = {
-                    "city": self.host_city,
-                    "region": self.host_region,
-                    "country": self.host_country}
+                "city": self.host_city,
+                "region": self.host_region,
+                "country": self.host_country,
+            }
         if self.host_disambiguated_id:
             host_org["disambiguated-organization"] = {
-                    "disambiguated-organization-identifier": self.host_disambiguated_id,
-                    "disambiguation-source": self.host_disambiguation_source}
+                "disambiguated-organization-identifier": self.host_disambiguated_id,
+                "disambiguation-source": self.host_disambiguation_source,
+            }
         item = {
             "resource-name": self.name,
             "resource-type": self.type,
@@ -4131,23 +4742,31 @@ class ResourceRecord(RecordModel, Invitee):
         host_org = {"name": self.proposal_host_name}
         if self.proposal_host_city or self.proposal_host_region or self.proposal_host_country:
             host_org["address"] = {
-                    "city": self.proposal_host_city,
-                    "region": self.proposal_host_region,
-                    "country": self.proposal_host_country}
+                "city": self.proposal_host_city,
+                "region": self.proposal_host_region,
+                "country": self.proposal_host_country,
+            }
         if self.proposal_host_disambiguated_id:
             host_org["disambiguated-organization"] = {
-                    "disambiguated-organization-identifier": self.proposal_host_disambiguated_id,
-                    "disambiguation-source": self.proposal_host_disambiguation_source}
+                "disambiguated-organization-identifier": self.proposal_host_disambiguated_id,
+                "disambiguation-source": self.proposal_host_disambiguation_source,
+            }
         d["proposal"] = {
-                "title": {"title": {"value": self.proposal_title}},
-                "hosts": {"organization": [host_org]},
-                "external-ids": {"external-id": [self.orcid_external_id(
-                    self.proposal_external_id_type,
-                    self.proposal_external_id_value,
-                    self.proposal_external_id_url,
-                    self.proposal_external_id_relationship)]},
-                "start-date": self.proposal_start_date.as_orcid_dict(),
-                "end-date": self.proposal_end_date.as_orcid_dict()}
+            "title": {"title": {"value": self.proposal_title}},
+            "hosts": {"organization": [host_org]},
+            "external-ids": {
+                "external-id": [
+                    self.orcid_external_id(
+                        self.proposal_external_id_type,
+                        self.proposal_external_id_value,
+                        self.proposal_external_id_url,
+                        self.proposal_external_id_relationship,
+                    )
+                ]
+            },
+            "start-date": self.proposal_start_date.as_orcid_dict(),
+            "end-date": self.proposal_end_date.as_orcid_dict(),
+        }
         if self.proposal_url:
             d["proposal"]["url"] = dict(value=self.proposal_url)
         if self.display_index:
@@ -4161,23 +4780,34 @@ class ResourceRecord(RecordModel, Invitee):
     def to_export_dict(self):
         """Map the funding record to dict for export into JSON/YAML."""
         d = self.orcid_research_resource
-        d["invitees"] = [Invitee.to_export_dict(self), ]
+        d["invitees"] = [
+            Invitee.to_export_dict(self),
+        ]
         return d
 
     @classmethod
     def load(
-            cls, data, task=None, task_id=None, filename=None, override=True,
-            skip_schema_validation=False, org=None):
+        cls,
+        data,
+        task=None,
+        task_id=None,
+        filename=None,
+        override=True,
+        skip_schema_validation=False,
+        org=None,
+    ):
         """Load ORCID message record task form JSON/YAML."""
-        return MessageRecord.load(data,
-                                  filename=filename,
-                                  override=True,
-                                  skip_schema_validation=True,
-                                  org=org or current_user.organisation,
-                                  task=task,
-                                  task_id=task_id,
-                                  task_type=TaskType.RESOURCE,
-                                  version="3.0")
+        return MessageRecord.load(
+            data,
+            filename=filename,
+            override=True,
+            skip_schema_validation=True,
+            org=org or current_user.organisation,
+            task=task,
+            task_id=task_id,
+            task_type=TaskType.RESOURCE,
+            version="3.0",
+        )
 
 
 # ThroughDeferred = DeferredThroughModel()
@@ -4193,14 +4823,25 @@ class MessageRecord(RecordModel):
     # invitees = ManyToManyField(Invitee, backref="records", through_model=ThroughDeferred)
     invitees = ManyToManyField(Invitee, backref="records", on_delete="CASCADE")
     is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
+        default=False, help_text="The record is marked for batch processing", null=True
+    )
     # indicates that all ivitees (user profiles) were processed
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
     @classmethod
-    def load(cls, data, task=None, task_id=None, filename=None, override=True,
-             skip_schema_validation=False, org=None, task_type=None, version="3.0"):
+    def load(
+        cls,
+        data,
+        task=None,
+        task_id=None,
+        filename=None,
+        override=True,
+        skip_schema_validation=False,
+        org=None,
+        task_type=None,
+        version="3.0",
+    ):
         """Load ORCID message record task form JSON/YAML."""
         data = load_yaml_json(filename=filename, source=data)
         if org is None:
@@ -4211,10 +4852,11 @@ class MessageRecord(RecordModel):
             task = Task.select().where(Task.id == task_id).first()
         if not task and "id" in data and override and task_type:
             task_id = int(data["id"])
-            task = Task.select().where(
-                    Task.id == task_id,
-                    Task.task_type == task_type,
-                    Task.is_raw).first()
+            task = (
+                Task.select()
+                .where(Task.id == task_id, Task.task_type == task_type, Task.is_raw)
+                .first()
+            )
         if not filename:
             if isinstance(data, dict):
                 filename = data.get("filename")
@@ -4234,7 +4876,8 @@ class MessageRecord(RecordModel):
             try:
                 if not task:
                     task = Task.create(
-                            org=org, filename=filename, task_type=task_type, is_raw=True)
+                        org=org, filename=filename, task_type=task_type, is_raw=True
+                    )
                 elif override:
                     task.record_model.delete().where(task.record_model.task == task).execute()
 
@@ -4243,17 +4886,19 @@ class MessageRecord(RecordModel):
                 for r in records:
                     invitees = r.get("invitees")
                     if not invitees:
-                        raise ModelException(f"Missing invitees, expected to have at lease one: {r}")
-                    del(r["invitees"])
+                        raise ModelException(
+                            f"Missing invitees, expected to have at lease one: {r}"
+                        )
+                    del r["invitees"]
 
                     rec_id = r.get("id")
                     if rec_id:
                         rec_id = int(rec_id)
-                        del(r["id"])
+                        del r["id"]
 
                     is_active = r.get("is-active")
                     if "is-active" in r:
-                        del(r["is-active"])
+                        del r["is-active"]
 
                     message = json.dumps(r, indent=2)
                     if rec_id and not override:
@@ -4264,21 +4909,26 @@ class MessageRecord(RecordModel):
                             rec.version = version
                         rec.is_active = is_active
                     else:
-                        rec = cls.create(task=task,
-                                         version=version,
-                                         message=message,
-                                         is_active=is_active)
-                    rec.invitees.add([
-                        Invitee.create(
-                            orcid=i.get("ORCID-iD"),
-                            email=i.get("email"),
-                            first_name=i.get("first-name"),
-                            last_name=i.get("last-name"),
-                            put_code=i.get("put-code"),
-                            visibility=i.get("visibility")) for i in invitees])
+                        rec = cls.create(
+                            task=task, version=version, message=message, is_active=is_active
+                        )
+                    rec.invitees.add(
+                        [
+                            Invitee.create(
+                                orcid=i.get("ORCID-iD"),
+                                email=i.get("email"),
+                                first_name=i.get("first-name"),
+                                last_name=i.get("last-name"),
+                                put_code=i.get("put-code"),
+                                visibility=i.get("visibility"),
+                            )
+                            for i in invitees
+                        ]
+                    )
 
                 if is_enqueue:
                     from .utils import enqueue_task_records
+
                     enqueue_task_records(task)
             except:
                 transaction.rollback()
@@ -4320,8 +4970,9 @@ class Url(AuditedModel):
             u = cls.get(url=url)
         except cls.DoesNotExist:
             while True:
-                short_id = ''.join(
-                    random.choice(string.ascii_letters + string.digits) for _ in range(5))
+                short_id = "".join(
+                    random.choice(string.ascii_letters + string.digits) for _ in range(5)
+                )
                 if not cls.select().where(cls.short_id == short_id).exists():
                     break
             u = cls.create(short_id=short_id, url=url)
@@ -4347,9 +4998,11 @@ class Client(AuditedModel):
     name = CharField(null=True, max_length=40, help_text="human readable name, not required")
     homepage_url = CharField(null=True, max_length=100)
     description = CharField(
-        null=True, max_length=400, help_text="human readable description, not required")
+        null=True, max_length=400, help_text="human readable description, not required"
+    )
     user = ForeignKeyField(
-        User, null=True, on_delete="SET NULL", help_text="creator of the client, not required")
+        User, null=True, on_delete="SET NULL", help_text="creator of the client, not required"
+    )
     org = ForeignKeyField(Organisation, on_delete="CASCADE", backref="client_applications")
 
     client_id = CharField(max_length=100, unique=True)
@@ -4369,8 +5022,8 @@ class Client(AuditedModel):
     @property
     def client_type(self):  # noqa: D102
         if self.is_confidential:
-            return 'confidential'
-        return 'public'
+            return "confidential"
+        return "public"
 
     @property
     def redirect_uris(self):  # noqa: D102
@@ -4449,7 +5102,7 @@ class Grant(BaseModel):
         if isinstance(value, str):
             self._scopes = value
         else:
-            self._scopes = ' '.join(value)
+            self._scopes = " ".join(value)
 
 
 class Token(BaseModel):
@@ -4533,46 +5186,46 @@ def create_tables(safe=True, drop=False):
         pass
 
     for model in [
-            File,
-            Organisation,
-            User,
-            UserOrg,
-            OrcidToken,
-            UserOrgAffiliation,
-            OrgInfo,
-            OrcidApiCall,
-            OrcidAuthorizeCall,
-            Task,
-            Log,
-            AffiliationRecord,
-            AffiliationExternalId,
-            GroupIdRecord,
-            OrgInvitation,
-            Url,
-            UserInvitation,
-            FundingRecord,
-            WorkRecord,
-            WorkContributor,
-            WorkExternalId,
-            WorkInvitee,
-            FundingContributor,
-            FundingInvitee,
-            ExternalId,
-            PeerReviewRecord,
-            PeerReviewInvitee,
-            PeerReviewExternalId,
-            OtherIdRecord,
-            PropertyRecord,
-            Client,
-            Grant,
-            Token,
-            Delegate,
-            AsyncOrcidResponse,
-            MessageRecord,
-            Invitee,
-            RecordInvitee,
-            ResourceRecord,
-            MailLog,
+        File,
+        Organisation,
+        User,
+        UserOrg,
+        OrcidToken,
+        UserOrgAffiliation,
+        OrgInfo,
+        OrcidApiCall,
+        OrcidAuthorizeCall,
+        Task,
+        Log,
+        AffiliationRecord,
+        AffiliationExternalId,
+        GroupIdRecord,
+        OrgInvitation,
+        Url,
+        UserInvitation,
+        FundingRecord,
+        WorkRecord,
+        WorkContributor,
+        WorkExternalId,
+        WorkInvitee,
+        FundingContributor,
+        FundingInvitee,
+        ExternalId,
+        PeerReviewRecord,
+        PeerReviewInvitee,
+        PeerReviewExternalId,
+        OtherIdRecord,
+        PropertyRecord,
+        Client,
+        Grant,
+        Token,
+        Delegate,
+        AsyncOrcidResponse,
+        MessageRecord,
+        Invitee,
+        RecordInvitee,
+        ResourceRecord,
+        MailLog,
     ]:
 
         model.bind(db)
@@ -4590,7 +5243,9 @@ def create_audit_tables():
         pass
 
     if isinstance(db, PostgresqlDatabase):
-        with open(os.path.join(os.path.dirname(__file__), "sql", "auditing.sql"), 'br') as input_file:
+        with open(
+            os.path.join(os.path.dirname(__file__), "sql", "auditing.sql"), "br"
+        ) as input_file:
             sql = readup_file(input_file)
             db.commit()
             with db.cursor() as cr:
@@ -4604,15 +5259,44 @@ def drop_tables():
         foreign_keys = db.pragma("foreign_keys")
         db.pragma("foreign_keys", 0)
 
-    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, OrcidAuthorizeCall, OtherIdRecord, FundingContributor, FundingInvitee,
-              FundingRecord, PropertyRecord, PeerReviewInvitee, PeerReviewExternalId,
-              PeerReviewRecord, WorkInvitee, WorkExternalId, WorkContributor, WorkRecord,
-              AffiliationRecord, AffiliationExternalId, ExternalId, Url, UserInvitation, Task, Organisation):
+    for m in (
+        File,
+        User,
+        UserOrg,
+        OrcidToken,
+        UserOrgAffiliation,
+        OrgInfo,
+        OrgInvitation,
+        OrcidApiCall,
+        OrcidAuthorizeCall,
+        OtherIdRecord,
+        FundingContributor,
+        FundingInvitee,
+        FundingRecord,
+        PropertyRecord,
+        PeerReviewInvitee,
+        PeerReviewExternalId,
+        PeerReviewRecord,
+        WorkInvitee,
+        WorkExternalId,
+        WorkContributor,
+        WorkRecord,
+        AffiliationRecord,
+        AffiliationExternalId,
+        ExternalId,
+        Url,
+        UserInvitation,
+        Task,
+        Organisation,
+    ):
         m.bind(db)
         if m.table_exists():
             try:
-                m.drop_table(fail_silently=True, safe=True, cascade=hasattr(db, "drop_cascade") and db.drop_cascade)
+                m.drop_table(
+                    fail_silently=True,
+                    safe=True,
+                    cascade=hasattr(db, "drop_cascade") and db.drop_cascade,
+                )
             except OperationalError:
                 pass
     if isinstance(db, SqliteDatabase):
@@ -4622,11 +5306,14 @@ def drop_tables():
 def load_yaml_json(filename=None, source=None, content_type=None):
     """Create a common way of loading JSON or YAML file."""
     if not content_type:
-        _, ext = os.path.splitext(filename or '')
+        _, ext = os.path.splitext(filename or "")
         if not ext:
             source = source.strip()
-        content_type = "json" if ((not ext and (source.startswith('[') or source.startswith('{')))
-                                  or ext == ".json") else "yaml"
+        content_type = (
+            "json"
+            if ((not ext and (source.startswith("[") or source.startswith("{"))) or ext == ".json")
+            else "yaml"
+        )
 
     if content_type == "yaml":
         data = json.loads(json.dumps(yaml.load(source)), object_pairs_hook=NestedDict)
@@ -4635,8 +5322,7 @@ def load_yaml_json(filename=None, source=None, content_type=None):
 
     # Removing None for correct schema validation
     if not isinstance(data, list) and not (isinstance(data, dict) and "records" in data):
-        raise SchemaError(
-            u"Schema validation failed:\n - Expecting a list of Records")
+        raise SchemaError("Schema validation failed:\n - Expecting a list of Records")
     return data
 
 

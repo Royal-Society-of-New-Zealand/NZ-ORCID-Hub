@@ -31,3 +31,5 @@ Online-W3C-Validator>=0.3.2
 twine
 fakeredis
 coloredlogs
+black
+#neovim

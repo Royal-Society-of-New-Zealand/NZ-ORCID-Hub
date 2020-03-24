@@ -178,3 +178,5 @@ pom.xml
 recording.xml
 resources.json
 rr.json
+.session.vim
+*.bak
