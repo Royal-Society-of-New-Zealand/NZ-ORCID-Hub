@@ -4,14 +4,23 @@
 			{"identifier":"00002", "email": "contributor2@mailinator.com", "first-name": "Bob", "last-name": "Contributor 2", "ORCID-iD": null, "put-code": null, "visibility": null}],
 	"reviewer-role": "REVIEWER",
 	"review-identifiers": {
-		"external-id": [{
-			"external-id-type": "source-work-id",
-			"external-id-value": "1212221",
-			"external-id-url": {
-				"value": "https://localsystem.org/1234"
-			},
-			"external-id-relationship": "SELF"
-		}]
+		"external-id": [
+      {
+        "external-id-type": "source-work-id",
+        "external-id-value": "1212221",
+        "external-id-url": {
+          "value": "https://localsystem.org/1234"
+        },
+        "external-id-relationship": "SELF"
+      },
+      {
+        "external-id-type": "source-work-id",
+        "external-id-value": "123ABC",
+        "external-id-url": {
+          "value": "https://localsystem.org/1234ABC"
+        }
+      }
+    ]
 	},
 	"review-url": {
 		"value": "https://alt-url.com"

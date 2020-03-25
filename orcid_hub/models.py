@@ -2787,7 +2787,16 @@ class PeerReviewRecord(RecordModel):
 
             external_id_type = val(row, 29, "").lower()
             external_id_value = val(row, 30)
-            external_id_relationship = val(row, 32, "").replace("_", "-").lower()
+            external_id_relationship = val(row, 32)
+
+            if external_id_relationship:
+                external_id_relationship = external_id_relationship.replace("_", "-").lower()
+
+                if external_id_relationship not in RELATIONSHIPS:
+                    raise ModelException(
+                        f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
+                        f"{RELATIONSHIPS}, #{row_no+2}: {row}."
+                    )
 
             if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
@@ -2798,12 +2807,6 @@ class PeerReviewRecord(RecordModel):
             if not external_id_value:
                 raise ModelException(
                     f"Invalid External Id Value or Peer Review Id: {external_id_value}, #{row_no+2}: {row}."
-                )
-
-            if external_id_relationship not in RELATIONSHIPS:
-                raise ModelException(
-                    f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
-                    f"{RELATIONSHIPS}, #{row_no+2}: {row}."
                 )
 
             if (
