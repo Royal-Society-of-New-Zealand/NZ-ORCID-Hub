@@ -2844,13 +2844,13 @@ class PeerReviewRecord(RecordModel):
                         f"#{row_no+2}: {row}. Header: {header}"
                     )
 
-            reviewer_role = val(row, 1, "").replace("_", "-").lower()
-            review_type = val(row, 3, "").replace("_", "-").lower()
-            subject_type = val(row, 10, "").replace("_", "-").lower()
-            subject_external_id_relationship = val(row, 8, "").replace("_", "-").lower()
-            convening_org_disambiguation_source = val(row, 21, "").upper()
-            subject_external_id_type = val(row, 5, "").lower()
-            review_completion_date = val(row, 4)
+            reviewer_role = val(row, 1, "").replace("_", "-").lower() or None
+            review_type = val(row, 3, "").replace("_", "-").lower() or None
+            subject_type = val(row, 10, "").replace("_", "-").lower() or None
+            subject_external_id_relationship = val(row, 8, "").replace("_", "-").lower() or None
+            convening_org_disambiguation_source = val(row, 21, "").upper() or None
+            subject_external_id_type = val(row, 5, "").lower() or None
+            review_completion_date = val(row, 4) or None
 
             if review_completion_date:
                 review_completion_date = PartialDate.create(review_completion_date)

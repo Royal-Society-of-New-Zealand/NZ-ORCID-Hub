@@ -1309,11 +1309,26 @@ def test_peer_review_api(client):
     """Test peer review API in various formats."""
     admin = client.data.get("admin")
     resp = client.login(admin, follow_redirects=True)
+
+    test_data_dir = os.path.join(os.path.dirname(__file__), "data")
     resp = client.post(
         "/load/researcher/peer_review",
         data={
             "file_": (open(
-                os.path.join(os.path.dirname(__file__), "data", "example_peer_reviews.json"),
+                os.path.join(test_data_dir, "test1_required_only.csv"),
+                "rb"), "test1_required_only.csv"),
+        },
+        follow_redirects=True)
+    # breakpoint()
+    assert resp.status_code == 200
+    assert Task.select().count() == 1
+    Task.delete().execute()
+
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (open(
+                os.path.join(test_data_dir, "example_peer_reviews.json"),
                 "rb"), "peer-reviews042.json"),
         },
         follow_redirects=True)
