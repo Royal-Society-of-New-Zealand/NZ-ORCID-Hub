@@ -401,6 +401,13 @@ class MailLogAdmin(AppModelView):
     can_create = False
     can_view_details = True
 
+    column_searchable_list = (
+        "org.name",
+        "error",
+        "recipient",
+        "subject",
+    )
+
 
 class UserAdmin(AppModelView):
     """User model view."""
