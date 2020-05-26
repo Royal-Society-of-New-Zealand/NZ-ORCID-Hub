@@ -3425,7 +3425,7 @@ def orcid_proxy_response(job_id):
     try:
         resp = AsyncOrcidResponse.get(job_id=job_id)
     except ValueError as ex:
-        return jsonify({"error": str(ex), f"message": "Invalid job ID: {job_id}"}), 415
+        return jsonify({"error": str(ex), "message": "Invalid job ID: {job_id}"}), 415
     except AsyncOrcidResponse.DoesNotExist:
         return jsonify({"message": "The responses desn't exist"}), 404
 

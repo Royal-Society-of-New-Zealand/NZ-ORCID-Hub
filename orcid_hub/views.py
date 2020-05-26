@@ -799,7 +799,7 @@ class RecordModelView(AppModelView):
                 return "%s_%s.%s" % (filename, datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S"),
                                      export_type)
             except Task.DoesNotExist:
-                flash(f"The batch task doesn't exist", "danger")
+                flash("The batch task doesn't exist", "danger")
                 abort(404)
 
         return super().get_export_name(export_type=export_type)
@@ -2042,9 +2042,9 @@ class GroupIdRecordAdmin(AppModelView):
                                                                              description=gid.description, type=gid.type)
 
                     if created:
-                        gid.add_status_line(f"The group id record was created.")
+                        gid.add_status_line("The group id record was created.")
                     else:
-                        gid.add_status_line(f"The group id record was updated.")
+                        gid.add_status_line("The group id record was updated.")
 
                     gid.put_code = put_code
                     count += 1
@@ -2931,7 +2931,7 @@ def search_group_id_record():
         except ApiException as ex:
             if ex.status == 401:
                 orcid_token.delete_instance()
-                flash(f"Old token was expired. Please search again so that next time we will fetch latest token",
+                flash("Old token was expired. Please search again so that next time we will fetch latest token",
                       "warning")
             elif ex.status == 500:
                 flash(f"ORCID API Exception: {ex}", "warning")
@@ -3741,7 +3741,7 @@ def org_webhook():
             flash(f"Webhook activation was initiated (task id: {job.id})", "info")
         else:
             utils.disable_org_webhook.queue(org)
-            flash(f"Webhook was disabled.", "info")
+            flash("Webhook was disabled.", "info")
 
     return render_template("form.html", form=form, title="Organisation Webhook", url=_url)
 
@@ -3777,7 +3777,7 @@ def sync_profiles(task_id=None):
             _next = get_next_url() or url_for("task.index_view")
             return redirect(_next)
         if task and not form.restart.data:
-            flash(f"There is already an active profile synchronization task", "warning")
+            flash("There is already an active profile synchronization task", "warning")
         else:
             Task.delete().where(Task.org == org, Task.task_type == TaskType.SYNC).execute()
             task = Task.create(org=org, task_type=TaskType.SYNC)
@@ -3809,7 +3809,7 @@ def remove_linkage():
     if UserOrg.select().where(
                 (UserOrg.user_id == current_user.id) & (UserOrg.org_id == org.id) & UserOrg.is_admin).exists():
         flash(f"Failed to remove linkage for {current_user}, as this user appears to be one of the admins for {org}. "
-              f"Please contact orcid@royalsociety.org.nz for support", "danger")
+              "Please contact orcid@royalsociety.org.nz for support", "danger")
         return redirect(_url)
 
     for token in OrcidToken.select().where(OrcidToken.org_id == org.id, OrcidToken.user_id == current_user.id):

@@ -323,9 +323,9 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
             try:
                 put_code, orcid, created, visibility = api.create_or_update_work(task_by_user)
                 if created:
-                    wi.add_status_line(f"Work record was created.")
+                    wi.add_status_line("Work record was created.")
                 else:
-                    wi.add_status_line(f"Work record was updated.")
+                    wi.add_status_line("Work record was updated.")
                 wi.orcid = orcid
                 wi.put_code = put_code
                 if wi.visibility != visibility:
@@ -345,7 +345,7 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
                 wi.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
-        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        app.logger.debug("Should resend an invite to the researcher asking for permissions")
         return
 
 
@@ -383,7 +383,7 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                     continue
 
                 if record.review_group_id and external_id_value in taken_external_id_values and (r.get(
-                    "review-group-id", default='') or '').lower() == record.review_group_id.lower():  # noqa: E127
+                        "review-group-id", default='') or '').lower() == record.review_group_id.lower():  # noqa: E127
                     invitee.put_code = put_code
                     invitee.save()
                     taken_put_codes.add(put_code)
@@ -407,9 +407,9 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
             try:
                 put_code, orcid, created, visibility = api.create_or_update_peer_review(task_by_user)
                 if created:
-                    pi.add_status_line(f"Peer review record was created.")
+                    pi.add_status_line("Peer review record was created.")
                 else:
-                    pi.add_status_line(f"Peer review record was updated.")
+                    pi.add_status_line("Peer review record was updated.")
                 pi.orcid = orcid
                 pi.put_code = put_code
                 if pi.visibility != visibility:
@@ -429,7 +429,7 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                 pi.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
-        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        app.logger.debug("Should resend an invite to the researcher asking for permissions")
         return
 
 
@@ -487,9 +487,9 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
             try:
                 put_code, orcid, created, visibility = api.create_or_update_funding(task_by_user)
                 if created:
-                    fi.add_status_line(f"Funding record was created.")
+                    fi.add_status_line("Funding record was created.")
                 else:
-                    fi.add_status_line(f"Funding record was updated.")
+                    fi.add_status_line("Funding record was updated.")
                 fi.orcid = orcid
                 fi.put_code = put_code
                 if fi.visibility != visibility:
@@ -512,7 +512,7 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 fi.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
-        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        app.logger.debug("Should resend an invite to the researcher asking for permissions")
         return
 
 
@@ -609,7 +609,7 @@ def create_or_update_resources(user, org_id, records, *args, **kwargs):
                 rr.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
-        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        app.logger.debug("Should resend an invite to the researcher asking for permissions")
         return
 
 
@@ -728,7 +728,7 @@ def create_or_update_record_from_messages(records, *args, **kwargs):
                 rr.invitee.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
-        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        app.logger.debug("Should resend an invite to the researcher asking for permissions")
         return
 
 
@@ -1018,7 +1018,7 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                 rr.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
-        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        app.logger.debug("Should resend an invite to the researcher asking for permissions")
         return
 
 
@@ -1105,7 +1105,7 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
                 rr.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
-        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        app.logger.debug("Should resend an invite to the researcher asking for permissions")
         return
 
 

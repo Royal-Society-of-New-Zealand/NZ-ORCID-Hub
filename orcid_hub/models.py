@@ -226,9 +226,9 @@ citation_type_choices = [(v, v.replace("-", " ").title()) for v in CITATION_TYPE
 
 country_choices = [(c.alpha_2, c.name) for c in countries]
 country_choices.sort(key=lambda e: e[1])
-language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_2")]
+language_choices = [(lang.alpha_2, lang.name) for lang in languages if hasattr(lang, "alpha_2")]
 language_choices.sort(key=lambda e: e[1])
-currency_choices = [(l.alpha_3, l.name) for l in currencies]
+currency_choices = [(cur.alpha_3, cur.name) for cur in currencies]
 currency_choices.sort(key=lambda e: e[1])
 external_id_type_choices = [
     (v, v.replace("_", " ").replace("-", " ").title()) for v in EXTERNAL_ID_TYPES

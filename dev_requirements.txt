@@ -31,5 +31,8 @@ Online-W3C-Validator>=0.3.2
 twine
 fakeredis
 coloredlogs
-black
+#black
+black==19.3b0
 #neovim
+mypy==0.770
+isort==4.3.21

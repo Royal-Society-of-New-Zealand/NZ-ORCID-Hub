@@ -32,14 +32,20 @@ def test_get_client_credentials_token(request_ctx):
             "refresh_token": "REFRESH-TOKEN-123",
             "expires_in": 99999,
             "scope": "/webhook",
-            "orcid": None
+            "orcid": None,
         }
         mockpost.return_value = mockresp
 
         OrcidToken.create(
-            org=org, access_token="access_token", refresh_token="refresh_token", scopes="/webhook")
+            org=org, access_token="access_token", refresh_token="refresh_token", scopes="/webhook"
+        )
         token = utils.get_client_credentials_token(org, "/webhook")
-        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook").count() == 1
+        assert (
+            OrcidToken.select()
+            .where(OrcidToken.org == org, OrcidToken.scopes == "/webhook")
+            .count()
+            == 1
+        )
         assert token.access_token == "ACCESS-TOKEN-123"
         assert token.refresh_token == "REFRESH-TOKEN-123"
         assert token.expires_in == 99999
@@ -61,7 +67,9 @@ def test_webhook_registration(client):
             grant_type="client_credentials",
             client_id=client.client_id,
             client_secret=client.client_secret,
-            scope="/webhook"))
+            scope="/webhook",
+        ),
+    )
 
     assert resp.status_code == 200
     data = json.loads(resp.data)
@@ -74,27 +82,31 @@ def test_webhook_registration(client):
 
     resp = test_client.put(
         "/api/v1/INCORRECT/webhook/http%3A%2F%2FCALL-BACK",
-        headers=dict(authorization=f"Bearer {token.access_token}"))
+        headers=dict(authorization=f"Bearer {token.access_token}"),
+    )
     assert resp.status_code == 415
     assert json.loads(resp.data)["error"] == "Missing or invalid ORCID iD."
 
     resp = test_client.put(
         "/api/v1/0000-0001-8228-7153/webhook/http%3A%2F%2FCALL-BACK",
-        headers=dict(authorization=f"Bearer {token.access_token}"))
+        headers=dict(authorization=f"Bearer {token.access_token}"),
+    )
     assert resp.status_code == 404
     assert json.loads(resp.data)["error"] == "Invalid ORCID iD."
 
     resp = test_client.put(
         f"/api/v1/{orcid_id}/webhook/INCORRECT-WEBHOOK-URL",
-        headers=dict(authorization=f"Bearer {token.access_token}"))
+        headers=dict(authorization=f"Bearer {token.access_token}"),
+    )
     assert resp.status_code == 415
     assert json.loads(resp.data) == {
         "error": "Invalid call-back URL",
-        "message": "Invalid call-back URL: INCORRECT-WEBHOOK-URL"
+        "message": "Invalid call-back URL: INCORRECT-WEBHOOK-URL",
     }
 
     with patch("orcid_hub.utils.requests.post") as mockpost, patch(
-            "orcid_hub.utils.requests.put") as mockput:
+        "orcid_hub.utils.requests.put"
+    ) as mockput:
         # Access toke request resp:
         mockresp = MagicMock(status_code=201)
         mockresp.json.return_value = {
@@ -103,21 +115,22 @@ def test_webhook_registration(client):
             "refresh_token": "REFRESH-TOKEN-123",
             "expires_in": 99999,
             "scope": "/webhook",
-            "orcid": None
+            "orcid": None,
         }
         mockpost.return_value = mockresp
         # Webhook registration response:
-        mockresp = MagicMock(status_code=201, data=b'')
+        mockresp = MagicMock(status_code=201, data=b"")
         mockresp.headers = {
-                "Server": "TEST123",
-                "Connection": "keep-alive",
-                "Pragma": "no-cache",
-                "Expires": "0",
+            "Server": "TEST123",
+            "Connection": "keep-alive",
+            "Pragma": "no-cache",
+            "Expires": "0",
         }
         mockput.return_value = mockresp
         resp = test_client.put(
             f"/api/v1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
-            headers=dict(authorization=f"Bearer {token.access_token}"))
+            headers=dict(authorization=f"Bearer {token.access_token}"),
+        )
 
         assert resp.status_code == 201
         args, kwargs = mockpost.call_args
@@ -126,16 +139,19 @@ def test_webhook_registration(client):
             "client_id": "APP-12345678",
             "client_secret": "CLIENT-SECRET",
             "scope": "/webhook",
-            "grant_type": "client_credentials"
+            "grant_type": "client_credentials",
         }
         assert kwargs["headers"] == {"Accept": "application/json"}
 
         args, kwargs = mockput.call_args
-        assert args[0] == "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/http%3A%2F%2FCALL-BACK"
+        assert (
+            args[0]
+            == "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/http%3A%2F%2FCALL-BACK"
+        )
         assert kwargs["headers"] == {
             "Accept": "application/json",
             "Authorization": "Bearer ACCESS-TOKEN-123",
-            "Content-Length": "0"
+            "Content-Length": "0",
         }
 
         q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook")
@@ -148,7 +164,7 @@ def test_webhook_registration(client):
 
     with patch("orcid_hub.utils.requests.delete") as mockdelete:
         # Webhook deletion response:
-        mockresp = MagicMock(status_code=204, data=b'')
+        mockresp = MagicMock(status_code=204, data=b"")
         mockresp.headers = {
             "Seresper": "TEST123",
             "Connection": "keep-alive",
@@ -159,17 +175,20 @@ def test_webhook_registration(client):
         mockdelete.return_value = mockresp
         resp = test_client.delete(
             f"/api/v1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
-            headers=dict(authorization=f"Bearer {token.access_token}"))
+            headers=dict(authorization=f"Bearer {token.access_token}"),
+        )
         assert resp.status_code == 204
         assert urlparse(resp.location).path == f"/api/v1/{orcid_id}/webhook/http://TEST-LOCATION"
 
         args, kwargs = mockput.call_args
-        assert args[
-            0] == "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/http%3A%2F%2FCALL-BACK"
+        assert (
+            args[0]
+            == "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/http%3A%2F%2FCALL-BACK"
+        )
         assert kwargs["headers"] == {
             "Accept": "application/json",
             "Authorization": "Bearer ACCESS-TOKEN-123",
-            "Content-Length": "0"
+            "Content-Length": "0",
         }
 
         q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook")
@@ -184,12 +203,21 @@ def test_webhook_registration(client):
 def test_org_webhook(client, mocker):
     """Test Organisation webhooks."""
     mocker.patch.object(
-        utils.requests, "post",
+        utils.requests,
+        "post",
         lambda *args, **kwargs: SimpleObject(
             status_code=201,
-            json=lambda: dict(access_token="ABC123", refresh_token="REFRESS_ME", expires_in=123456789)))
-    mocker.patch.object(utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201))
-    mocker.patch.object(utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204))
+            json=lambda: dict(
+                access_token="ABC123", refresh_token="REFRESS_ME", expires_in=123456789
+            ),
+        ),
+    )
+    mocker.patch.object(
+        utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201)
+    )
+    mocker.patch.object(
+        utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204)
+    )
 
     org = client.data["org"]
     admin = org.tech_contact
@@ -213,7 +241,8 @@ def test_org_webhook(client, mocker):
 
     assert not Organisation.get(org.id).webhook_enabled
     resp = client.post(
-        "/settings/webhook", data=dict(webhook_url="https://ORG.org/HANDLE", webhook_enabled='y'))
+        "/settings/webhook", data=dict(webhook_url="https://ORG.org/HANDLE", webhook_enabled="y")
+    )
     assert Organisation.get(org.id).webhook_enabled
     assert resp.status_code == 200
 
@@ -222,10 +251,14 @@ def test_org_webhook(client, mocker):
     assert resp.status_code == 204
 
     assert not Organisation.get(org.id).email_notifications_enabled
-    resp = client.post("/settings/webhook", data=dict(
-                webhook_url="https://ORG.org/HANDLE",
-                webhook_enabled='y',
-                email_notifications_enabled='y'))
+    resp = client.post(
+        "/settings/webhook",
+        data=dict(
+            webhook_url="https://ORG.org/HANDLE",
+            webhook_enabled="y",
+            email_notifications_enabled="y",
+        ),
+    )
     assert Organisation.get(org.id).email_notifications_enabled
     assert resp.status_code == 200
 
@@ -234,7 +267,9 @@ def test_org_webhook(client, mocker):
     assert resp.status_code == 204
 
     post = mocker.patch.object(utils.requests, "post", return_value=Mock(status_code=204))
-    for u in User.select().where(User.organisation == user.organisation, User.orcid.is_null(False)):
+    for u in User.select().where(
+        User.organisation == user.organisation, User.orcid.is_null(False)
+    ):
         post.reset_mock()
         send_email.reset_mock()
         resp = client.post(f"/services/{u.id}/updated")
@@ -243,15 +278,15 @@ def test_org_webhook(client, mocker):
         assert resp.status_code == 204
 
     # Enable only email notification:
-    resp = client.post("/settings/webhook", data=dict(
-                webhook_enabled='',
-                email_notifications_enabled=''))
+    resp = client.post(
+        "/settings/webhook", data=dict(webhook_enabled="", email_notifications_enabled="")
+    )
     assert resp.status_code == 200
     assert not Organisation.get(org.id).email_notifications_enabled
-    resp = client.post("/settings/webhook", data=dict(
-                webhook_url="",
-                webhook_enabled='',
-                email_notifications_enabled='y'))
+    resp = client.post(
+        "/settings/webhook",
+        data=dict(webhook_url="", webhook_enabled="", email_notifications_enabled="y"),
+    )
     assert Organisation.get(org.id).email_notifications_enabled
     assert resp.status_code == 200
 
@@ -334,7 +369,7 @@ def test_webhook_invokation(client, mocker):
         "type": "UPDATED",
         "updated-at": User.get(user.id).updated_at.isoformat(timespec="seconds"),
         "email": user.email,
-        "eppn": user.eppn
+        "eppn": user.eppn,
     }
 
     org.webhook_enabled = True
@@ -363,18 +398,16 @@ def test_webhook_invokation(client, mocker):
     schedule = mocker.patch("orcid_hub.utils.invoke_webhook_handler.schedule")
     resp = client.post(f"/services/{user.id}/updated")
     assert resp.status_code == 204
-    schedule.assert_called_with(datetime.timedelta(seconds=300),
-                                attempts=4,
-                                message=message,
-                                org_id=org.id)
+    schedule.assert_called_with(
+        datetime.timedelta(seconds=300), attempts=4, message=message, org_id=org.id
+    )
 
     Organisation.update(webhook_apikey="ABC123").execute()
     schedule.reset_mock()
     resp = client.post(f"/services/{user.id}/updated")
-    schedule.assert_called_with(datetime.timedelta(seconds=300),
-                                attempts=4,
-                                message=message,
-                                org_id=org.id)
+    schedule.assert_called_with(
+        datetime.timedelta(seconds=300), attempts=4, message=message, org_id=org.id
+    )
 
     Organisation.update(webhook_apikey=None).execute()
     post = mocker.patch.object(utils.requests, "post", side_effect=Exception("OH! NOHHH!"))
@@ -388,16 +421,23 @@ def test_webhook_invokation(client, mocker):
 
     # Test backward compatibility
     with pytest.raises(Exception):
-        utils.invoke_webhook_handler(orcid=user.orcid, attempts=2, message=message, legacy_kwarg="abc123")
+        utils.invoke_webhook_handler(
+            orcid=user.orcid, attempts=2, message=message, legacy_kwarg="abc123"
+        )
 
 
 def test_org_webhook_api(client, mocker):
     """Test Organisation webhooks."""
     mocker.patch.object(
-        utils.requests, "post",
+        utils.requests,
+        "post",
         lambda *args, **kwargs: Mock(
             status_code=201,
-            json=lambda: dict(access_token="ABC123", refresh_token="REFRESH_ME", expires_in=123456789)))
+            json=lambda: dict(
+                access_token="ABC123", refresh_token="REFRESH_ME", expires_in=123456789
+            ),
+        ),
+    )
 
     mockput = mocker.patch.object(utils.requests, "put")
     mockdelete = mocker.patch.object(utils.requests, "delete")
@@ -415,7 +455,9 @@ def test_org_webhook_api(client, mocker):
             grant_type="client_credentials",
             client_id=api_client.client_id,
             client_secret=api_client.client_secret,
-            scope="/webhook"))
+            scope="/webhook",
+        ),
+    )
 
     assert resp.status_code == 200
     data = json.loads(resp.data)
@@ -432,21 +474,21 @@ def test_org_webhook_api(client, mocker):
     assert resp.status_code == 415
     assert json.loads(resp.data) == {
         "error": "Invalid call-back URL",
-        "message": "Invalid call-back URL: INCORRECT-WEBHOOK-URL"
+        "message": "Invalid call-back URL: INCORRECT-WEBHOOK-URL",
     }
 
     # Webhook registration response:
-    mockresp = MagicMock(status_code=201, data=b'')
+    mockresp = MagicMock(status_code=201, data=b"")
     mockresp.headers = {
-            "Server": "TEST123",
-            "Connection": "keep-alive",
-            "Pragma": "no-cache",
-            "Expires": "0",
+        "Server": "TEST123",
+        "Connection": "keep-alive",
+        "Pragma": "no-cache",
+        "Expires": "0",
     }
     mockput.return_value = mockresp
 
     # Webhook deletion response:
-    mockresp = MagicMock(status_code=204, data=b'')
+    mockresp = MagicMock(status_code=204, data=b"")
     mockresp.headers = {
         "Seresper": "TEST123",
         "Connection": "keep-alive",
@@ -459,33 +501,40 @@ def test_org_webhook_api(client, mocker):
     resp = client.put("/api/v1/webhook/http%3A%2F%2FCALL-BACK")
     assert resp.status_code == 200
 
-    resp = client.put("/api/v1/webhook/http%3A%2F%2FCALL-BACK",
-                      data=dict(enabled=True, url="https://CALL-BACK.edu/callback"))
+    resp = client.put(
+        "/api/v1/webhook/http%3A%2F%2FCALL-BACK",
+        data=dict(enabled=True, url="https://CALL-BACK.edu/callback"),
+    )
     assert resp.status_code == 201
 
-    mockput.assert_has_calls([
-        call(
-            "https://api.sandbox.orcid.org/1001-0001-0001-0001/webhook/https%3A%2F%2Fdev0.orcidhub.org.nz%2Fservices%2F21%2Fupdated",  # noqa E501
-            headers={
-                "Accept": "application/json",
-                "Authorization": "Bearer ABC123",
-                "Content-Length": "0"
-            }),
-        call(
-            "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/https%3A%2F%2Fdev0.orcidhub.org.nz%2Fservices%2F22%2Fupdated",  # noqa E501
-            headers={
-                "Accept": "application/json",
-                "Authorization": "Bearer ABC123",
-                "Content-Length": "0"
-            }),
-        call(
-            "https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook/https%3A%2F%2Fdev0.orcidhub.org.nz%2Fservices%2F30%2Fupdated",  # noqa E501
-            headers={
-                "Accept": "application/json",
-                "Authorization": "Bearer ABC123",
-                "Content-Length": "0"
-            })
-    ])
+    mockput.assert_has_calls(
+        [
+            call(
+                "https://api.sandbox.orcid.org/1001-0001-0001-0001/webhook/%2Fservices%2F21%2Fupdated",  # noqa E501
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": "Bearer ABC123",
+                    "Content-Length": "0",
+                },
+            ),
+            call(
+                "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/%2Fservices%2F22%2Fupdated",  # noqa E501
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": "Bearer ABC123",
+                    "Content-Length": "0",
+                },
+            ),
+            call(
+                "https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook/%2Fservices%2F30%2Fupdated",  # noqa E501
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": "Bearer ABC123",
+                    "Content-Length": "0",
+                },
+            ),
+        ]
+    )
 
     q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook")
     assert q.exists()
@@ -504,37 +553,44 @@ def test_org_webhook_api(client, mocker):
 
     # activate with all options:
     mockput.reset_mock()
-    resp = client.put("/api/v1/webhook",
-                      data={
-                          "enabled": True,
-                          "append-orcid": True,
-                          "apikey": "APIKEY123",
-                          "email-notifications-enabled": True,
-                          "notification-email": "notify_me@org.edu",
-                      })
-    mockput.assert_has_calls([
-        call(
-            'https://api.sandbox.orcid.org/1001-0001-0001-0001/webhook/https%3A%2F%2Fdev0.orcidhub.org.nz%2Fservices%2F21%2Fupdated',  # noqa E501
-            headers={
-                'Accept': 'application/json',
-                'Authorization': 'Bearer ABC123',
-                'Content-Length': '0'
-            }),
-        call(
-            'https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/https%3A%2F%2Fdev0.orcidhub.org.nz%2Fservices%2F22%2Fupdated',  # noqa E501
-            headers={
-                'Accept': 'application/json',
-                'Authorization': 'Bearer ABC123',
-                'Content-Length': '0'
-            }),
-        call(
-            'https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook/https%3A%2F%2Fdev0.orcidhub.org.nz%2Fservices%2F30%2Fupdated',  # noqa E501
-            headers={
-                'Accept': 'application/json',
-                'Authorization': 'Bearer ABC123',
-                'Content-Length': '0'
-            })
-    ])
+    resp = client.put(
+        "/api/v1/webhook",
+        data={
+            "enabled": True,
+            "append-orcid": True,
+            "apikey": "APIKEY123",
+            "email-notifications-enabled": True,
+            "notification-email": "notify_me@org.edu",
+        },
+    )
+    mockput.assert_has_calls(
+        [
+            call(
+                "https://api.sandbox.orcid.org/1001-0001-0001-0001/webhook/%2Fservices%2F21%2Fupdated",  # noqa E501
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": "Bearer ABC123",
+                    "Content-Length": "0",
+                },
+            ),
+            call(
+                "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/%2Fservices%2F22%2Fupdated",  # noqa E501
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": "Bearer ABC123",
+                    "Content-Length": "0",
+                },
+            ),
+            call(
+                "https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook/%2Fservices%2F30%2Fupdated",  # noqa E501
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": "Bearer ABC123",
+                    "Content-Length": "0",
+                },
+            ),
+        ]
+    )
 
     # Link other org to the users
     org2 = Organisation.select().where(Organisation.id != org.id).first()
@@ -544,18 +600,22 @@ def test_org_webhook_api(client, mocker):
     resp = client.delete(f"/api/v1/webhook")
 
     mockput.reset_mock()
-    resp = client.put("/api/v1/webhook",
-                      data={
-                          "enabled": False,
-                          "url": "https://CALL-BACK.edu/callback",
-                          "append-orcid": False,
-                          "email-notifications-enabled": True,
-                          "notification-email": "notify_me@org.edu",
-                      })
+    resp = client.put(
+        "/api/v1/webhook",
+        data={
+            "enabled": False,
+            "url": "https://CALL-BACK.edu/callback",
+            "append-orcid": False,
+            "email-notifications-enabled": True,
+            "notification-email": "notify_me@org.edu",
+        },
+    )
     mockput.assert_not_called()
 
     # Test update summary:
-    User.update(orcid_updated_at=datetime.date.today().replace(day=1) - datetime.timedelta(days=15)).execute()
+    User.update(
+        orcid_updated_at=datetime.date.today().replace(day=1) - datetime.timedelta(days=15)
+    ).execute()
     send_email.reset_mock()
     utils.send_orcid_update_summary()
     send_email.assert_called_once()

@@ -229,14 +229,14 @@ login_manager.login_view = "index"
 login_manager.login_message_category = "info"
 login_manager.init_app(app)
 
-from .queuing import __redis_available, rq  # noqa: F401
-from . import models  # noqa: F401
-from .apis import *  # noqa: F401,F403
-from .data_apis import *  # noqa: F401,F403
-from .authcontroller import *  # noqa: F401,F403
-from .views import *  # noqa: F401,F403
-from .oauth import *  # noqa: F401,F403
-from .reports import *  # noqa: F401,F403
+from .queuing import __redis_available, rq  # noqa: F401,E402
+from . import models  # noqa: F401,E402
+from .apis import *  # noqa: F401,F403,E402
+from .data_apis import *  # noqa: F401,F403,E402
+from .authcontroller import *  # noqa: F401,F403,E402
+from .views import *  # noqa: F401,F403,E402
+from .oauth import *  # noqa: F401,F403,E402
+from .reports import *  # noqa: F401,F403,E402
 
 
 from .utils import process_records  # noqa: E402
