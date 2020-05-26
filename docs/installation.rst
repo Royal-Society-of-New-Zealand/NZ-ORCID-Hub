@@ -91,8 +91,8 @@ PYTHONPATH, and if you're using them DATABASE_URL and EXTERNAL_SP, e.g.:
 
 .. code-block:: bash
 
-   export FLASK_APP='orcid-hub'
-   export FLASK_ENV='development'
+   export FLASK_APP=orcid_hub
+   export FLASK_ENV=development
    DIR='$( cd '$( dirname '${BASH_SOURCE[0]}' )' && pwd )'
    export PYTHONPATH=$DIR
    export LANG=en_US.UTF-8
@@ -225,6 +225,8 @@ first time:
 
 .. code-block:: bash
 
+   export FLASK_ENV=development
+   export FLASK_APP=orcid_hub
    flask cradmin myadmin@mydomain.net --orcid YOUR-ORCID-ID -O YOUR-ORGANISATION-NAME
    flask run
 

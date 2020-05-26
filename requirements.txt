@@ -1,4 +1,5 @@
 # pip install -U -r requirements.txt
+distro==1.5.0
 oauthlib==2.1.0
 requests
 requests-oauthlib==1.0.0
@@ -15,7 +16,8 @@ pyyaml
 pykwalify
 pybtex
 pybtex-apa-style
-Flask
+Werkzeug==0.16.1  # workaround: https://github.com/noirbizarre/flask-restplus/issues/777
+Flask<=1.2.0
 #flask-admin
 # NB! prefix with a single space for pbr!
 # git+https://github.com/nad2000/flask-admin/#egg=flask_admin
@@ -32,6 +34,7 @@ flask-swagger
 flask-restful
 jsonschema>=2.6.0,<3.0.0
 validators
+email-validator==1.1.1
 croniter==0.3.20
 redis<3.5.0
 rq<0.14.0
@@ -42,5 +45,5 @@ rq-dashboard<0.5.0
 zipstream
 #peewee-validates
 # NB! prefix with a single space for pbr!
-# git+https://github.com/nad2000/peewee-validates/#egg=peewee_validates
-peewee-validates==1.0.8
+ git+https://github.com/Royal-Society-of-New-Zealand/peewee-validates/#egg=peewee_validates
+# peewee-validates==1.0.8
