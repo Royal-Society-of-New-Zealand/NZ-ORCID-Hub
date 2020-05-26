@@ -1068,7 +1068,7 @@ records:
         assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
 
     resp = client.post(
-        f"/api/v1/affiliations/?filename=TEST42.csv",
+        "/api/v1/affiliations/?filename=TEST42.csv",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
         content_type="text/yaml",
         data="""task-type: INCORRECT
@@ -1099,7 +1099,7 @@ something fishy is going here...
 
     # attempt to use ID:0
     resp = client.put(
-        f"/api/v1/tasks/0",
+        "/api/v1/tasks/0",
         headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
         content_type="application/json",
         data="""{"status": "ACTIVE"}""")

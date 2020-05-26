@@ -2642,7 +2642,7 @@ def test_delete_profile_entries(client, mocker):
     client.logout()
     client.login(admin)
     resp = client.post(f"/section/{user.id}/EMP/1212/delete")
-    resp = client.post(f"/section/99999999/EMP/1212/delete")
+    resp = client.post("/section/99999999/EMP/1212/delete")
     assert resp.status_code == 302
     assert resp.location.endswith("/admin/viewmembers/")
 
@@ -2796,7 +2796,7 @@ def test_viewmembers(client):
     assert b"new_email@test0.edu" in resp.data
     assert User.get(non_admin.id).email == "new_email@test0.edu"
 
-    resp = client.get(f"/admin/viewmembers/edit/?id=9999999999")
+    resp = client.get("/admin/viewmembers/edit/?id=9999999999")
     assert resp.status_code == 404
 
     user2 = User.get(email="researcher100@test1.edu")
@@ -3207,7 +3207,7 @@ def test_issue_470198698(request_ctx):
         resp = ctx.app.full_dispatch_request()
     assert resp.status_code == 302
 
-    with request_ctx(f"/admin/affiliationrecord/?task_id=99999999") as ctx:
+    with request_ctx("/admin/affiliationrecord/?task_id=99999999") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
     assert resp.status_code == 404
@@ -4179,7 +4179,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     assert record.invitees.first().email == "test_new@test.test.test.org"
 
     resp = client.post(
-        f"/admin/workinvitee/delete/", data={"id": record.invitees.first().id, "url": url}
+        "/admin/workinvitee/delete/", data={"id": record.invitees.first().id, "url": url}
     )
     assert record.invitees.count() == 0
 
@@ -4201,7 +4201,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     assert record.contributors.first().email == "test_new@test.test.test.org"
 
     resp = client.post(
-        f"/admin/workcontributor/delete/", data={"id": record.contributors.first().id, "url": url}
+        "/admin/workcontributor/delete/", data={"id": record.contributors.first().id, "url": url}
     )
     assert record.contributors.count() == 0
 
@@ -4222,7 +4222,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     assert record.external_ids.first().value == "EXTERNAL ID VALUE 123"
 
     resp = client.post(
-        f"/admin/workexternalid/delete/", data={"id": record.external_ids.first().id, "url": url}
+        "/admin/workexternalid/delete/", data={"id": record.external_ids.first().id, "url": url}
     )
     assert record.external_ids.count() == 0
     resp = client.post(

@@ -547,7 +547,7 @@ def test_org_webhook_api(client, mocker):
 
     # deactivate:
 
-    resp = client.delete(f"/api/v1/webhook/http%3A%2F%2FCALL-BACK")
+    resp = client.delete("/api/v1/webhook/http%3A%2F%2FCALL-BACK")
     assert resp.status_code == 200
     assert "job-id" in resp.json
 
@@ -597,7 +597,7 @@ def test_org_webhook_api(client, mocker):
     UserOrg.insert_many([dict(user_id=u.id, org_id=org2.id) for u in org.users]).execute()
     org2.webhook_enabled = True
     org2.save()
-    resp = client.delete(f"/api/v1/webhook")
+    resp = client.delete("/api/v1/webhook")
 
     mockput.reset_mock()
     resp = client.put(

@@ -573,7 +573,7 @@ def get_profile(self=None, org=None, user=None):
                     }
                 ],
                 "path":
-                    f"//employments"
+                    "//employments"
             },
             "invited-positions": {
                 "last-modified-date": None,

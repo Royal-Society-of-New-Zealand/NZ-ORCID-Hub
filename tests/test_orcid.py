@@ -376,12 +376,12 @@ def test_link_orcid_auth_callback_with_affiliation(name, mocker, client):
     assert OrcidToken.select().where(OrcidToken.user == test_user, OrcidToken.org == org).count() == 1
 
     get_person = mocker.patch("requests_oauthlib.OAuth2Session.get", return_value=Mock(status_code=200))
-    resp = client.get(f"/profile", follow_redirects=True)
+    resp = client.get("/profile", follow_redirects=True)
     assert b"can create and update research activities" in resp.data
     get_person.assert_called_once()
 
     get_person = mocker.patch("requests_oauthlib.OAuth2Session.get", return_value=Mock(status_code=401))
-    resp = client.get(f"/profile", follow_redirects=True)
+    resp = client.get("/profile", follow_redirects=True)
     assert b"you'll be taken to ORCID to create or sign into your ORCID record" in resp.data
     get_person.assert_called_once()
 
