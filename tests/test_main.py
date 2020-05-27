@@ -763,7 +763,7 @@ def test_orcid_login_callback_admin_flow(mocker, client):
     assert resp.status_code == 302
     assert urlparse(resp.location).path == "/"
 
-    resp = client.get(f"/auth/?state=xyz&login=1")
+    resp = client.get("/auth/?state=xyz&login=1")
     assert resp.status_code == 302
     assert urlparse(resp.location).path == "/"
 

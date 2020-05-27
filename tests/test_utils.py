@@ -21,7 +21,7 @@ from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContri
                               PropertyRecord, PartialDate, Role, Task, TaskType, User, UserInvitation, UserOrg,
                               WorkContributor, WorkExternalId, WorkInvitee, WorkRecord)
 
-from tests.utils import get_profile
+from utils import get_profile
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -77,7 +77,7 @@ def test_process_records(app):
 
 def send_mail_mock(*argvs, **kwargs):
     """Mock email invitation."""
-    logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
+    logger.info("***\nActually email invitation was mocked, so no email sent!!!!!")
     return True
 
 
@@ -432,7 +432,7 @@ def test_create_or_update_funding(app, mocker):
     mocker.patch(
         "orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_fundingv3", create_or_update_fund_mock)
     org = app.data["org"]
-    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org))
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org=org))
 
     u = User.create(
         email="test1234456@mailinator.com",
@@ -502,7 +502,7 @@ def test_create_or_update_work(app, mocker):
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_workv3", create_or_update_fund_mock)
     org = app.data["org"]
-    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org))
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org=org))
 
     u = User.create(
         email="test1234456@mailinator.com",
@@ -571,7 +571,7 @@ def test_create_or_update_peer_review(app, mocker):
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api_v3.api.DevelopmentMemberAPIV30Api.create_peer_reviewv3", create_or_update_fund_mock)
     org = app.data["org"]
-    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org))
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV3.get_record", return_value=get_profile(org=org))
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",

@@ -6,17 +6,21 @@ from time import sleep, time
 
 from flask import abort
 from flask_login import current_user
+from flask_rq2 import RQ
 
 from . import app, models
 
 REDIS_URL = app.config["REDIS_URL"] = app.config.get("RQ_REDIS_URL")
 __redis_available = bool(REDIS_URL)
+# or (app.config.get("RQ_CONNECTION_CLASS") != "fakeredis.FakeStrictRedis") or not (app.config.get("RQ_ASYNC"))
 
 if __redis_available:
     try:
-        from flask_rq2 import RQ
         import rq_dashboard
         from rq import Queue as _Queue
+        import redis
+        with redis.Redis.from_url(REDIS_URL, socket_connect_timeout=1) as r:
+            r.ping()
 
         class ThrottledQueue(_Queue):
             """Queue with throttled deque."""
@@ -42,32 +46,22 @@ if __redis_available:
                     sleep(1.0 - (cls._allowance / cls.rate))
                     cls._allowance = cls.rate
                 return _Queue.dequeue_any(*args, **kwargs)
+
+        # app.config.from_object(rq_dashboard.default_settings)
     except:
         __redis_available = False
 
 if not __redis_available:
-    from functools import wraps
+    app.config.RQ_CONNECTION_CLASS = app.config["RQ_CONNECTION_CLASS"] = "fakeredis.FakeStrictRedis"
+    app.config.RQ_ASYNC = app.config["RQ_ASYNC"] = False
 
-    class RQ:  # noqa: F811
-        """Fake RQ."""
+    if "RQ_QUEUE_CLASS" in app.config:
+        del(app.config["RQ_QUEUE_CLASS"])
+    if "REDIS_URL" in app.config:
+        del(app.config["REDIS_URL"])
+    if "RQ_REDIS_URL" in app.config:
+        del(app.config["RQ_REDIS_URL"])
 
-        def __init__(self, *args, **kwargs):
-            """Create a fake wrapper."""
-            pass
-
-        def job(self, *args, **kwargs):  # noqa: D202
-            """Docorate a function to emulate queueing into a queue."""
-
-            def wrapper(fn):
-                @wraps(fn)
-                def decorated_view(*args, **kwargs):
-                    return fn(*args, **kwargs)
-
-                return decorated_view
-
-            return wrapper
-
-# app.config.from_object(rq_dashboard.default_settings)
 rq = RQ(app)
 
 
@@ -82,5 +76,3 @@ if __redis_available:
 
     app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
     logging.getLogger("rq.worker").addHandler(logging.StreamHandler())
-else:
-    app.config["REDIS_URL"] = None

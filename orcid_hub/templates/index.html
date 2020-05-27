@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% block content %}
+{% cache 36000, "index" %}
   <div class="container">
     <h2 class="display-2"><img class="orcidHub-id-logo" src="{{url_for('static', filename='images/logo.png')}}"
                                width="48" height="48" alt="ORCID Hub logo" />&nbsp;Welcome to the NZ&nbsp;ORCID&nbsp;Hub</h2>
@@ -65,4 +66,5 @@
     </div>
   </div>
 
+{% endcache %}
 {% endblock %}

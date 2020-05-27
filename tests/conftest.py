@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 from flask_login import logout_user
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-# sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
 os.environ["DATABASE_URL"] = DATABASE_URL
@@ -19,6 +19,7 @@ os.environ["DATABASE_URL"] = DATABASE_URL
 from orcid_hub import config
 config.DATABASE_URL = DATABASE_URL
 config.RQ_CONNECTION_CLASS = "fakeredis.FakeStrictRedis"
+config.RQ_ASYNC = False
 
 # Patch it before is gets patched by 'orcid_client'
 # import orcid_api
@@ -79,6 +80,8 @@ class HubClient(FlaskClient):
     """Extension of the default Flask test client."""
 
     resp_no = 0
+    access_token = None
+
     def login(self, user, affiliations=None, follow_redirects=False, **kwargs):
         """Log in with the given user."""
         org = user.organisation or user.organisations.first()
@@ -107,6 +110,21 @@ class HubClient(FlaskClient):
 
     def open(self, *args, **kwargs):
         """Save the last response."""
+        # pre-encode API calls insead of making it to a form submission
+        # See: https://stackoverflow.com/questions/41653058/flask-testing-a-put-request-with-custom-headers
+        if "data" in kwargs and isinstance(args[0], str) and "/api/" in args[0] and isinstance(
+                kwargs["data"], dict):
+            kwargs["data"] = json.dumps(kwargs["data"])
+            headers = kwargs.get("headers", dict())
+            if "content-type" not in headers and "Content-Type" not in headers:
+                headers["content-type"] = "application/json"
+                kwargs["headers"] = headers
+        # add bearer access token if it's not in the headers
+        if self.access_token and isinstance(args[0], str) and "/api/" in args[0]:
+            headers = kwargs.get("headers", dict())
+            if "authorization" not in headers and "authorization" not in headers:
+                headers["authorization"] = f"Bearer {self.access_token}"
+                kwargs["headers"] = headers
         self.resp = super().open(*args, **kwargs)
         if hasattr(self.resp, "data"):
             self.save_resp()
@@ -365,6 +383,7 @@ def app(testdb):
     _app.config["DEBUG_TB_ENABLED"] = False
     _app.config["LOAD_TEST"] = True
     _app.config["RQ_CONNECTION_CLASS"] = "fakeredis.FakeStrictRedis"
+    _app.config["RQ_ASYNC"] = False
     _app.extensions["rq2"].init_app(_app)
 
     logger = logging.getLogger("peewee")

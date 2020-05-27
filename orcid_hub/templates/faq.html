@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% block content %}
+{% cache 36000, "faq" %}
   <div class="container">
     <h2 class="display-2">Frequently Asked Questions</h2>
     <p>If you have questions that are not covered in this FAQ please contact us at orcid@royalsociety.org.nz</p>
@@ -162,4 +163,5 @@
       </div>
     </div>
   </div>
+{% endcache %}
 {% endblock %}
