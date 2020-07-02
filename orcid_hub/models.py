@@ -4284,8 +4284,8 @@ class OtherIdRecord(ExternalIdModel):
                     value = val(row, 2)
                     url = val(row, 3)
                     relationship = val(row, 4)
-                    if val(row, 4):
-                        relationship = val(row, 4).replace("_", "-").lower()
+                    if relationship:
+                        relationship = relationship.replace("_", "-").lower()
                     first_name = val(row, 6)
                     last_name = val(row, 7)
                     is_active = val(row, 11, "").lower() in ["y", "yes", "1", "true"]
