@@ -4283,7 +4283,9 @@ class OtherIdRecord(ExternalIdModel):
                     rec_type = val(row, 1, "").lower()
                     value = val(row, 2)
                     url = val(row, 3)
-                    relationship = val(row, 4, "").replace("_", "-").lower()
+                    relationship = val(row, 4)
+                    if relationship:
+                        relationship = relationship.replace("_", "-").lower()
                     first_name = val(row, 6)
                     last_name = val(row, 7)
                     is_active = val(row, 11, "").lower() in ["y", "yes", "1", "true"]
@@ -4299,12 +4301,6 @@ class OtherIdRecord(ExternalIdModel):
                     if not value:
                         raise ModelException(
                             f"Missing External Id Value: {value}, #{row_no+2}: {row}."
-                        )
-
-                    if not (url and relationship):
-                        raise ModelException(
-                            f"Missing External Id Url: {url} or External Id Relationship: {relationship} #{row_no+2}: "
-                            f"{row}."
                         )
 
                     visibility = val(row, 10)

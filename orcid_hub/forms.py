@@ -346,8 +346,8 @@ class ExternalIdentifierForm(CommonFieldsForm):
     type = SelectField(choices=EMPTY_CHOICES + models.external_id_type_choices, validators=[validators.required()],
                        description="External Identifier Type")
     value = StringField("External Identifier Value", [validators.required()])
-    url = StringField("External Identifier Url", [validators.required()])
-    relationship = SelectField(choices=models.relationship_choices, default="SELF",
+    url = StringField("External Identifier Url")
+    relationship = SelectField(choices=models.relationship_choices, default="self",
                                description="External Id Relationship")
 
 
