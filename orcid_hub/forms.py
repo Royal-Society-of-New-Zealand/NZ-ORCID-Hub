@@ -209,6 +209,12 @@ class BitmapMultipleValueField(SelectMultipleField):
 class AppForm(FlaskForm):
     """Application Flask-WTForm extension."""
 
+    def append_validator(self, field, validator):
+        """Apend a validator to field validators."""
+        validators = list(field.validators)
+        validators.append(validator)
+        field.validators = validators
+
     @models.lazy_property
     def enctype(self):
         """Return form's encoding type based on the fields.
@@ -397,9 +403,7 @@ class FileUploadForm(AppForm):
         """Customize the form."""
         super().__init__(*args, **kwargs)
         if not optional:
-            validators = list(self.file_.validators)
-            validators.append(FileRequired())
-            self.file_.validators = validators
+            self.append_validator(self.file_, FileRequired())
             self.file_.flags.required = True
         if extensions is None:
             extensions = ["csv", "tsv"]
@@ -408,7 +412,8 @@ class FileUploadForm(AppForm):
             "accept": accept_attr,
         }
         extensions_ = [e.upper() for e in extensions]
-        self.file_.validators.append(
+        self.append_validator(
+            self.file_,
             FileAllowed(
                 extensions, " or ".join(
                     (", ".join(extensions_[:-1]), extensions_[-1])) + " file(-s) only"))

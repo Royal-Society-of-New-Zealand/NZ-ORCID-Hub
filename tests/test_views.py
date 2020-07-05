@@ -330,11 +330,11 @@ def test_pyinfo(client, mocker):
     resp = client.get("/pyinfo")
     assert b"PYINFO_TEST_42" in resp.data
     assert b"Life, the Universe and Everything" in resp.data
-    capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+    # capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     with pytest.raises(Exception) as exinfo:
         resp = client.get("/pyinfo/expected an exception")
     assert str(exinfo.value) == "expected an exception"
-    capture_event.assert_called()
+    # capture_event.assert_called()
 
 
 def test_access(client):
@@ -3395,7 +3395,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
 
 def test_load_funding_csv(client, mocker):
     """Test preload organisation data."""
-    capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+    # capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     user = client.data["admin"]
     client.login(user, follow_redirects=True)
     resp = client.post(
@@ -3774,7 +3774,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
         },
     )
     assert Task.get(task.id).records.count() == record_count + 1
-    capture_event.assert_called()
+    # capture_event.assert_called()
     resp = client.post(
         "/load/researcher/funding",
         data={
