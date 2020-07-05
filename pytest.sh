@@ -16,6 +16,7 @@ export RQ_REDIS_URL
 export LOAD_TEST=1
 export RQ_ASYNC=0
 export RQ_CONNECTION_CLASS=fakeredis.FakeStrictRedis
+export SENTRY_DSN=
 
 [[ $@ ==  *tests* || $@ == *test*.py* ]] || dest=tests
 pytest --ignore=venv --ignore=orcid_api -v --cov-config .coveragerc  --cov . $dest $@
