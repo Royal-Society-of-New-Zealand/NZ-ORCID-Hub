@@ -397,7 +397,9 @@ class FileUploadForm(AppForm):
         """Customize the form."""
         super().__init__(*args, **kwargs)
         if not optional:
-            self.file_.validators.append(FileRequired())
+            validators = list(self.file_.validators)
+            validators.append(FileRequired())
+            self.file_.validators = validators
             self.file_.flags.required = True
         if extensions is None:
             extensions = ["csv", "tsv"]
