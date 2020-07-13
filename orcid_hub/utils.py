@@ -195,6 +195,10 @@ def send_email(template,
         msg.cc.append(cc_email)
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
+    # Unsubscribe link:
+    token = new_invitation_token(length=10)
+    unsubscribe_url = url_for("unsubscribe", token=token, _external=True)
+    msg.set_headers({"List-Unsubscribe": f"<{unsubscribe_url}>"})
     resp = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
     MailLog.create(
             org=org,
@@ -202,7 +206,8 @@ def send_email(template,
             sender=sender[1],
             subject=subject,
             was_sent_successfully=resp.success,
-            error=resp.error)
+            error=resp.error,
+            token=token)
     if not resp.success:
         raise Exception(f"Failed to email the message: {resp.error}. Please contact a Hub administrator!")
 
@@ -212,7 +217,8 @@ def new_invitation_token(length=5):
     while True:
         token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
         if not (UserInvitation.select().where(UserInvitation.token == token).exists() or
-                OrgInvitation.select().where(OrgInvitation.token == token).exists()):
+                OrgInvitation.select().where(OrgInvitation.token == token).exists() or
+                MailLog.select().where(MailLog.token == token).exists()):
             break
     return token
 

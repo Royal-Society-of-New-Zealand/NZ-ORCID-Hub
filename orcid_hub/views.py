@@ -113,6 +113,13 @@ def internal_error(error):
         return render_template("500.html", trace=trace, error_message=str(error))
 
 
+@app.route("/unsubscribe/<token>")
+def unsubscribe(token):
+    """Show unsubscribe page."""
+    flash("If you wish to unsubscribe from all notifications, please contact the Hub admin", "info")
+    return redirect(url_for("index"))
+
+
 @app.route("/favicon.ico")
 def favicon():
     """Support for the "favicon" legacy: favicon location in the root directory."""

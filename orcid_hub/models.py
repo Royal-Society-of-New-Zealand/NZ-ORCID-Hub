@@ -5159,6 +5159,7 @@ class MailLog(BaseModel):
     subject = CharField()
     was_sent_successfully = BooleanField(null=True)
     error = TextField(null=True)
+    token = CharField(max_length=10)
 
 
 DeferredForeignKey.resolve(User)
