@@ -396,6 +396,7 @@ class FileUploadForm(AppForm):
     def __init__(self, *args, optional=None, extensions=None, **kwargs):
         """Customize the form."""
         super().__init__(*args, **kwargs)
+        self.file_.validators = list(self.file_.validators)
         if not optional:
             self.file_.validators.append(FileRequired())
             self.file_.flags.required = True

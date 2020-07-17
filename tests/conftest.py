@@ -20,6 +20,7 @@ from orcid_hub import config
 config.DATABASE_URL = DATABASE_URL
 config.RQ_CONNECTION_CLASS = "fakeredis.FakeStrictRedis"
 config.RQ_ASYNC = False
+config.DEBUG_TB_ENABLED = False
 
 # Patch it before is gets patched by 'orcid_client'
 # import orcid_api
@@ -174,6 +175,7 @@ class HubClient(FlaskClient):
 @pytest.fixture(autouse=True)
 def no_mailing(mocker):
     """Mock HTML message for all tests."""
+    app.config["DEBUG_TB_ENABLED"] = False
     # yield mocker.patch("emails.html")
     yield mocker.patch("emails.backend.smtp.backend.SMTPBackend.get_client")
 
@@ -181,6 +183,7 @@ def no_mailing(mocker):
 @pytest.fixture(autouse=True)
 def no_sentry(mocker):
     """Subpress sentry."""
+    app.config["DEBUG_TB_ENABLED"] = False
     yield mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
 
 
@@ -399,6 +402,7 @@ def app(testdb):
 @pytest.fixture
 def client(app):
     """A Flask test client. An instance of :class:`flask.testing.TestClient` by default."""
+    app.config["DEBUG_TB_ENABLED"] = False
     with app.test_client() as client:
         client.data = app.data
         client.db = app.db
