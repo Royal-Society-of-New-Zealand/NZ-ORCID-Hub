@@ -11,7 +11,7 @@ export ENV=test
 ##   flask process
 export DATABASE_URL="sqlite:///:memory:"
 export EXTERNAL_SP=''
-# [ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://redis:6379/0
+[ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://redis:6379/0
 export RQ_REDIS_URL
 export LOAD_TEST=1
 export RQ_ASYNC=0
