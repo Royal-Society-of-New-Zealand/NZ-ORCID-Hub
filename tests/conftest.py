@@ -175,7 +175,6 @@ class HubClient(FlaskClient):
 @pytest.fixture(autouse=True)
 def no_mailing(mocker):
     """Mock HTML message for all tests."""
-    app.config["DEBUG_TB_ENABLED"] = False
     # yield mocker.patch("emails.html")
     yield mocker.patch("emails.backend.smtp.backend.SMTPBackend.get_client")
 
@@ -183,7 +182,6 @@ def no_mailing(mocker):
 @pytest.fixture(autouse=True)
 def no_sentry(mocker):
     """Subpress sentry."""
-    app.config["DEBUG_TB_ENABLED"] = False
     yield mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
 
 
