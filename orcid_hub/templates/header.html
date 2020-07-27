@@ -173,6 +173,19 @@
                   <li class="divider"></li>
                   <li id="orcidapicall.index_view"><a data-toggle="tooltip" title="The ORCID API Calls." href="{{ url_for('orcidapicall.index_view')}}">ORCID API Calls</a></li>
                   <li id="maillog.index_view"><a data-toggle="tooltip" title="The log of the emails sent from the Hub." href="{{ url_for('maillog.index_view')}}">Mail Log</a></li>
+
+                  <li class="divider"></li>
+                  <li class="dropdown-submenu">
+                    <a class="dropdown-toggle"
+                                    data-toggle="tooltip"
+                                    title="ORCID Hub API stuff"
+                                    tabindex="-1" href="#">ORCID Hub API<!-- span class="caret"></span --></a>
+                      <ul class="dropdown-menu">
+                        <li id="client.index_view"><a data-toggle="tooltip" title="ORCID Hub API clients." href="{{ url_for('client.index_view')}}">Clients</a></li>
+                        <li id="grant.index_view"><a data-toggle="tooltip" title="ORCID Hub API grants." href="{{ url_for('grant.index_view')}}">Grants</a></li>
+                        <li id="token.index_view"><a data-toggle="tooltip" title="ORCID Hub API tokens." href="{{ url_for('token.index_view')}}">Tokens</a></li>
+                    </ul>
+                  </li>
                   {% if has_audit_logs() %}
                   <li class="divider"></li>
                   <li class="dropdown-submenu">
