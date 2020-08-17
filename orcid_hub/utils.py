@@ -2322,7 +2322,7 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
     call.response = resp.text
     call.status = resp.status_code
-    call.response_time_ms = (datetime.utcnow() - call.called_at).microseconds
+    call.set_response_time()
     call.save()
 
     if local_handler:

@@ -3406,7 +3406,7 @@ def orcid_proxy(version, orcid, rest=None):
     resp = session.send(proxy_req, stream=True)
 
     call.status = resp.status_code
-    call.response_time_ms = (datetime.utcnow() - call.called_at).microseconds
+    call.set_response_time()
     call.response = ""
 
     def generate():
@@ -3461,7 +3461,7 @@ def exeute_orcid_call_async(method, url, data, headers):
 
     call.response = resp.text
     call.status = resp.status_code
-    call.response_time_ms = (datetime.utcnow() - call.called_at).microseconds
+    call.set_response_time()
     call.save()
 
     ar.status_code = resp.status_code

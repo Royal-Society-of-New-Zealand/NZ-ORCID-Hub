@@ -1324,6 +1324,10 @@ class OrcidApiCall(BaseModel):
     response_time_ms = IntegerField(null=True)
     status = IntegerField(null=True)
 
+    def set_response_time(self):
+        """Calculate and set the response time assuming the call finished right now."""
+        self.response_time_ms = round((datetime.utcnow() - self.called_at).microseconds / 1000)
+
     class Meta:  # noqa: D101,D106
         table_alias = "oac"
 
