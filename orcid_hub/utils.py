@@ -2422,8 +2422,9 @@ def enable_org_webhook(org):
     """Enable Organisation Webhook."""
     org.webhook_enabled = True
     org.save()
-    for u in org.users.where(User.webhook_enabled.NOT(), User.orcid.is_null(False)):
-        register_orcid_webhook.queue(u)
+    for u in org.users.where(User.webhook_enabled.NOT(), User.orcid.is_null(False) | (User.orcid != '')):
+        if u.orcid.strip():
+            register_orcid_webhook.queue(u)
 
 
 @rq.job(timeout=300)
@@ -2431,8 +2432,9 @@ def disable_org_webhook(org):
     """Disable Organisation Webhook."""
     org.webhook_enabled = False
     org.save()
-    for u in org.users.where(User.webhook_enabled, User.orcid.is_null(False)):
-        register_orcid_webhook.queue(u, delete=True)
+    for u in org.users.where(User.webhook_enabled, User.orcid.is_null(False) | (User.orcid != '')):
+        if u.orcid.strip():
+            register_orcid_webhook.queue(u, delete=True)
 
 
 def process_records(n):
