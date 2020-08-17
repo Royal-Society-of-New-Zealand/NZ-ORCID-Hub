@@ -2325,11 +2325,11 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     call.response_time_ms = (datetime.utcnow() - call.called_at).microseconds
     call.save()
 
-    if resp.status_code not in [201, 204]:
-        raise ApiException(f"Failed to register or delete webhook {callback_url}: {resp.text}")
     if local_handler:
         user.webhook_enabled = (resp.status_code in [201, 204]) and not delete
     user.save()
+    if resp.status_code not in [201, 204]:
+        raise ApiException(f"Failed to register or delete webhook {callback_url}: {resp.text}")
     return resp
 
 
