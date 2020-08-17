@@ -27,7 +27,7 @@ from yaml.representer import SafeRepresenter
 
 from . import app, db, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
-                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee,
+                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee, OrcidApiCall,
                      OtherIdRecord, OrcidToken, Organisation, OrgInvitation, PartialDate,
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, PropertyRecord,
                      RecordInvitee, ResourceRecord, Role, Task, TaskType, User, UserInvitation,
@@ -2318,7 +2318,13 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Authorization": f"Bearer {token.access_token}",
         "Content-Length": "0"
     }
+    call = OrcidApiCall(method="DELETE" if delete else "PUT", url=url, query_params=headers)
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
+    call.response = resp.text
+    call.status = resp.status_code
+    call.response_time_ms = (datetime.utcnow() - call.called_at).microseconds
+    call.save()
+
     if resp.status_code not in [201, 204]:
         raise ApiException(f"Failed to register or delete webhook {callback_url}: {resp.text}")
     if local_handler:

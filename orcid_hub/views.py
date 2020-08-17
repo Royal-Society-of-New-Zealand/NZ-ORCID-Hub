@@ -580,8 +580,8 @@ class OrcidApiCallAmin(AppModelView):
     """ORCID API calls."""
 
     column_list = [
-        "method", "url", "query_params", "body", "status", "put_code", "response",
-        "response_time_ms"
+        "method", "called_at", "url", "query_params", "body", "status", "put_code",
+        "response", "response_time_ms"
     ]
     column_default_sort = ("id", True)
     can_export = True
