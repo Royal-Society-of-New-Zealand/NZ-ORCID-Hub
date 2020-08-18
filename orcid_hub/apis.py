@@ -3404,10 +3404,11 @@ def orcid_proxy(version, orcid, rest=None):
     session = requests.Session()
     # TODO: add time-out
     call = OrcidApiCall(method=request.method, url=url, query_params=headers)
+
     resp = session.send(proxy_req, stream=True)
 
     call.status = resp.status_code
-    call.user = current_user
+    call.user_id = current_user.id
     call.set_response_time()
     call.response = ""
 
