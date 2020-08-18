@@ -3391,6 +3391,7 @@ def orcid_proxy(version, orcid, rest=None):
                                             url,
                                             data=request.data,
                                             headers=headers,
+                                            user_id=current_user.id,
                                             job_id=str(job_id))
         resp_url = url_for("orcid_proxy_response", job_id=str(job.id))
         resp = jsonify({"job-id": str(job.id), "response-url": resp_url})
@@ -3406,6 +3407,7 @@ def orcid_proxy(version, orcid, rest=None):
     resp = session.send(proxy_req, stream=True)
 
     call.status = resp.status_code
+    call.user = current_user
     call.set_response_time()
     call.response = ""
 
@@ -3449,7 +3451,7 @@ def orcid_proxy_response(job_id):
 
 
 @rq.job(timeout=300)
-def exeute_orcid_call_async(method, url, data, headers):
+def exeute_orcid_call_async(method, url, data, headers, user_id):
     """Execute asynchrouniously ORCID API request."""
     job = get_current_job()
     ar = AsyncOrcidResponse.get(job_id=job.id)
@@ -3460,6 +3462,7 @@ def exeute_orcid_call_async(method, url, data, headers):
     resp = session.send(proxy_req)
 
     call.response = resp.text
+    call.user_id = user_id
     call.status = resp.status_code
     call.set_response_time()
     call.save()
