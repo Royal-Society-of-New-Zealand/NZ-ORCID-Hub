@@ -8,7 +8,8 @@ cat >>$PGDATA/postgresql.conf <<EOF
 wal_level = logical  # Adds information necessary to support logical decoding
 wal_compression = on  # Compresses full-page writes written in WAL file.
 archive_mode = on  # Allows archiving of WAL files using archive_command.
-archive_command = 'test -f /archive/%f.bz2 || (bzip2 -c %p >/backup/%f.bz2 && mv /backup/%f.bz2 /archive/)'
+# archive_command = 'test -f /archive/%f.bz2 || (bzip2 -9 -c %p >/backup/%f.bz2 && mv /backup/%f.bz2 /archive/)'
+archive_command = 'test -f /archive/%f.xz || (xz -c %p >/backup/%f.xz && mv /backup/%f.xz /archive/)'
 archive_timeout = 3600
 max_wal_senders = 5  # Sets the maximum number of simultaneously running WAL sender processes.
 
@@ -22,7 +23,8 @@ sed -i 's/#ssl = off/ssl = on/' $PGDATA/postgresql.conf
 cat >>$PGDATA/_recovery.conf <<EOF
 # rename this file to recovery.conf and change master DB server IP address:
 standby_mode = 'on'
-restore_command = 'test -f /archive/%f.bz2 && bzip2 -c -d /archive/%f.bz2 >%p'
+# restore_command = 'test -f /archive/%f.bz2 && bzip2 -c -d /archive/%f.bz2 >%p'
+restore_command = 'test -f /archive/%f.xz && xz -c -d /archive/%f.xz >%p'
 primary_conninfo = 'host=MASTER_SERVER_IP port=5432 user=postgres'
 trigger_file = '$PGDATA/pg_failover_trigger.00'
 EOF
