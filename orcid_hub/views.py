@@ -6,10 +6,13 @@ import json
 import math
 import mimetypes
 import os
+import peewee
 import secrets
+import shutil
 import traceback
 from datetime import datetime
 from io import BytesIO
+
 
 import requests
 import tablib
@@ -138,11 +141,15 @@ def status():
     only form the application monitoring servers.
     """
     try:
-        now = db.execute_sql("SELECT now();").fetchone()[0]
+        now = db.execute_sql(
+                "SELECT current_timestamp" if isinstance(db, peewee.SqliteDatabase) else "SELECT now()").fetchone()[0]
+        total, used, free = shutil.disk_usage(__file__)
+        free = round(free * 100 / total)
         return jsonify({
             "status": "Connection successful.",
-            "db-timestamp": now.isoformat(),
-        })
+            "db-timestamp": now if isinstance(now, str) else now.isoformat(),
+            "free-storage-percent": free
+        }), 200 if free > 10 else 418
     except Exception as ex:
         return jsonify({
             "status": "Error",
