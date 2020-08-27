@@ -27,7 +27,7 @@ from yaml.representer import SafeRepresenter
 
 from . import app, db, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
-                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee,
+                     FundingRecord, Log, MailLog, MessageRecord, NestedDict, Invitee, OrcidApiCall,
                      OtherIdRecord, OrcidToken, Organisation, OrgInvitation, PartialDate,
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, PropertyRecord,
                      RecordInvitee, ResourceRecord, Role, Task, TaskType, User, UserInvitation,
@@ -195,6 +195,10 @@ def send_email(template,
         msg.cc.append(cc_email)
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
+    # Unsubscribe link:
+    token = new_invitation_token(length=10)
+    unsubscribe_url = url_for("unsubscribe", token=token, _external=True)
+    msg.set_headers({"List-Unsubscribe": f"<{unsubscribe_url}>"})
     resp = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
     MailLog.create(
             org=org,
@@ -202,7 +206,8 @@ def send_email(template,
             sender=sender[1],
             subject=subject,
             was_sent_successfully=resp.success,
-            error=resp.error)
+            error=resp.error,
+            token=token)
     if not resp.success:
         raise Exception(f"Failed to email the message: {resp.error}. Please contact a Hub administrator!")
 
@@ -212,7 +217,8 @@ def new_invitation_token(length=5):
     while True:
         token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
         if not (UserInvitation.select().where(UserInvitation.token == token).exists() or
-                OrgInvitation.select().where(OrgInvitation.token == token).exists()):
+                OrgInvitation.select().where(OrgInvitation.token == token).exists() or
+                MailLog.select().where(MailLog.token == token).exists()):
             break
     return token
 
@@ -2312,12 +2318,18 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Authorization": f"Bearer {token.access_token}",
         "Content-Length": "0"
     }
+    call = OrcidApiCall(method="DELETE" if delete else "PUT", url=url, query_params=headers)
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
-    if resp.status_code not in [201, 204]:
-        raise ApiException(f"Failed to register or delete webhook {callback_url}: {resp.text}")
+    call.response = resp.text
+    call.status = resp.status_code
+    call.set_response_time()
+    call.save()
+
     if local_handler:
         user.webhook_enabled = (resp.status_code in [201, 204]) and not delete
     user.save()
+    if resp.status_code not in [201, 204]:
+        raise ApiException(f"Failed to register or delete webhook {callback_url}: {resp.text}")
     return resp
 
 
@@ -2410,8 +2422,9 @@ def enable_org_webhook(org):
     """Enable Organisation Webhook."""
     org.webhook_enabled = True
     org.save()
-    for u in org.users.where(User.webhook_enabled.NOT(), User.orcid.is_null(False)):
-        register_orcid_webhook.queue(u)
+    for u in org.users.where(User.webhook_enabled.NOT(), User.orcid.is_null(False) | (User.orcid != '')):
+        if u.orcid.strip():
+            register_orcid_webhook.queue(u)
 
 
 @rq.job(timeout=300)
@@ -2419,8 +2432,9 @@ def disable_org_webhook(org):
     """Disable Organisation Webhook."""
     org.webhook_enabled = False
     org.save()
-    for u in org.users.where(User.webhook_enabled, User.orcid.is_null(False)):
-        register_orcid_webhook.queue(u, delete=True)
+    for u in org.users.where(User.webhook_enabled, User.orcid.is_null(False) | (User.orcid != '')):
+        if u.orcid.strip():
+            register_orcid_webhook.queue(u, delete=True)
 
 
 def process_records(n):

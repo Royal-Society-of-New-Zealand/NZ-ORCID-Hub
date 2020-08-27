@@ -7,11 +7,12 @@ COPY dev_requirements.txt /dev_requirements.txt
 COPY requirements.txt /requirements.txt
 COPY run-app /usr/local/bin/
 
+#    && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
 RUN yum -y update \
-    && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
+    && yum -y install install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm \
     && yum -y install \
             gcc.x86_64 \
-            postgresql96 \
+            postgresql11-server \
             python36u-devel.x86_64 \
             python36u-pip \
             git \

@@ -20,6 +20,7 @@ from orcid_hub import config
 config.DATABASE_URL = DATABASE_URL
 config.RQ_CONNECTION_CLASS = "fakeredis.FakeStrictRedis"
 config.RQ_ASYNC = False
+config.DEBUG_TB_ENABLED = False
 
 # Patch it before is gets patched by 'orcid_client'
 # import orcid_api
@@ -399,6 +400,7 @@ def app(testdb):
 @pytest.fixture
 def client(app):
     """A Flask test client. An instance of :class:`flask.testing.TestClient` by default."""
+    app.config["DEBUG_TB_ENABLED"] = False
     with app.test_client() as client:
         client.data = app.data
         client.db = app.db

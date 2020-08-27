@@ -16,7 +16,7 @@ pep8-naming>=0.4.1
 pydocs>=0.2
 pydocstyle>=2.0.0,<4.0.0
 Pygments>=2.2.0
-pytest<3.7.0
+pytest<6.0.0
 pytest-cov>=2.5.1
 pytest-mock
 testpath>=0.3.1

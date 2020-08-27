@@ -20,7 +20,10 @@ COPY run-app /usr/local/bin/
 COPY ./conf /conf
 
 # && chmod +x /etc/sysconfig/shibd /etc/shibboleth/shibd-redhat \
-RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
+# RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
+RUN yum -y install \
+        https://repo.ius.io/ius-release-el7.rpm \
+        https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
     && yum -y update \
     && yum -y install \
         shibboleth.x86_64 \

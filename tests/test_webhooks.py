@@ -510,7 +510,7 @@ def test_org_webhook_api(client, mocker):
     mockput.assert_has_calls(
         [
             call(
-                "https://api.sandbox.orcid.org/1001-0001-0001-0001/webhook/%2Fservices%2F21%2Fupdated",  # noqa E501
+                "https://api.sandbox.orcid.org/1001-0001-0001-0001/webhook/https%3A%2F%2Flocalhost%2Fservices%2F21%2Fupdated",
                 headers={
                     "Accept": "application/json",
                     "Authorization": "Bearer ABC123",
@@ -518,7 +518,7 @@ def test_org_webhook_api(client, mocker):
                 },
             ),
             call(
-                "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/%2Fservices%2F22%2Fupdated",  # noqa E501
+                "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/https%3A%2F%2Flocalhost%2Fservices%2F22%2Fupdated",
                 headers={
                     "Accept": "application/json",
                     "Authorization": "Bearer ABC123",
@@ -526,7 +526,7 @@ def test_org_webhook_api(client, mocker):
                 },
             ),
             call(
-                "https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook/%2Fservices%2F30%2Fupdated",  # noqa E501
+                "https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook/https%3A%2F%2Flocalhost%2Fservices%2F30%2Fupdated",
                 headers={
                     "Accept": "application/json",
                     "Authorization": "Bearer ABC123",
