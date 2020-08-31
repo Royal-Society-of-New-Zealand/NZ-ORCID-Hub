@@ -4,7 +4,7 @@ services:
     - docker
 
 env:
-    - ENV=dev PGPORT=54321 GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=prod UAT_BRANCH=prod DATABASE_URL=postgresql://orcidhub@db/orcidhub?options='-c statement_timeout=3000'
+    - ENV=dev PGPORT=54321 GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=prod UAT_BRANCH=prod DATABASE_URL=postgresql://orcidhub@db/orcidhub?options='-c statement_timeout=3000' PYTHONWARNINGS="ignore:Unverified HTTPS request"
 
 before_install:
     - sudo rm /usr/local/bin/docker-compose

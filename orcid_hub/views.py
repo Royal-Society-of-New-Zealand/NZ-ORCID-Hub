@@ -6,10 +6,13 @@ import json
 import math
 import mimetypes
 import os
+import peewee
 import secrets
+import shutil
 import traceback
 from datetime import datetime
 from io import BytesIO
+
 
 import requests
 import tablib
@@ -113,6 +116,13 @@ def internal_error(error):
         return render_template("500.html", trace=trace, error_message=str(error))
 
 
+@app.route("/unsubscribe/<token>")
+def unsubscribe(token):
+    """Show unsubscribe page."""
+    flash("If you wish to unsubscribe from all notifications, please contact the Hub admin", "info")
+    return redirect(url_for("index"))
+
+
 @app.route("/favicon.ico")
 def favicon():
     """Support for the "favicon" legacy: favicon location in the root directory."""
@@ -131,11 +141,15 @@ def status():
     only form the application monitoring servers.
     """
     try:
-        now = db.execute_sql("SELECT now();").fetchone()[0]
+        now = db.execute_sql(
+                "SELECT current_timestamp" if isinstance(db, peewee.SqliteDatabase) else "SELECT now()").fetchone()[0]
+        total, used, free = shutil.disk_usage(__file__)
+        free = round(free * 100 / total)
         return jsonify({
             "status": "Connection successful.",
-            "db-timestamp": now.isoformat(),
-        })
+            "db-timestamp": now if isinstance(now, str) else now.isoformat(),
+            "free-storage-percent": free
+        }), 200 if free > 10 else 418
     except Exception as ex:
         return jsonify({
             "status": "Error",
@@ -573,8 +587,8 @@ class OrcidApiCallAmin(AppModelView):
     """ORCID API calls."""
 
     column_list = [
-        "method", "url", "query_params", "body", "status", "put_code", "response",
-        "response_time_ms"
+        "method", "called_at", "url", "query_params", "body", "status", "put_code",
+        "response", "response_time_ms"
     ]
     column_default_sort = ("id", True)
     can_export = True

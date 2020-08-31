@@ -44,6 +44,9 @@ if ENV in ("dev0", ):
     TEMPLATES_AUTO_RELOAD = True
     # EXPLAIN_TEMPLATE_LOADING = True
 
+if "DEBUG" not in dir():
+    PREFERRED_URL_SCHEME = "https"
+
 OAUTH2_PROVIDER_TOKEN_EXPIRES_IN = 86400  # Default Bearer token expires time, default is 3600.
 
 # add mail server config
