@@ -10,8 +10,8 @@ emails
 wtf-peewee
 pycountry
 html2text
-tablib
-openpyxl>=2.4.9,<2.5.0
+tablib>=2.0.0,<3.0.0
+openpyxl>=3.0.5,<4.0.0
 pyyaml
 pykwalify
 pybtex
