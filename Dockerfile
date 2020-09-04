@@ -31,9 +31,9 @@ RUN yum -y install \
         mod_ssl \
     	gcc.x86_64 \
         httpd-devel.x86_64 \
-        python36u.x86_64 \
-        python36u-devel.x86_64 \
-        python36u-pip \
+        python36.x86_64 \
+        python36-devel.x86_64 \
+        python36-pip \
         git \
     && echo $'RPMs installed...' \
     && pip3.6 install -U pip \
@@ -82,8 +82,8 @@ RUN yum -y install \
         lksctp-tools \
         openldap-devel \
         perl \
-        python36u-devel \
-        python36u-pip \
+        python36-devel \
+        python36-pip \
         python-javapackages \
         python-lxml \
         ttmkfdir \

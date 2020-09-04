@@ -13,8 +13,8 @@ RUN yum -y update \
     && yum -y install \
             gcc.x86_64 \
             postgresql11-server \
-            python36u-devel.x86_64 \
-            python36u-pip \
+            python36-devel.x86_64 \
+            python36-pip \
             git \
     && pip3.6 install -U pip \
     && pip install -U -r /dev_requirements.txt \
