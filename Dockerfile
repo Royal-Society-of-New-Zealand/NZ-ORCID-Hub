@@ -31,9 +31,9 @@ RUN yum -y install \
         mod_ssl \
     	gcc.x86_64 \
         httpd-devel.x86_64 \
-        python36u.x86_64 \
-        python36u-devel.x86_64 \
-        python36u-pip \
+        python36.x86_64 \
+        python36-devel.x86_64 \
+        python36-pip \
         git \
     && echo $'RPMs installed...' \
     && pip3.6 install -U pip \
@@ -43,7 +43,6 @@ RUN yum -y install \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
     && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
     && echo $'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n' > /etc/sysconfig/shibd \
-    && chmod +x /etc/shibboleth/shibd-redhat \
     && yum erase -y \
         alsa-lib \
         apr-util-devel \
@@ -96,6 +95,7 @@ RUN yum -y install \
     && rm -rf __db* \
     && rpm --rebuilddb \
     && yum -y clean all \
+    && chmod +x /etc/shibboleth/shibd-redhat \
     && rm -rf /var/cache/yum \
     && rm -rf $HOME/.pip/cache \
     && rm -rf /var/cache/*/* /anaconda-post.log \

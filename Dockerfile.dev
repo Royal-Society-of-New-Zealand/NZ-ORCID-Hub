@@ -13,15 +13,17 @@ RUN yum -y update \
     && yum -y install \
             gcc.x86_64 \
             postgresql11-server \
-            python36u-devel.x86_64 \
-            python36u-pip \
             git \
+    && yum -y install \
+            python36-devel.x86_64 \
+            python36-pip \
     && pip3.6 install -U pip \
     && pip install -U -r /dev_requirements.txt \
     && cd /var/lib/rpm \
     && rm -rf __db* \
     && rpm --rebuilddb \
     && yum -y clean all \
+    && chmod +x /etc/shibboleth/shibd-redhat \
     && rm -rf /var/cache/yum \
     && rm -rf $HOME/.pip/cache \
     && rm -rf /var/cache/*/* /anaconda-post.log /dev_requirements.txt /requirements.txt
