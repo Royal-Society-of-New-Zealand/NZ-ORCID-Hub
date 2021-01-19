@@ -10,7 +10,7 @@ emails
 wtf-peewee
 pycountry
 html2text
-tablib
+tablib<1.0.0
 openpyxl>=2.4.9,<2.5.0
 pyyaml
 pykwalify
