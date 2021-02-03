@@ -282,7 +282,7 @@ def handle_login():
         )
         session["shib_O"] = shib_org_name = data["O"].encode("latin-1").decode("utf-8")
         name = data.get("Displayname").encode("latin-1").decode("utf-8")
-        eppn = data.get("Eppn").encode("latin-1").decode("utf-8")
+        eppn = data.get("Eppn").encode("latin-1").decode("utf-8") or None
         unscoped_affiliation = set(
             a.strip()
             for a in data.get("Unscoped-Affiliation", "")
