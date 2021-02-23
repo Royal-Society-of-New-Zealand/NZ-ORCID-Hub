@@ -102,7 +102,7 @@ def utility_processor():  # noqa: D202
         rv = cache.get("onboarded_organisations")
         if not rv:
             rv = list(
-                Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+                Organisation.select(Organisation.name, Organisation.saml_name).where(
                     Organisation.confirmed.__eq__(True)
                 )
             )
@@ -112,7 +112,7 @@ def utility_processor():  # noqa: D202
     def orcid_login_url():
         return url_for("orcid_login", next=get_next_url())
 
-    def tuakiri_login_url():
+    def saml_login_url():
         _next = get_next_url()
         external_sp = app.config.get("EXTERNAL_SP")
         if external_sp:
@@ -162,7 +162,7 @@ def utility_processor():  # noqa: D202
 
     return dict(
         orcid_login_url=orcid_login_url,
-        tuakiri_login_url=tuakiri_login_url,
+        saml_login_url=saml_login_url,
         onboarded_organisations=onboarded_organisations,
         current_task=current_task,
         current_record=current_record,
@@ -199,7 +199,7 @@ def faq():
 
 
 @app.route("/sso/sp")
-@app.route("/Tuakiri/SP")
+@app.route("/saml/SP")
 def shib_sp():
     """Remote Shibboleth authenitication handler.
 
@@ -233,14 +233,14 @@ def get_attributes(key):
     return data, 200, {"Content-Type": "application/octet-stream"}
 
 
-@app.route("/sso/login", endpoint="sso-login")
-@app.route("/Tuakiri/login")
+@app.route("/sso/login", endpoint="saml-login")
+@app.route("/saml/login")
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
 
     The (Apache) location should requier authentication using Shibboleth, e.g.,
 
-    <Location /Tuakiri>
+    <Location /saml>
         AuthType shibboleth
         ShibRequireSession On
         require valid-user
@@ -312,19 +312,19 @@ def handle_login():
             )
 
     except Exception as ex:
-        app.logger.exception("Failed to login via TUAKIRI.")
+        app.logger.exception("Failed to log in at your home institution.")
         abort(500, ex)
 
     try:
         org = Organisation.get(
-            (Organisation.tuakiri_name == shib_org_name) | (Organisation.name == shib_org_name)
+            (Organisation.saml_name == shib_org_name) | (Organisation.name == shib_org_name)
         )
     except Organisation.DoesNotExist:
-        org = Organisation(tuakiri_name=shib_org_name)
+        org = Organisation(saml_name=shib_org_name)
         # try to get the official organisation name:
         try:
             org_info = OrgInfo.get(
-                (OrgInfo.tuakiri_name == shib_org_name) | (OrgInfo.name == shib_org_name)
+                (OrgInfo.saml_name == shib_org_name) | (OrgInfo.name == shib_org_name)
             )
         except OrgInfo.DoesNotExist:
             org.name = shib_org_name
@@ -956,7 +956,7 @@ def onboard_org():
             try:
                 oi = OrgInfo.get(
                     (OrgInfo.email == email)
-                    | (OrgInfo.tuakiri_name == user.organisation.name)
+                    | (OrgInfo.saml_name == user.organisation.name)
                     | (OrgInfo.name == user.organisation.name)
                 )
 
@@ -1047,7 +1047,7 @@ def onboard_org():
                     ).execute()
 
                 org_info = OrgInfo.get(
-                    (OrgInfo.tuakiri_name == organisation.name)
+                    (OrgInfo.saml_name == organisation.name)
                     | (OrgInfo.name == organisation.name)
                 )
                 if organisation.city:
@@ -1386,7 +1386,7 @@ def orcid_login_callback(request):
                 flash(
                     f"The account with ORCID iD {orcid_id} is not known in the Hub. "
                     "Try again when you've linked your ORCID iD with an organisation through either "
-                    "a Tuakiri-mediated log in, or from an organisation's email invitation",
+                    "an institutional log in, or from an organisation's email invitation",
                     "warning",
                 )
                 return redirect(url_for("index"))

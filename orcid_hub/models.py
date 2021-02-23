@@ -745,7 +745,7 @@ class Organisation(AuditedModel):
     country_choices.insert(0, ("", "Country"))
 
     name = CharField(max_length=100, unique=True, null=True)
-    tuakiri_name = CharField(max_length=80, unique=True, null=True)
+    saml_name = CharField(max_length=80, unique=True, null=True)
     if ENV != "prod":
         orcid_client_id = CharField(max_length=80, null=True)
         orcid_secret = CharField(max_length=80, null=True)
@@ -834,14 +834,14 @@ class Organisation(AuditedModel):
         return self.users.where(UserOrg.is_admin)
 
     def __str__(self):
-        return self.name or self.tuakiri_name
+        return self.name or self.saml_name
 
     def save(self, *args, **kwargs):
         """Handle data consistency validation and saving."""
         if self.is_dirty():
 
             if self.name is None:
-                self.name = self.tuakiri_name
+                self.name = self.saml_name
 
             if self.field_is_updated("tech_contact") and self.tech_contact:
                 if not self.tech_contact.has_role(Role.TECHNICAL):
@@ -1078,7 +1078,7 @@ class OrgInfo(BaseModel):
     """Preloaded organisation data."""
 
     name = CharField(max_length=100, unique=True, help_text="Organisation name")
-    tuakiri_name = CharField(max_length=100, unique=True, null=True, help_text="TUAKIRI Name")
+    saml_name = CharField(max_length=100, unique=True, null=True, help_text="SAML Name")
     title = CharField(null=True, help_text="Contact Person Tile")
     first_name = CharField(null=True, help_text="Contact Person's First Name")
     last_name = CharField(null=True, help_text="Contact Person's Last Name")
@@ -1134,7 +1134,7 @@ class OrgInfo(BaseModel):
                 "city",
                 "(common:)?disambiguated.*identifier",
                 "(common:)?disambiguation.*source",
-                r"tuakiri\s*(name)?",
+                r"saml\s*(name)?",
             )
         ]
 
@@ -1174,7 +1174,7 @@ class OrgInfo(BaseModel):
             oi.city = val(row, 9)
             oi.disambiguated_id = val(row, 10)
             oi.disambiguation_source = val(row, 11)
-            oi.tuakiri_name = val(row, 12)
+            oi.saml_name = val(row, 12)
 
             oi.save()
 
