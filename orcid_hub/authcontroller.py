@@ -276,30 +276,30 @@ def handle_login():
         data = request.headers
 
     try:
-        last_name = data["Sn"].encode("latin-1").decode("utf-8")
-        first_name = data["Givenname"].encode("latin-1").decode("utf-8")
+        last_name = data[app.config.get("EXTERNAL_SP_ATTR_SN")].encode("latin-1").decode("utf-8")
+        first_name = data[app.config.get("EXTERNAL_SP_ATTR_GIVENNAME")].encode("latin-1").decode("utf-8")
         email, *secondary_emails = re.split(
-            "[,; \t]", data["Mail"].encode("latin-1").decode("utf-8").lower()
+            "[,; \t]", data[app.config.get("EXTERNAL_SP_ATTR_MAIL")].encode("latin-1").decode("utf-8").lower()
         )
-        session["shib_O"] = shib_org_name = data["O"].encode("latin-1").decode("utf-8")
-        name = data.get("Displayname").encode("latin-1").decode("utf-8")
-        eppn = data.get("Eppn").encode("latin-1").decode("utf-8") or None
+        session["shib_O"] = shib_org_name = data[app.config.get("EXTERNAL_SP_ATTR_ORG")].encode("latin-1").decode("utf-8")
+        name = data.get(app.config.get("EXTERNAL_SP_ATTR_DISPLAYNAME")).encode("latin-1").decode("utf-8")
+        eppn = data.get(app.config.get("EXTERNAL_SP_ATTR_EPPN")).encode("latin-1").decode("utf-8") or None
         unscoped_affiliation = set(
             a.strip()
-            for a in data.get("Unscoped-Affiliation", "")
+            for a in data.get(app.config.get("EXTERNAL_SP_ATTR_AFFILIATION"), "")
             .encode("latin-1")
             .decode("utf-8")
             .replace(",", ";")
             .split(";")
         )
 
-        orcid = data.get("Orcid-Id")
+        orcid = data.get(app.config.get("EXTERNAL_SP_ATTR_ORCID"))
         if orcid:
             orcid = orcid.split("/")[-1]
             try:
                 validate_orcid_id(orcid)
             except ValueError:
-                app.logger.exception(f"Invalid OCID iD value recieved via 'Orcid-Id': {orcid}")
+                app.logger.exception(f"Invalid ORCID iD value recieved from external SP: {orcid}")
                 orcid = None
 
         app.logger.info(
