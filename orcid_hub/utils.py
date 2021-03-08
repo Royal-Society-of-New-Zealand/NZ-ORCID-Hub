@@ -229,9 +229,11 @@ def send_email(
         text=plain_msg,
     )
     dkim_key_path = app.config.get("DKIM_KEY_PATH")
+    dkim_domain = app.config.get("MAIL_DKIM_DOMAIN")
+    dkim_selector = app.config.get("MAIL_DKIM_SELECTOR")
     if dkim_key_path and os.path.exists(dkim_key_path):
         with open(dkim_key_path) as key_file:
-            msg.dkim(key=key_file, domain="orcidhub.org.nz", selector="default")
+            msg.dkim(key=key_file, domain=dkim_domain, selector=dkim_selector)
     elif dkim_key_path:
         raise Exception(f"Cannot find DKIM key file: {dkim_key_path}!")
     if cc_email:
