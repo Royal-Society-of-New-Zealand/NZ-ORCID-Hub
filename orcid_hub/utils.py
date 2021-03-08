@@ -240,6 +240,7 @@ def send_email(
         msg.cc.append(cc_email)
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
+    msg.set_headers({"x-auto-response-suppress": "DR, RN, NRN, OOF"})
     # Unsubscribe link:
     token = new_invitation_token(length=10)
     unsubscribe_url = url_for("unsubscribe", token=token, _external=True)
