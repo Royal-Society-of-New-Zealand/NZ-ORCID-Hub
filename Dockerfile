@@ -81,8 +81,8 @@ RUN yum -y install \
         lksctp-tools \
         openldap-devel \
         perl \
-        python36u-devel \
-        python36u-pip \
+        python36-devel \
+        python36-pip \
         python-javapackages \
         python-lxml \
         ttmkfdir \

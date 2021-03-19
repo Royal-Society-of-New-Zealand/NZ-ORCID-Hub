@@ -6,9 +6,9 @@ VERSION = 6.11
 all: build
 
 build:
-	docker build --label version=$(VERSION) -t $(NAME) .
+	docker build --squash --label version=$(VERSION) -t $(NAME) .
 build-dev: build
-	docker build --label version=$(VERSION) -f Dockerfile.dev -t $(NAME)-dev .
+	docker build --squash --label version=$(VERSION) -f Dockerfile.dev -t $(NAME)-dev .
 
 tag: build
 	docker tag $(NAME) $(NAME):$(VERSION)

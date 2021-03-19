@@ -21,12 +21,13 @@ pytest-cov>=2.5.1
 pytest-mock
 testpath>=0.3.1
 yapf>=0.17.0
-robotframework>=3.0.2
-robotframework-seleniumlibrary>=3.0.0
+# robotframework>=3.0.2
+# robotframework-seleniumlibrary>=3.0.0
 pycrypto>=2.6.1
 python-dotenv>=0.6.3
 Faker
-Online-W3C-Validator>=0.3.2
+# Online-W3C-Validator>=0.3.2
+git+https://github.com/nad2000/W3C-Validator
 twine
 fakeredis
 coloredlogs
