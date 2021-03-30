@@ -26,6 +26,8 @@ Instaall getssl and setup certiicates
 
 #. If you are using **nginx**, add a location for the verification (/etc/nginx/nginx.conf), e.g.,:
 
+   .. code-block:: nginx
+
     server {
             listen 80;
             server_name dev.orcidhub.org.nz;
