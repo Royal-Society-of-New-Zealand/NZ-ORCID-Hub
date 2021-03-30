@@ -103,7 +103,7 @@ Instaall getssl and setup certiicates
 
    .. code-block:: crontab
   
-    23 42 * * * /home/ec2-user/getssl -u -a -q
+    42 23 * * * /home/ec2-user/getssl -u -a -q
 
 
 Need more help
