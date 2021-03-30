@@ -22,7 +22,33 @@ Instaall getssl and setup certiicates
     DOMAIN_CHAIN_LOCATION="/home/ec2-user/.keys/prod-server.crt" # this is the domain cert and CA cert
     
     # The command needed to reload apache / nginx or whatever you use
-    RELOAD_CMD="docker-compose restart app; sleep 5"
+    RELOAD_CMD="cd /home/ec2-user/dev; docker-compose restart app; sleep 5"
+
+#. If you are using **nginx**, add a location for the verification (/etc/nginx/nginx.conf), e.g.,:
+
+    server {
+            listen 80;
+            server_name dev.orcidhub.org.nz;
+            server_tokens off;
+            root         /usr/share/nginx/html;
+
+            location ^~ /.well-known/acme-challenge/ {
+                    default_type "text/plain";
+                    alias /home/ec2-user/.well-known/acme-challenge/;
+            }
+
+            # more_clear_headers Server;
+            # more_set_headers 'Server: ORCID HUB';
+            location / {
+                    proxy_set_header        Host                    $host;
+                    proxy_set_header        X-Real-IP               $remote_addr;
+                    proxy_set_header        X-Forwarded-For         $proxy_add_x_forwarded_for;
+                    proxy_set_header        X-Forwarded-Proto       $scheme;
+
+                    proxy_redirect          off;
+                    proxy_pass              http://172.33.0.99;
+            }
+    }
 
 #. Request a certifcate and deploy it: `./getssl orcidhub.org.nz`
 #. Add automatic update to your crontab, eg:
