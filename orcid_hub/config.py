@@ -55,6 +55,7 @@ MAIL_SUPPRESS_SEND = False
 MAIL_DEFAULT_SENDER = getenv("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
 MAIL_SERVER = getenv("MAIL_SERVER", "gateway")
 
+MEMBER_API_FORM_MAIL = bool(getenv("MEMBER_API_FORM_MAIL"))
 MEMBER_API_FORM_BASE_URL = "https://orcid.org/content/register-client-application-sandbox" \
     if ENV != "prod" else "https://orcid.org/content/register-client-application-production-trusted-party"
 
