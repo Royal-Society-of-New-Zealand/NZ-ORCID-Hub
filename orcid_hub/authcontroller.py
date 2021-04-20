@@ -879,7 +879,7 @@ def request_orcid_credentials():
     Additionally the time stamp gets saved when the handler gets invoked.
     """
     if app.config.get("MEMBER_API_FORM_MAIL"):
-        for admin in User.select().where((User.roles) & Role.SUPERUSER):
+        for admin in User.select().where(User.roles.bin_and(Role.SUPERUSER) == Role.SUPERUSER):
             send_email(
                 "email/member_api_registration.html",
                 (admin.full_name, admin.email),
