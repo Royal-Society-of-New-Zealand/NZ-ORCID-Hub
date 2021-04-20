@@ -1,0 +1,9 @@
+<h2 class="display-2">Memeber API Credential Request</h2>
+<p>User {{user.full_name_with_email}} has submitted
+  {% if user.organisation.confirmed %}
+    a Memeber API Credential update
+  {% else %}
+    a new Memeber API Credential
+  {% endif %}
+  request for {{user.organisation }}
+</p>

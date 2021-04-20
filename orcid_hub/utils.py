@@ -27,15 +27,41 @@ from yaml.representer import SafeRepresenter
 from orcid_api_v3.rest import ApiException
 
 from . import app, db, orcid_client, rq
-from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord,
-                     Delegate, FundingInvitee, FundingRecord, Invitee, Log,
-                     MailLog, MessageRecord, NestedDict, OrcidApiCall,
-                     OrcidToken, Organisation, OrgInvitation, OtherIdRecord,
-                     PartialDate, PeerReviewExternalId, PeerReviewInvitee,
-                     PeerReviewRecord, PropertyRecord, RecordInvitee,
-                     ResourceRecord, Role, Task, TaskType, User,
-                     UserInvitation, UserOrg, WorkInvitee, WorkRecord, get_val,
-                     readup_file)
+from .models import (
+    AFFILIATION_TYPES,
+    Affiliation,
+    AffiliationRecord,
+    Delegate,
+    FundingInvitee,
+    FundingRecord,
+    Invitee,
+    Log,
+    MailLog,
+    MessageRecord,
+    NestedDict,
+    OrcidApiCall,
+    OrcidToken,
+    Organisation,
+    OrgInvitation,
+    OtherIdRecord,
+    PartialDate,
+    PeerReviewExternalId,
+    PeerReviewInvitee,
+    PeerReviewRecord,
+    PropertyRecord,
+    RecordInvitee,
+    ResourceRecord,
+    Role,
+    Task,
+    TaskType,
+    User,
+    UserInvitation,
+    UserOrg,
+    WorkInvitee,
+    WorkRecord,
+    get_val,
+    readup_file,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -1496,21 +1522,14 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 token=token,
             )
 
-            status = "Exception occured while accessing user's profile. " "Hence, The invitation resent at " + datetime.utcnow().isoformat(
-                timespec="seconds"
-            )
-            (
-                AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status)
-                .where(
-                    AffiliationRecord.status.is_null(False), AffiliationRecord.email == user.email
-                )
-                .execute()
-            )
-            (
-                AffiliationRecord.update(status=status)
-                .where(AffiliationRecord.status.is_null(), AffiliationRecord.email == user.email)
-                .execute()
-            )
+            status = "Exception occured while accessing user's profile. Hence, The invitation resent at "
+            status += datetime.utcnow().isoformat(timespec="seconds")
+            AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
+                AffiliationRecord.status.is_null(False), AffiliationRecord.email == user.email
+            ).execute()
+            AffiliationRecord.update(status=status).where(
+                AffiliationRecord.status.is_null(), AffiliationRecord.email == user.email
+            ).execute()
             return
 
 
@@ -3219,7 +3238,7 @@ def activate_all_records(task):
                     task.record_model.task == task,
                     (
                         task.record_model.is_active.is_null()
-                        | (task.record_model.is_active == False)
+                        | (task.record_model.is_active == False)  # noqa: E712
                     ),
                 )
                 .execute()
@@ -3245,14 +3264,14 @@ def reset_all_records(task):
                 count = (
                     task.record_model.update(processed_at=None, status=status)
                     .where(
-                        task.record_model.task_id == task.id, task.record_model.is_active == True
+                        task.record_model.task_id == task.id, task.record_model.is_active == True  # noqa: E712
                     )
                     .execute()
                 )  # noqa: E712
 
             else:
                 for record in task.records.where(
-                    task.record_model.is_active == True
+                    task.record_model.is_active == True  # noqa: E712
                 ):  # noqa: E712
                     record.processed_at = None
                     record.status = status
