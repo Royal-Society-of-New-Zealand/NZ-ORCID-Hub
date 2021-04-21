@@ -883,7 +883,7 @@ def request_orcid_credentials():
             send_email(
                 "email/member_api_registration.html",
                 (admin.full_name, admin.email),
-                subject="Memeber API Credential Request",
+                subject="Member API Credential Request",
                 user=current_user,
             )
         flash(
