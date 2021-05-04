@@ -563,6 +563,7 @@ class OrcidTokenAdmin(AppModelView):
     """ORCID token model view."""
 
     column_searchable_list = (
+        "access_token",
         "user.name",
         "user.email",
         "org.name",
