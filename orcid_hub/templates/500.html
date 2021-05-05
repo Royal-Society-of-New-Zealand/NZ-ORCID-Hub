@@ -14,7 +14,11 @@
     {% endif %}
     <!-- {{ sentry_event_id }} -->
     {% if sentry_event_id %}
-      <script src="https://browser.sentry-cdn.com/4.5.3/bundle.min.js" crossorigin="anonymous"></script>
+      <script
+        src="https://browser.sentry-cdn.com/6.3.5/bundle.min.js"
+        integrity="sha384-qBgjc56ljouxNiUODXpsqJSZ7mGL+PcExG0in9vErnovL9TPZwHxfnved8g6bzfM"
+        crossorigin="anonymous"
+      ></script>
       <script>
         Sentry.init({ dsn: '{{ config.SENTRY_DSN }}' });
         Sentry.showReportDialog({
