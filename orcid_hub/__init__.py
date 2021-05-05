@@ -222,6 +222,9 @@ if SENTRY_DSN:
         integrations=[FlaskIntegration(), RqIntegration(), RedisIntegration()],
         debug=app.debug,
         environment=app.config.get("ENV"),
+        attach_stacktrace=True,
+        traces_sample_rate=1.0,
+        with_locals=True,
         send_default_pii=True)
 
 login_manager = LoginManager()
