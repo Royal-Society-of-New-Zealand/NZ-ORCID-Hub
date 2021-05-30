@@ -81,6 +81,7 @@ from .utils import (
     notify_about_update,
     read_uploaded_file,
     register_orcid_webhook,
+    send_email,
 )
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
@@ -538,7 +539,7 @@ def test_data():
                             orgs[n % org_count],
                             f.first_name(),
                             f.last_name(),
-                            ["staff", "student",][n % 2],
+                            ["staff", "student"][n % 2],
                         ]
                     )
                     yield "\n"
@@ -877,6 +878,20 @@ def request_orcid_credentials():
 
     Additionally the time stamp gets saved when the handler gets invoked.
     """
+    if app.config.get("MEMBER_API_FORM_MAIL"):
+        for admin in User.select().where(User.roles.bin_and(Role.SUPERUSER) == Role.SUPERUSER):
+            send_email(
+                "email/member_api_registration.html",
+                (admin.full_name, admin.email),
+                subject="Member API Credential Request",
+                user=current_user,
+            )
+        flash(
+            "The member API request form sent to the Hub administrators. You will be contacted shortly...",
+            "info",
+        )
+        return redirect(url_for("index"))
+
     client_secret_url = append_qs(
         iri_to_uri(MEMBER_API_FORM_BASE_URL),
         new_existing=(

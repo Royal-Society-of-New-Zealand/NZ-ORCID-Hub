@@ -3,7 +3,6 @@
 
 import copy
 import csv
-import jsonschema
 import os
 import random
 import re
@@ -12,38 +11,27 @@ import string
 import uuid
 from collections import namedtuple
 from datetime import datetime
-from enum import IntFlag, IntEnum
-from hashlib import md5
+from enum import IntEnum, IntFlag
 from functools import lru_cache
+from hashlib import md5
 from io import StringIO
 from itertools import groupby, zip_longest
 from urllib.parse import urlencode
 
 import chardet
+import jsonschema
 import validators
 import yaml
 from flask import json
 from flask_login import UserMixin, current_user
-from peewee import JOIN, BlobField, SqliteDatabase
+from peewee import JOIN, BlobField
 from peewee import BooleanField as BooleanField_
-from peewee import (
-    CharField,
-    DateTimeField,
-    DeferredForeignKey,
-    Field,
-    FixedCharField,
-    ForeignKeyField,
-    IntegerField,
-    ManyToManyField,
-    Model,
-    OperationalError,
-    PostgresqlDatabase,
-    SmallIntegerField,
-    TextField,
-    fn,
-)
+from peewee import (CharField, DateTimeField, DeferredForeignKey, Field,
+                    FixedCharField, ForeignKeyField, IntegerField,
+                    ManyToManyField, Model, OperationalError,
+                    PostgresqlDatabase, SmallIntegerField, SqliteDatabase,
+                    TextField, fn)
 from peewee_validates import ModelValidator
-
 # from playhouse.reflection import generate_models
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries, currencies, languages
@@ -901,6 +889,25 @@ class User(AuditedModel, UserMixin):
         if self.name and (self.eppn or self.email):
             return f"{self.name} ({self.email or self.eppn})"
         return self.name or self.email or self.orcid or super().__str__()
+
+    @property
+    def full_name(self):
+        """Full name of the user"""
+        value = self.first_name or ''
+        if value:
+            value += " "
+        value += self.last_name or ''
+        if not value:
+            value = self.name or ''
+        return value
+
+    @property
+    def full_name_with_email(self):
+        """Full name with the email address of the user"""
+        value = self.full_name
+        if value:
+            value += " "
+        return f"{value}({self.email or self.eppn})"
 
     @property
     def username(self):
