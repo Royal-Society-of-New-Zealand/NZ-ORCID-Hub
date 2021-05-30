@@ -22,7 +22,7 @@ Instaall getssl and setup certiicates
     DOMAIN_CHAIN_LOCATION="/home/ec2-user/.keys/prod-server.crt" # this is the domain cert and CA cert
     
     # The command needed to reload apache / nginx or whatever you use
-    RELOAD_CMD="cd /home/ec2-user/dev; docker-compose restart app; sleep 5"
+    RELOAD_CMD="cd /home/ec2-user/dev; /usr/local/bin/docker-compose restart app; sleep 5"
 
 #. If you are using **nginx**, add a location for the verification (/etc/nginx/nginx.conf), e.g.,:
 
