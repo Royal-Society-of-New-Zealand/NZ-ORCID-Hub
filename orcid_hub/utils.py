@@ -213,7 +213,7 @@ def send_email(
 
     rendered = template.make_module(vars=kwargs)
     if subject is None:
-        subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
+        subject = getattr(rendered, "subject", "Welcome to the {}".format(app.config.get("APP_NAME", "ORCID Hub")))
 
     html_msg = base.format(
         EMAIL=kwargs["recipient"]["email"],
@@ -330,10 +330,12 @@ def set_server_name():
         if EXTERNAL_SP:
             app.config["SERVER_NAME"] = "127.0.0.1:5000"
         else:
-            app.config["SERVER_NAME"] = (
-                "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
-            )
-
+            try:
+                app.config["SERVER_NAME"] = urlparse(app.config["APP_URL"]).netloc
+            except ValueError:
+                app.config["SERVER_NAME"] = (
+                    "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
+                )
 
 def is_org_rec(org, rec):
     """Test if the record was authoritized by the organisation."""
