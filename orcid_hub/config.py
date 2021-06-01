@@ -53,6 +53,7 @@ OAUTH2_PROVIDER_TOKEN_EXPIRES_IN = 86400  # Default Bearer token expires time, d
 MAIL_PORT = int(getenv("MAIL_PORT", 25))
 MAIL_SUPPRESS_SEND = False
 MAIL_DEFAULT_SENDER = getenv("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
+MAIL_SUPPORT_ADDRESS = getenv("MAIL_SUPPORT_ADDRESS", "orcid@royalsociety.org.nz")
 MAIL_SERVER = getenv("MAIL_SERVER", "gateway")
 
 MEMBER_API_FORM_MAIL = bool(getenv("MEMBER_API_FORM_MAIL"))

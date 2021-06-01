@@ -54,6 +54,7 @@ from .config import (
     ORCID_API_BASE,
     ORCID_BASE_URL,
     TOKEN_URL,
+    MAIL_SUPPORT_ADDRESS,
 )
 from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
@@ -729,7 +730,7 @@ def orcid_callback():
         if state != session.get("oauth_state"):
             flash(
                 "Retry giving permissions, or if the issue persists "
-                "please contact orcid@royalsociety.org.nz for support",
+                f"please contact {MAIL_SUPPORT_ADDRESS} for support",
                 "danger",
             )
             app.logger.error(
@@ -1280,7 +1281,7 @@ def orcid_login(invitation_token=None):
 
     except Exception as ex:
         flash(
-            "Something went wrong. Please contact orcid@royalsociety.org.nz for support!", "danger"
+            f"Something went wrong. Please contact {MAIL_SUPPORT_ADDRESS} for support!", "danger"
         )
         app.logger.exception(f"Failed to login via ORCID: {ex}")
         return redirect(url_for("index"))
@@ -1295,7 +1296,7 @@ def orcid_login_callback(request):
     if not state or state != session.get("oauth_state"):
         flash(
             "Something went wrong, Please retry giving permissions or if issue persists then, "
-            "Please contact orcid@royalsociety.org.nz for support",
+            f"Please contact {MAIL_SUPPORT_ADDRESS} for support",
             "danger",
         )
         return redirect(url_for("index"))
@@ -1375,7 +1376,7 @@ def orcid_login_callback(request):
                     flash(
                         f"This {orcid_id} is already associated with other email address of same organisation: {org}. "
                         "Please use other ORCID iD to login. If you need help then "
-                        "kindly contact orcid@royalsociety.org.nz support for issue",
+                        f"kindly contact {MAIL_SUPPORT_ADDRESS} support for issue",
                         "danger",
                     )
                     logout_user()
@@ -1401,7 +1402,7 @@ def orcid_login_callback(request):
             flash(
                 f"This {email} is already associated with {user.orcid} and you are trying to login with {orcid_id}. "
                 "Please use correct ORCID iD to login. If you need help then "
-                "kindly contact orcid@royalsociety.org.nz support for issue",
+                f"kindly contact {MAIL_SUPPORT_ADDRESS} support for issue",
                 "danger",
             )
             logout_user()
@@ -1562,7 +1563,7 @@ def orcid_login_callback(request):
         return redirect(url_for("index"))
     except Exception as ex:
         flash(
-            f"Something went wrong contact orcid@royalsociety.org.nz support for issue: {ex}",
+            f"Something went wrong contact {MAIL_SUPPORT_ADDRESS} support for issue: {ex}",
             "danger",
         )
         app.logger.exception("Unhandled excetion occrured while handling ORCID call-back.")
