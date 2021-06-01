@@ -3411,10 +3411,10 @@ def orcid_proxy(version, orcid, rest=None):
     call.user_id = current_user.id
     call.set_response_time()
     call.response = ""
-    response = b''
 
     def generate():
         # for chunk in resp.raw.stream(decode_content=False, amt=CHUNK_SIZE):
+        response = b''
 
         for chunk in resp.raw.stream(decode_content=False):
             response += chunk
