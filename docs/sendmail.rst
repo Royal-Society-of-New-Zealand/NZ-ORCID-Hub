@@ -15,7 +15,7 @@ Sendmail configuration for source or PyPI
 
 On the basis that your environment is able to send email with an address (and from
 an IP) that is allowed by your domain, your hub instance email is enabled by setting
-the following variables: MAIL_SERVER; MAIL_PORT; and MAIL_DEFAULT_SENDER.
+the following variables: MAIL_SERVER; MAIL_PORT; MAIL_DEFAULT_SENDER; and MAIL_DEFAULT_SENDER.
 
 NB: To ensure delivery and avoid appearing spammy, we have both SPF and DKIM enabled
 for our dev, UAT, and production environments.

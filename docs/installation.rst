@@ -137,6 +137,7 @@ Variable                    Description
 MAIL_SERVER                 Mail server's name or IP (default: *dev.orcidhub.org.nz*)
 MAIL_PORT                   Port for sending mail (default: *25*)
 MAIL_DEFAULT_SENDER         Mail from Hub to be sent as (default *no-reply@orcidhub.org.nz*)
+MAIL_SUPPORT_ADDRESS        Helpdesk email address, used in errors and as default Reply-To (default *orcid@royalsociety.org.nz*)
 RQ_REDIS_URL                Redis server for rq (default *redis://localhost:6379/0*)
 ==========================  ==================
 
