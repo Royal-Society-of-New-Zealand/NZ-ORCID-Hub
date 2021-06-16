@@ -166,6 +166,7 @@ def pyinfo(message=None):
         raise Exception(message)
     return render_template("pyinfo.html", **info)
 
+
 @app.route("/u/<short_id>")
 def short_url(short_id):
     """Redirect to the full URL."""
