@@ -2,6 +2,7 @@
 
 import re
 from datetime import datetime
+import gzip
 from urllib.parse import unquote, urlencode
 from uuid import uuid4, UUID
 
@@ -3414,11 +3415,20 @@ def orcid_proxy(version, orcid, rest=None):
 
     def generate():
         # for chunk in resp.raw.stream(decode_content=False, amt=CHUNK_SIZE):
+        gzip_magic_number = b'\x1f\x8b'
+        response = b''
 
         for chunk in resp.raw.stream(decode_content=False):
-            call.response += chunk.decode()
+            response += chunk
             yield chunk
 
+        if response:
+            if response.startswith(gzip_magic_number):
+                try:
+                    response = gzip.decompress(response)
+                except:
+                    pass
+            call.response = response.decode(errors="ignore")
         call.save()
 
     # TODO: verify if flask can create chunked responses: Transfer-Encoding: chunked
