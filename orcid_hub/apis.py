@@ -3415,7 +3415,7 @@ def orcid_proxy(version, orcid, rest=None):
 
     def generate():
         # for chunk in resp.raw.stream(decode_content=False, amt=CHUNK_SIZE):
-        gzip_magic_number=b'\x1f\x8b'
+        gzip_magic_number = b'\x1f\x8b'
         response = b''
 
         for chunk in resp.raw.stream(decode_content=False):
