@@ -234,7 +234,7 @@ def get_attributes(key):
     return data, 200, {"Content-Type": "application/octet-stream"}
 
 
-@app.route("/sso/login", endpoint="saml-login")
+@app.route("/sso/login", endpoint="sso-login")
 @app.route("/saml/login")
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
