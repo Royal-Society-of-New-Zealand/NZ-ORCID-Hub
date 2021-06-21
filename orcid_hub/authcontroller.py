@@ -567,7 +567,8 @@ def link():
     external_sp = app.config.get("EXTERNAL_SP")
     if external_sp:
         sp_url = urlparse(external_sp)
-        redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
+        # Needs AllowEncodedSlashes NoDecode in Apache
+        redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri, safe='')
 
     if current_user.organisation and not current_user.organisation.confirmed:
         flash(
@@ -1254,7 +1255,7 @@ def orcid_login(invitation_token=None):
             sp_url = urlparse(external_sp)
             u = Url.shorten(redirect_uri)
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
+            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri, safe='')
         # if the invitation token is missing perform only authentication (in the call back handler)
         redirect_uri = append_qs(redirect_uri, login="1")
 
