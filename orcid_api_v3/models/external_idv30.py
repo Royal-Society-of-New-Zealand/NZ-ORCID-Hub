@@ -196,7 +196,7 @@ class ExternalIDV30(object):
         :param external_id_relationship: The external_id_relationship of this ExternalIDV30.  # noqa: E501
         :type: str
         """
-        allowed_values = ["PART_OF", "SELF", "VERSION_OF", "part-of", "self", ]  # noqa: E501
+        allowed_values = ["PART_OF", "SELF", "VERSION_OF", "FUNDED_BY", "part-of", "self", "version-of", "funded-by"]  # noqa: E501
         if external_id_relationship not in allowed_values:
             raise ValueError(
                 "Invalid value for `external_id_relationship` ({0}), must be one of {1}"  # noqa: E501

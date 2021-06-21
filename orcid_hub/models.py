@@ -155,7 +155,7 @@ SUBJECT_TYPES = [
 REVIEWER_ROLES = ["chair", "editor", "member", "organizer", "reviewer"]
 REVIEW_TYPES = ["evaluation", "review"]
 review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
-RELATIONSHIPS = ["part-of", "self"]
+RELATIONSHIPS = ["part-of", "self", "version-of", "funded-by"]
 
 WORK_TYPES = [
     "artistic-performance",
