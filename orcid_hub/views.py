@@ -1944,7 +1944,7 @@ class ViewMembersAdmin(AppModelView):
                     continue
             except ApiException as ex:
                 if ex.status == 401:
-                    flash(f"User {t.user} has revoked the permissions to update his/her records",
+                    flash(f"User {t.user} has revoked the permissions to update their records",
                           "warning")
                 else:
                     flash(
@@ -2815,7 +2815,7 @@ def section(user_id, section_type="EMP"):
         if not orcid_token:
             orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
     except Exception:
-        flash("User didn't give permissions to update his/her records", "warning")
+        flash("User didn't give permissions to update their records", "warning")
         return redirect(_url)
 
     api = orcid_client.MemberAPIV3(user=user, org=current_user.organisation, access_token=orcid_token.access_token)
@@ -2824,7 +2824,7 @@ def section(user_id, section_type="EMP"):
         api_response = api.get_section(section_type)
     except ApiException as ex:
         if ex.status == 401:
-            flash("User has revoked the permissions to update his/her records", "warning")
+            flash("User has revoked the permissions to update their records", "warning")
         else:
             flash(
                 "Exception when calling ORCID API: \n" + json.loads(ex.body.replace(
@@ -2839,7 +2839,7 @@ def section(user_id, section_type="EMP"):
     try:
         data = json.loads(api_response.data, object_pairs_hook=NestedDict)
     except Exception as ex:
-        flash("User didn't give permissions to update his/her records", "warning")
+        flash("User didn't give permissions to update their records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)

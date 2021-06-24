@@ -453,7 +453,7 @@ def test_show_record_section(client, mocker):
     ) as view_external_identifiers:
 
         resp = client.get(f"/section/{user.id}/EXR/list", follow_redirects=True)
-        assert b"User didn't give permissions to update his/her records" in resp.data
+        assert b"User didn't give permissions to update their records" in resp.data
 
         resp = client.post(f"/section/{user.id}/EXR/list", follow_redirects=True)
         assert resp.status_code == 200
