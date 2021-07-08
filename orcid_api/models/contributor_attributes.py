@@ -88,7 +88,15 @@ class ContributorAttributes(object):
         :param contributor_role: The contributor_role of this ContributorAttributes.
         :type: str
         """
-        allowed_values = ["AUTHOR", "ASSIGNEE", "EDITOR", "CHAIR_OR_TRANSLATOR", "CO_INVESTIGATOR", "CO_INVENTOR", "GRADUATE_STUDENT", "OTHER_INVENTOR", "PRINCIPAL_INVESTIGATOR", "POSTDOCTORAL_RESEARCHER", "SUPPORT_STAFF"]
+        allowed_values = ["AUTHOR", "ASSIGNEE", "EDITOR", "CHAIR_OR_TRANSLATOR", "CO_INVESTIGATOR", "CO_INVENTOR", "GRADUATE_STUDENT", 
+        "OTHER_INVENTOR", "PRINCIPAL_INVESTIGATOR", "POSTDOCTORAL_RESEARCHER", "SUPPORT_STAFF",
+        "http://credit.niso.org/contributor-roles/conceptualization/", "http://credit.niso.org/contributor-roles/data-curation/", 
+        "http://credit.niso.org/contributor-roles/formal-analysis/", "http://credit.niso.org/contributor-roles/funding-acquisition/", 
+        "http://credit.niso.org/contributor-roles/investigation/", "http://credit.niso.org/contributor-roles/methodology/", 
+        "http://credit.niso.org/contributor-roles/project-administration/", "http://credit.niso.org/contributor-roles/resources/", 
+        "http://credit.niso.org/contributor-roles/software/", "http://credit.niso.org/contributor-roles/supervision/", 
+        "http://credit.niso.org/contributor-roles/validation/", "http://credit.niso.org/contributor-roles/visualization/", 
+        "http://credit.niso.org/contributor-roles/writing-original-draft/", "http://credit.niso.org/contributor-roles/writing-review-editing/"]
         if contributor_role not in allowed_values:
             raise ValueError(
                 "Invalid value for `contributor_role` ({0}), must be one of {1}"
