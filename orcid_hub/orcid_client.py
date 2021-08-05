@@ -82,7 +82,7 @@ class OrcidRESTClientObjectMixing:
                 _request_timeout=_request_timeout,
                 **kwargs,
             )
-        except ApiException as ex:
+        except (ApiException, v3.rest.ApiException) as ex:
             if oac:
                 oac.status = ex.status
                 if ex.data:
