@@ -83,6 +83,7 @@ class OrcidRESTClientObjectMixing:
                 **kwargs,
             )
         except (ApiException, v3.rest.ApiException) as ex:
+            res = None
             if oac:
                 oac.status = ex.status
                 if ex.body:
