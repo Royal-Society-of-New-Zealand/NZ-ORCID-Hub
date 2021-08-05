@@ -85,8 +85,8 @@ class OrcidRESTClientObjectMixing:
         except (ApiException, v3.rest.ApiException) as ex:
             if oac:
                 oac.status = ex.status
-                if ex.data:
-                    oac.response = ex.data
+                if ex.body:
+                    oac.response = ex.body
         else:
             if res and oac:
                 oac.status = res.status
