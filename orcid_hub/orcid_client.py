@@ -83,11 +83,13 @@ class OrcidRESTClientObjectMixing:
                 **kwargs,
             )
         except (ApiException, v3.rest.ApiException) as ex:
-            res = None
             if oac:
                 oac.status = ex.status
+                oac.response_time_ms = round((time() - request_time) * 1000)
                 if ex.body:
                     oac.response = ex.body
+                oac.save()
+                raise
         else:
             if res and oac:
                 oac.status = res.status
