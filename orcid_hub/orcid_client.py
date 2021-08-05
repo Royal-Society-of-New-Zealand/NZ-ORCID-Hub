@@ -70,22 +70,30 @@ class OrcidRESTClientObjectMixing:
         except Exception:
             app.logger.exception("Failed to create API call log entry.")
             oac = None
-        res = super().request(
-            method=method,
-            url=url,
-            query_params=query_params,
-            headers=headers,
-            body=body,
-            post_params=post_params,
-            _preload_content=_preload_content,
-            _request_timeout=_request_timeout,
-            **kwargs,
-        )
-        if res and oac:
-            oac.status = res.status
+        try:
+            res = super().request(
+                method=method,
+                url=url,
+                query_params=query_params,
+                headers=headers,
+                body=body,
+                post_params=post_params,
+                _preload_content=_preload_content,
+                _request_timeout=_request_timeout,
+                **kwargs,
+            )
+        except ApiException as ex:
+            if oac:
+                oac.status = ex.status
+                if ex.data:
+                    oac.response = ex.data
+        else:
+            if res and oac:
+                oac.status = res.status
+                if res.data:
+                    oac.response = res.data
+        finally:
             oac.response_time_ms = round((time() - request_time) * 1000)
-            if res.data:
-                oac.response = res.data
             oac.save()
 
         return res
