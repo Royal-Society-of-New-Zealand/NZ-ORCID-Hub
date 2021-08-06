@@ -27,41 +27,15 @@ from yaml.representer import SafeRepresenter
 from orcid_api_v3.rest import ApiException
 
 from . import app, db, orcid_client, rq
-from .models import (
-    AFFILIATION_TYPES,
-    Affiliation,
-    AffiliationRecord,
-    Delegate,
-    FundingInvitee,
-    FundingRecord,
-    Invitee,
-    Log,
-    MailLog,
-    MessageRecord,
-    NestedDict,
-    OrcidApiCall,
-    OrcidToken,
-    Organisation,
-    OrgInvitation,
-    OtherIdRecord,
-    PartialDate,
-    PeerReviewExternalId,
-    PeerReviewInvitee,
-    PeerReviewRecord,
-    PropertyRecord,
-    RecordInvitee,
-    ResourceRecord,
-    Role,
-    Task,
-    TaskType,
-    User,
-    UserInvitation,
-    UserOrg,
-    WorkInvitee,
-    WorkRecord,
-    get_val,
-    readup_file,
-)
+from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord,
+                     Delegate, FundingInvitee, FundingRecord, Invitee, Log,
+                     MailLog, MessageRecord, NestedDict, OrcidApiCall,
+                     OrcidToken, Organisation, OrgInvitation, OtherIdRecord,
+                     PartialDate, PeerReviewExternalId, PeerReviewInvitee,
+                     PeerReviewRecord, PropertyRecord, RecordInvitee,
+                     ResourceRecord, Role, Task, TaskType, User,
+                     UserInvitation, UserOrg, WorkInvitee, WorkRecord, get_val,
+                     readup_file)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -95,7 +69,8 @@ def get_next_url(endpoint=None):
             return _next
         try:
             csrf = urlparse(_next).netloc
-            if (csrf == urlparse(app.config.get("APP_URL")).netloc
+            if (
+                csrf == urlparse(app.config.get("APP_URL")).netloc
                 or csrf.startswith("127.0.")
                 or csrf in app.config.get("CSRF_DOMAINS")
             ):
@@ -3272,7 +3247,8 @@ def reset_all_records(task):
                 count = (
                     task.record_model.update(processed_at=None, status=status)
                     .where(
-                        task.record_model.task_id == task.id, task.record_model.is_active == True  # noqa: E712
+                        task.record_model.task_id == task.id,
+                        task.record_model.is_active == True,  # noqa: E712
                     )
                     .execute()
                 )  # noqa: E712

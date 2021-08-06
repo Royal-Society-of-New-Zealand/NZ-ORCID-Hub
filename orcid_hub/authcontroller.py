@@ -282,7 +282,8 @@ def handle_login():
         email, *secondary_emails = re.split(
             "[,; \t]", data[app.config.get("EXTERNAL_SP_ATTR_MAIL")].encode("latin-1").decode("utf-8").lower()
         )
-        session["shib_O"] = shib_org_name = data[app.config.get("EXTERNAL_SP_ATTR_ORG")].encode("latin-1").decode("utf-8")
+        session["shib_O"] = shib_org_name = data[
+                app.config.get("EXTERNAL_SP_ATTR_ORG")].encode("latin-1").decode("utf-8")
         name = data.get(app.config.get("EXTERNAL_SP_ATTR_DISPLAYNAME")).encode("latin-1").decode("utf-8")
         eppn = data.get(app.config.get("EXTERNAL_SP_ATTR_EPPN")).encode("latin-1").decode("utf-8") or None
         unscoped_affiliation = set(
