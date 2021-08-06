@@ -54,6 +54,8 @@ MAIL_PORT = int(getenv("MAIL_PORT", 25))
 MAIL_SUPPRESS_SEND = False
 MAIL_DEFAULT_SENDER = getenv("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
 MAIL_SERVER = getenv("MAIL_SERVER", "gateway")
+MAIL_DKIM_DOMAIN = getenv("MAIL_DKIM_DOMAIN", "orcidhub.org.nz")
+MAIL_DKIM_SELECTOR = getenv("MAIL_DKIM_SELECTOR", "default")
 
 MEMBER_API_FORM_MAIL = bool(getenv("MEMBER_API_FORM_MAIL"))
 MEMBER_API_FORM_BASE_URL = "https://orcid.org/content/register-client-application-sandbox" \
