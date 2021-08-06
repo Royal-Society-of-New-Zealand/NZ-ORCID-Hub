@@ -561,7 +561,7 @@ if app.config.get("LOAD_TEST"):
 @app.route("/link")
 @login_required
 def link():
-    """Link the user's account with ORCID (i.e. affiliates user with his/her org on ORCID)."""
+    """Link the user's account with ORCID (i.e. affiliates user with their org on ORCID)."""
     # TODO: handle organisation that are not on-boarded
     redirect_uri = url_for("orcid_callback", _external=True)
     external_sp = app.config.get("EXTERNAL_SP")
@@ -861,7 +861,7 @@ def profile():
         )
         if resp_person.status_code == 401:
             orcid_token.delete_instance()
-            app.logger.info("%r has removed his organisation from trusted list", user)
+            app.logger.info("%r has removed their organisation from trusted list", user)
             return redirect(url_for("link"))
         else:
             users = User.select().where(User.orcid == user.orcid)
