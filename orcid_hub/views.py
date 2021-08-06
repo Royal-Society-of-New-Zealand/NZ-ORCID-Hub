@@ -64,6 +64,7 @@ from .utils import get_next_url, read_uploaded_file, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
+MAIL_SUPPORT_ADDRESS = app.config["MAIL_SUPPORT_ADDRESS"]
 
 
 @app.errorhandler(401)
@@ -1858,7 +1859,7 @@ class ViewMembersAdmin(AppModelView):
                                   UserOrg.is_admin).exists():
             flash(
                 f"Failed to delete record for {model}, As User appears to be one of the admins. "
-                f"Please contact orcid@royalsociety.org.nz for support", "danger")
+                f"Please contact {MAIL_SUPPORT_ADDRESS} for support", "danger")
             return False
 
         for token in OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == model):
@@ -2046,7 +2047,7 @@ class GroupIdRecordAdmin(AppModelView):
                         orcid_token = utils.get_client_credentials_token(org=org, scopes="/group-id-record/update")
                     except Exception as ex:
                         flash("Something went wrong in ORCID call, "
-                              "please contact orcid@royalsociety.org.nz for support", "warning")
+                              f"please contact {MAIL_SUPPORT_ADDRESS} for support", "warning")
                         app.logger.exception(f'Exception occured {ex}')
 
                     api = orcid_client.MemberAPIV3(org=org, access_token=orcid_token.access_token)
@@ -2070,12 +2071,12 @@ class GroupIdRecordAdmin(AppModelView):
                         orcid_token.delete_instance()
                     flash("Something went wrong in ORCID call, Please try again by making by making necessary changes, "
                           "In case you understand the 'user-message' present in the status field or else "
-                          "please contact orcid@royalsociety.org.nz for support", "warning")
+                          f"please contact {MAIL_SUPPORT_ADDRESS} for support", "warning")
                     app.logger.exception(f'Exception occured {ex}')
                     gid.add_status_line(f"ApiException: {ex}")
                 except Exception as ex:
                     flash("Something went wrong in ORCID call, "
-                          "Please contact orcid@royalsociety.org.nz for support", "warning")
+                          f"Please contact {MAIL_SUPPORT_ADDRESS} for support", "warning")
                     app.logger.exception(f'Exception occured {ex}')
                     gid.add_status_line(f"Exception: {ex}")
                 finally:
@@ -2933,7 +2934,7 @@ def search_group_id_record():
                 orcid_token = utils.get_client_credentials_token(org=org, scopes="/group-id-record/read")
             except Exception as ex:
                 flash("Something went wrong in ORCID call, "
-                      "please contact orcid@royalsociety.org.nz for support", "warning")
+                      f"please contact {MAIL_SUPPORT_ADDRESS} for support", "warning")
                 app.logger.exception(f'Exception occured {ex}')
 
             api = orcid_client.MemberAPIV3(org=org, access_token=orcid_token.access_token)
@@ -2953,7 +2954,7 @@ def search_group_id_record():
             else:
                 flash(f"Something went wrong in ORCID call, Please try again by making necessary changes, "
                       f"In case you understand this message: {ex} or"
-                      f" else please contact orcid@royalsociety.org.nz for support", "warning")
+                      f" else please contact {MAIL_SUPPORT_ADDRESS} for support", "warning")
                 app.logger.warning(f'Exception occured {ex}')
 
         except Exception as ex:
@@ -3824,7 +3825,7 @@ def remove_linkage():
     if UserOrg.select().where(
                 (UserOrg.user_id == current_user.id) & (UserOrg.org_id == org.id) & UserOrg.is_admin).exists():
         flash(f"Failed to remove linkage for {current_user}, as this user appears to be one of the admins for {org}. "
-              "Please contact orcid@royalsociety.org.nz for support", "danger")
+              f"Please contact {MAIL_SUPPORT_ADDRESS} for support", "danger")
         return redirect(_url)
 
     for token in OrcidToken.select().where(OrcidToken.org_id == org.id, OrcidToken.user_id == current_user.id):

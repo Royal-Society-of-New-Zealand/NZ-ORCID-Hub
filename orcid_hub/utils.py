@@ -136,7 +136,7 @@ def send_email(
     recipient,
     cc_email=None,
     sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
-    reply_to=None,
+    reply_to=app.config.get("MAIL_SUPPORT_ADDRESS"),
     subject=None,
     base=None,
     logo=None,
