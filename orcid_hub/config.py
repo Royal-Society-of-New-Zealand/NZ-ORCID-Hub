@@ -72,15 +72,15 @@ SEED_HUB_ADMIN = getenv("SEED_HUB_ADMIN", "rad42@mailinator.com")
 
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
 EXTERNAL_SP = getenv("EXTERNAL_SP") if ENV != "prod" else None
-# Attribute map for external SP
-EXTERNAL_SP_ATTR_EPPN = getenv("EXTERNAL_SP_ATTR_EPPN", "Eppn")
-EXTERNAL_SP_ATTR_SN = getenv("EXTERNAL_SP_ATTR_SN", "Sn")
-EXTERNAL_SP_ATTR_GIVENNAME = getenv("EXTERNAL_SP_ATTR_GIVENNAME", "Givenname")
-EXTERNAL_SP_ATTR_MAIL = getenv("EXTERNAL_SP_ATTR_MAIL", "Mail")
-EXTERNAL_SP_ATTR_DISPLAYNAME = getenv("EXTERNAL_SP_ATTR_DISPLAYNAME", "Displayname")
-EXTERNAL_SP_ATTR_ORG = getenv("EXTERNAL_SP_ATTR_ORG", "O")
-EXTERNAL_SP_ATTR_AFFILIATION = getenv("EXTERNAL_SP_ATTR_AFFILIATION", "Unscoped-Affiliation")
-EXTERNAL_SP_ATTR_ORCID = getenv("EXTERNAL_SP_ATTR_ORCID", "Orcid-Id")
+# Attribute map for your SP
+SP_ATTR_EPPN = getenv("SP_ATTR_EPPN", "Eppn")
+SP_ATTR_SN = getenv("SP_ATTR_SN", "Sn")
+SP_ATTR_GIVENNAME = getenv("SP_ATTR_GIVENNAME", "Givenname")
+SP_ATTR_MAIL = getenv("SP_ATTR_MAIL", "Mail")
+SP_ATTR_DISPLAYNAME = getenv("SP_ATTR_DISPLAYNAME", "Displayname")
+SP_ATTR_ORG = getenv("SP_ATTR_ORG", "O")
+SP_ATTR_AFFILIATION = getenv("SP_ATTR_AFFILIATION", "Unscoped-Affiliation")
+SP_ATTR_ORCID = getenv("SP_ATTR_ORCID", "Orcid-Id")
 
 DEFAULT_COUNTRY = "NZ"
 

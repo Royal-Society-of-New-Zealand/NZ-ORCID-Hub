@@ -277,25 +277,25 @@ def handle_login():
         data = request.headers
 
     try:
-        last_name = data[app.config.get("EXTERNAL_SP_ATTR_SN")].encode("latin-1").decode("utf-8")
-        first_name = data[app.config.get("EXTERNAL_SP_ATTR_GIVENNAME")].encode("latin-1").decode("utf-8")
+        last_name = data[app.config.get("SP_ATTR_SN")].encode("latin-1").decode("utf-8")
+        first_name = data[app.config.get("SP_ATTR_GIVENNAME")].encode("latin-1").decode("utf-8")
         email, *secondary_emails = re.split(
-            "[,; \t]", data[app.config.get("EXTERNAL_SP_ATTR_MAIL")].encode("latin-1").decode("utf-8").lower()
+            "[,; \t]", data[app.config.get("SP_ATTR_MAIL")].encode("latin-1").decode("utf-8").lower()
         )
         session["shib_O"] = shib_org_name = data[
-                app.config.get("EXTERNAL_SP_ATTR_ORG")].encode("latin-1").decode("utf-8")
-        name = data.get(app.config.get("EXTERNAL_SP_ATTR_DISPLAYNAME")).encode("latin-1").decode("utf-8")
-        eppn = data.get(app.config.get("EXTERNAL_SP_ATTR_EPPN")).encode("latin-1").decode("utf-8") or None
+                app.config.get("SP_ATTR_ORG")].encode("latin-1").decode("utf-8")
+        name = data.get(app.config.get("SP_ATTR_DISPLAYNAME")).encode("latin-1").decode("utf-8")
+        eppn = data.get(app.config.get("SP_ATTR_EPPN")).encode("latin-1").decode("utf-8") or None
         unscoped_affiliation = set(
             a.strip()
-            for a in data.get(app.config.get("EXTERNAL_SP_ATTR_AFFILIATION"), "")
+            for a in data.get(app.config.get("SP_ATTR_AFFILIATION"), "")
             .encode("latin-1")
             .decode("utf-8")
             .replace(",", ";")
             .split(";")
         )
 
-        orcid = data.get(app.config.get("EXTERNAL_SP_ATTR_ORCID"))
+        orcid = data.get(app.config.get("SP_ATTR_ORCID"))
         if orcid:
             orcid = orcid.split("/")[-1]
             try:

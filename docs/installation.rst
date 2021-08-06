@@ -129,19 +129,19 @@ ORCID_CLIENT_ID             Orcid API client ID and secret, e.g., *0000-1234-292
 ORCID_CLIENT_SECRET         Orcid API client ID and secret, e.g., *b25ab710-89b1-49e8-65f4-8df4f038dce9*
 ==========================  ==================
 
-Configuring the attribute mapping for EXTERNAL_SP. These should match the attributes exposed by your service provider (e.g. Shibboleth):
+Configuring the attribute mapping for your SP. These should match the attributes exposed by your service provider (e.g. Shibboleth):
 
-==========================  ==================
-Variable                    Description
-==========================  ==================
-EXTERNAL_SP_ATTR_EPPN         Attribute name for "eduPersonPrincipalName" (default *Eppn*)
-EXTERNAL_SP_ATTR_SN           Attribute name for "sn" (default *Sn*)
-EXTERNAL_SP_ATTR_GIVENNAME    Attribute name for "givenName" (default *Givenname*)
-EXTERNAL_SP_ATTR_MAIL         Attribute name for "mail" (default *Mail*)
-EXTERNAL_SP_ATTR_DISPLAYNAME  Attribute name for "displayName" (default *Displayname*)
-EXTERNAL_SP_ATTR_ORG          Attribute name for organisation name (default *O*)
-EXTERNAL_SP_ATTR_AFFILIATION  Attribute name for "eduPersonAffiliation" (default *Unscoped-Affiliation*)
-EXTERNAL_SP_ATTR_ORCID        Attribute name for "eduPersonOrcid" hint (default *Orcid-Id*)
+===================  ==================
+Variable             Description
+===================  ==================
+SP_ATTR_EPPN         Attribute name for "eduPersonPrincipalName" (default *Eppn*)
+SP_ATTR_SN           Attribute name for "sn" (default *Sn*)
+SP_ATTR_GIVENNAME    Attribute name for "givenName" (default *Givenname*)
+SP_ATTR_MAIL         Attribute name for "mail" (default *Mail*)
+SP_ATTR_DISPLAYNAME  Attribute name for "displayName" (default *Displayname*)
+SP_ATTR_ORG          Attribute name for organisation name (default *O*)
+SP_ATTR_AFFILIATION  Attribute name for "eduPersonAffiliation" (default *Unscoped-Affiliation*)
+SP_ATTR_ORCID        Attribute name for "eduPersonOrcid" hint (default *Orcid-Id*)
 
 Configuring mail and redis defaults
 

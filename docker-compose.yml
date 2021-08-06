@@ -27,16 +27,25 @@ services:
       - redis
     image: orcidhub/app-dev:6.13
     environment:
-      - ENV
       # - SHIB_SP_DOMAINNAME
+      - ENV
+      - EXTERNAL_SP
+      - LOAD_TEST
       - MAIL_DEFAULT_SENDER
-      - SECRET_KEY
+      - MAIL_SUPPORT_ADDRESS
+      - MEMBER_API_FORM_MAIL
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
+      - SECRET_KEY
       - SENTRY_DSN
-      - LOAD_TEST
-      - EXTERNAL_SP
-      - MEMBER_API_FORM_MAIL
+      - SP_ATTR_AFFILIATION
+      - SP_ATTR_DISPLAYNAME
+      - SP_ATTR_EPPN
+      - SP_ATTR_GIVENNAME
+      - SP_ATTR_MAIL
+      - SP_ATTR_ORCID
+      - SP_ATTR_ORG
+      - SP_ATTR_SN
     domainname: ${DOMAINNAME:-orcidhub.org.nz}
     hostname: app
     ports:
@@ -74,6 +83,7 @@ services:
     environment:
       - ENV
       - MAIL_DEFAULT_SENDER
+      - MAIL_SUPPORT_ADDRESS
       - SECRET_KEY
       - SENTRY_DSN
     volumes:
