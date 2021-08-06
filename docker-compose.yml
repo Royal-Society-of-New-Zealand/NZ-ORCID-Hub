@@ -3,7 +3,7 @@ version: '3.5'
 services:
 
   db:
-    image: postgres:11.8
+    image: postgres:11.12
     environment:
       - PGPASSWORD
       - POSTGRES_PASSWORD="${PGPASSWORD:-p455w0rd}"
@@ -25,7 +25,7 @@ services:
     depends_on:
       - db
       - redis
-    image: orcidhub/app-dev:6.11
+    image: orcidhub/app-dev:6.13
     environment:
       - ENV
       # - SHIB_SP_DOMAINNAME
@@ -66,7 +66,7 @@ services:
         ipv4_address: ${SUBNET:-172.33}.0.88
 
   worker:
-    image: orcidhub/app-dev:6.11
+    image: orcidhub/app-dev:6.13
     depends_on:
       - redis
       - db
@@ -81,7 +81,7 @@ services:
     restart: always
 
   scheduler:
-    image: orcidhub/app-dev:6.11
+    image: orcidhub/app-dev:6.13
     depends_on:
       - redis
       - db
