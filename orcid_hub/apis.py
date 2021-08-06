@@ -3429,6 +3429,7 @@ def orcid_proxy(version, orcid, rest=None):
                 except:
                     pass
             call.response = response.decode(errors="ignore")
+
         call.save()
 
     # TODO: verify if flask can create chunked responses: Transfer-Encoding: chunked
