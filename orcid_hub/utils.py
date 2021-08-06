@@ -90,14 +90,18 @@ def get_next_url(endpoint=None):
     if not _next and endpoint:
         _next = url_for(endpoint)
 
-    if _next and (
-        "orcidhub.org.nz" in _next
-        or _next.startswith("/")
-        or "127.0" in _next
-        or "localhost" in _next
-        or "c9users.io" in _next
-    ):
-        return _next
+    if _next:
+        if _next.startswith("/"):
+            return _next
+        try:
+            csrf = urlparse(_next).netloc
+            if (csrf == urlparse(app.config.get("APP_URL")).netloc
+                or csrf.startswith("127.0.")
+                or csrf in app.config.get("CSRF_DOMAINS")
+            ):
+                return _next
+        except:
+            pass
 
     try:
         if Delegate.select().where(Delegate.hostname ** f"%{urlparse(_next).netloc}%").exists():

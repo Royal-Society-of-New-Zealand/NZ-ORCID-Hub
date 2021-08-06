@@ -150,6 +150,7 @@ Variable                    Description
 SECRET_KEY                  To specify the Hub secret key for data encryption (optional)
 SENTRY_DSN                  Sentry project DSN (optional)
 GA_TRACKING_ID              Google Analytics Tracking ID (optional)
+CSRF_DOMAINS                Semicolon delimited whitelist of FQDNs, used to check Referer headers (default *localhost;c9users.io*)
 ==========================  ==================
 
 Minimal deployment via PyPI
