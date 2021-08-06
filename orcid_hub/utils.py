@@ -27,15 +27,41 @@ from yaml.representer import SafeRepresenter
 from orcid_api_v3.rest import ApiException
 
 from . import app, db, orcid_client, rq
-from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord,
-                     Delegate, FundingInvitee, FundingRecord, Invitee, Log,
-                     MailLog, MessageRecord, NestedDict, OrcidApiCall,
-                     OrcidToken, Organisation, OrgInvitation, OtherIdRecord,
-                     PartialDate, PeerReviewExternalId, PeerReviewInvitee,
-                     PeerReviewRecord, PropertyRecord, RecordInvitee,
-                     ResourceRecord, Role, Task, TaskType, User,
-                     UserInvitation, UserOrg, WorkInvitee, WorkRecord, get_val,
-                     readup_file)
+from .models import (
+    AFFILIATION_TYPES,
+    Affiliation,
+    AffiliationRecord,
+    Delegate,
+    FundingInvitee,
+    FundingRecord,
+    Invitee,
+    Log,
+    MailLog,
+    MessageRecord,
+    NestedDict,
+    OrcidApiCall,
+    OrcidToken,
+    Organisation,
+    OrgInvitation,
+    OtherIdRecord,
+    PartialDate,
+    PeerReviewExternalId,
+    PeerReviewInvitee,
+    PeerReviewRecord,
+    PropertyRecord,
+    RecordInvitee,
+    ResourceRecord,
+    Role,
+    Task,
+    TaskType,
+    User,
+    UserInvitation,
+    UserOrg,
+    WorkInvitee,
+    WorkRecord,
+    get_val,
+    readup_file,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -217,14 +243,18 @@ def send_email(
         raise Exception(f"Cannot find DKIM key file: {dkim_key_path}!")
     if cc_email:
         msg.cc.append(cc_email)
-    msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
-    msg.set_headers({"x-auto-response-suppress": "DR, RN, NRN, OOF"})
-    msg.set_headers({"auto-submitted": "auto-generated"})
     # Unsubscribe link:
     token = new_invitation_token(length=10)
     unsubscribe_url = url_for("unsubscribe", token=token, _external=True)
-    msg.set_headers({"List-Unsubscribe": f"<{unsubscribe_url}>"})
+    headers = {
+        "x-auto-response-suppress": "DR, RN, NRN, OOF",
+        "auto-submitted": "auto-generated",
+        "List-Unsubscribe": f"<{unsubscribe_url}>",
+    }
+    if reply_to:
+        headers["reply-to"] = reply_to
+    msg.set_headers(headers)
 
     smtp = dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"])
     if "MAIL_PORT" in app.config:
