@@ -2805,7 +2805,7 @@ def section(user_id, section_type="EMP"):
                     invitation=ui,
                     invitation_url=invitation_url,
                     recipient=(current_user.organisation.name, user.email),
-                    reply_to=(current_user.name, current_user.email),
+                    reply_to=f"{current_user.name} <{current_user.email}>",
                     cc_email=(current_user.name, current_user.email))
                 flash("Invitation requesting 'PERSON/UPDATE' as been sent.", "success")
         except Exception as ex:
@@ -3272,7 +3272,7 @@ def register_org(org_name,
             "email/org_invitation.html",
             invitation=oi,
             recipient=(org_name, email),
-            reply_to=(current_user.name, current_user.email),
+            reply_to=f"{current_user.name} <{current_user.email}>",
             cc_email=(current_user.name, current_user.email))
 
         org.is_email_sent = True
@@ -3479,7 +3479,7 @@ def manage_email_template():
             utils.send_email(
                 "email/test.html",
                 recipient=recipient,
-                reply_to=recipient,
+                reply_to=email,
                 cc_email=recipient,
                 sender=recipient,
                 subject="TEST EMAIL",

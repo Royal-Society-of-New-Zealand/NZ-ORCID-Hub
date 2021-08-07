@@ -209,8 +209,6 @@ def send_email(
     kwargs["recipient"] = _jinja2_email(*recipient)
     if subject is not None:
         kwargs["subject"] = subject
-    if reply_to is None:
-        reply_to = sender
 
     rendered = template.make_module(vars=kwargs)
     if subject is None:
@@ -961,7 +959,7 @@ def send_user_invitation(
             send_email(
                 invitation_template,
                 recipient=(org.name if org else user.organisation.name, user.email),
-                reply_to=(inviter.name, inviter.email),
+                reply_to=f"{inviter.name} <{inviter.email}>",
                 cc_email=cc_email,
                 invitation_url=invitation_url,
                 org_name=org.name if org else user.organisation.name,
@@ -1509,7 +1507,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 send_email(
                     "email/researcher_reinvitation.html",
                     recipient=(user.organisation.name, user.email),
-                    reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
+                    reply_to=f"{task_by_user.created_by.name} <{task_by_user.created_by.email}>",
                     invitation_url=invitation_url,
                     org_name=user.organisation.name,
                     org=org,
