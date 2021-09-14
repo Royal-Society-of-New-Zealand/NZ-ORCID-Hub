@@ -223,7 +223,7 @@ if SENTRY_DSN:
         debug=app.debug,
         environment=app.config.get("ENV"),
         attach_stacktrace=True,
-        traces_sample_rate=1.0,
+        traces_sample_rate=app.config["SENTRY_TRACES_SAMPLE_RATE"],
         with_locals=True,
         send_default_pii=True)
 
