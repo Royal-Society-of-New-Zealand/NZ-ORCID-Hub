@@ -38,6 +38,7 @@ services:
       - ORCID_CLIENT_SECRET
       - SECRET_KEY
       - SENTRY_DSN
+      - SENTRY_TRACES_SAMPLE_RATE
       - SP_ATTR_AFFILIATION
       - SP_ATTR_DISPLAYNAME
       - SP_ATTR_EPPN
@@ -86,6 +87,7 @@ services:
       - MAIL_SUPPORT_ADDRESS
       - SECRET_KEY
       - SENTRY_DSN
+      - SENTRY_TRACES_SAMPLE_RATE
     volumes:
       - .:/src
     restart: always
@@ -99,6 +101,7 @@ services:
     environment:
       - ENV
       - SENTRY_DSN
+      - SENTRY_TRACES_SAMPLE_RATE
     volumes:
       - .:/src
     restart: always
