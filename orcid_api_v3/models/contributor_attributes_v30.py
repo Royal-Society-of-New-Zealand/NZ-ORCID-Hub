@@ -64,10 +64,13 @@ class ContributorAttributesV30(object):
         """
         # if contributor_sequence is None:
         #     raise ValueError("Invalid value for `contributor_sequence`, must not be `None`")  # noqa: E501
+        if contributor_sequence and ' ' in contributor_sequence:
+            contributor_sequence = contributor_sequence.strip()
+
         allowed_values = ["FIRST", "ADDITIONAL", "first", "additional"]  # noqa: E501
         if contributor_sequence and contributor_sequence not in allowed_values:
             raise ValueError(
-                "Invalid value for `contributor_sequence` ({0}), must be one of {1}".format(  # noqa: E501
+                "Invalid value for `contributor_sequence` (\"{0}\"), must be one of {1}".format(  # noqa: E501
                     contributor_sequence, allowed_values
                 )
             )
@@ -114,7 +117,7 @@ class ContributorAttributesV30(object):
         ]  # noqa: E501
         if contributor_role and contributor_role not in allowed_values:
             raise ValueError(
-                "Invalid value for `contributor_role` ({0}), must be one of {1}".format(  # noqa: E501
+                "Invalid value for `contributor_role` (\"{0}\"), must be one of {1}".format(  # noqa: E501
                     contributor_role, allowed_values
                 )
             )
