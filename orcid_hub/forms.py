@@ -416,6 +416,9 @@ class FileUploadForm(AppForm):
 class TestDataForm(FileUploadForm):
     """Load testing data upload and/or generation form."""
 
+    use_current = BooleanField(
+        label="User Current Users",
+        default=False)
     org_count = IntegerField(
         label="Organisation Count",
         default=100,

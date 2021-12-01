@@ -124,7 +124,7 @@ def is_valid_url(url):
 
 def read_uploaded_file(form):
     """Read up the whole content and deconde it and return the whole content."""
-    if "file_" not in request.files:
+    if "file_" not in request.files or not request.files["file_"].content_length:
         return
     content = readup_file(request.files[form.file_.name])
     if content:
