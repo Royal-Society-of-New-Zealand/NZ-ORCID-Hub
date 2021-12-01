@@ -280,10 +280,12 @@ def handle_login():
         last_name = data[app.config.get("SP_ATTR_SN")].encode("latin-1").decode("utf-8")
         first_name = data[app.config.get("SP_ATTR_GIVENNAME")].encode("latin-1").decode("utf-8")
         email, *secondary_emails = re.split(
-            "[,; \t]", data[app.config.get("SP_ATTR_MAIL")].encode("latin-1").decode("utf-8").lower()
+            "[,; \t]",
+            data[app.config.get("SP_ATTR_MAIL")].encode("latin-1").decode("utf-8").lower(),
         )
-        session["shib_O"] = shib_org_name = data[
-                app.config.get("SP_ATTR_ORG")].encode("latin-1").decode("utf-8")
+        session["shib_O"] = shib_org_name = (
+            data[app.config.get("SP_ATTR_ORG")].encode("latin-1").decode("utf-8")
+        )
         name = data.get(app.config.get("SP_ATTR_DISPLAYNAME")).encode("latin-1").decode("utf-8")
         eppn = data.get(app.config.get("SP_ATTR_EPPN")).encode("latin-1").decode("utf-8") or None
         unscoped_affiliation = set(
@@ -497,6 +499,22 @@ def test_data():
                         abort(400)
                     yield s.get_signature(email).decode() + sep + sep.join(values)
                     yield "\n"
+            elif request.args.get("use_current") or form.use_current.data:
+                for u in User.select():
+                    email = u.email
+                    if email:
+                        yield ",".join(
+                            [
+                                s.get_signature(email).decode(),
+                                email,
+                                u.username or "",
+                                "",
+                                u.organisation and u.organisation.name or "",
+                                u.first_name or "",
+                                u.last_name or "",
+                            ]
+                        )
+                        yield "\n"
             else:
                 use_known_orgs = bool(
                     request.args.get("use-known-orgs") or form.use_known_orgs.data
