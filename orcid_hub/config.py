@@ -6,13 +6,15 @@ from os import environ, getenv, path, getcwd
 ENV = getenv("ENV", "dev")
 SHIBBOLETH_DISABLED = getenv("SHIBBOLETH_DISABLED")
 
-ORCID_API_HOST_URL = "https://api.sandbox.orcid.org/" if ENV != "prod" else "https://api.orcid.org/"
+ORCID_API_HOST_URL = (
+    "https://api.sandbox.orcid.org/" if ENV != "prod" else "https://api.orcid.org/"
+)
 ORCID_API_VERSION = "v2.0"
-ORCID_API_BASE = ORCID_API_HOST_URL + ORCID_API_VERSION + '/'
+ORCID_API_BASE = ORCID_API_HOST_URL + ORCID_API_VERSION + "/"
 ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orcid.org/"
 
 # NB! Set up the key. See: http://flask.pocoo.org/docs/latest/quickstart/#sessions
-SECRET_KEY = getenv("SECRET_KEY", b'\xe3\x94a\x14-sT`\x92\x8a0\x16\r\xe1zb')
+SECRET_KEY = getenv("SECRET_KEY", b"\xe3\x94a\x14-sT`\x92\x8a0\x16\r\xe1zb")
 SENTRY_DSN = getenv("SENTRY_DSN")
 SENTRY_TRACES_SAMPLE_RATE = getenv("SENTRY_TRACES_SAMPLE_RATE", 0)
 
@@ -24,9 +26,14 @@ ORCID_CLIENT_ID = getenv("ORCID_CLIENT_ID")
 ORCID_CLIENT_SECRET = getenv("ORCID_CLIENT_SECRET")
 
 # Change the URL as per the enviornment
-AUTHORIZATION_BASE_URL = 'https://sandbox.orcid.org/oauth/authorize' \
-    if ENV != "prod" else "https://orcid.org/oauth/authorize"
-TOKEN_URL = 'https://sandbox.orcid.org/oauth/token' if ENV != "prod" else "https://orcid.org/oauth/token"
+AUTHORIZATION_BASE_URL = (
+    "https://sandbox.orcid.org/oauth/authorize"
+    if ENV != "prod"
+    else "https://orcid.org/oauth/authorize"
+)
+TOKEN_URL = (
+    "https://sandbox.orcid.org/oauth/token" if ENV != "prod" else "https://orcid.org/oauth/token"
+)
 
 # Database connection url
 DATABASE_URL = getenv("DATABASE_URL", "sqlite:///data.db")
@@ -34,14 +41,14 @@ BACKUP_DATABASE_URL = getenv("BACKUP_DATABASE_URL")
 LOAD_TEST = getenv("LOAD_TEST")
 
 # NB! Disable in production
-if ENV in ("dev0", ):
-    DEBUG = '1'
-    MAIL_DEBUG = '1'
+if ENV in ("dev0",):
+    DEBUG = "1"
+    MAIL_DEBUG = "1"
     TESTING = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
     DEBUG_TB_PROFILER_ENABLED = True
-    OAUTHLIB_INSECURE_TRANSPORT = '1'
-    environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    OAUTHLIB_INSECURE_TRANSPORT = "1"
+    environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     TEMPLATES_AUTO_RELOAD = True
     # EXPLAIN_TEMPLATE_LOADING = True
 
@@ -60,13 +67,16 @@ MAIL_DKIM_DOMAIN = getenv("MAIL_DKIM_DOMAIN", "orcidhub.org.nz")
 MAIL_DKIM_SELECTOR = getenv("MAIL_DKIM_SELECTOR", "default")
 
 MEMBER_API_FORM_MAIL = bool(getenv("MEMBER_API_FORM_MAIL"))
-MEMBER_API_FORM_BASE_URL = "https://orcid.org/content/register-client-application-sandbox" \
-    if ENV != "prod" else "https://orcid.org/content/register-client-application-production-trusted-party"
+MEMBER_API_FORM_BASE_URL = (
+    "https://info.orcid.org/register-a-client-application-sandbox-member-api/"
+    if ENV != "prod"
+    else "https://info.orcid.org/register-a-client-application-production-member-api/"
+)
 
-NOTE_ORCID = 'An NZ ORCID Hub integration for'
+NOTE_ORCID = "An NZ ORCID Hub integration for"
 CRED_TYPE_PREMIUM = 2
-APP_NAME = 'NZ ORCID HUB'
-APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connecting'
+APP_NAME = "NZ ORCID HUB"
+APP_DESCRIPTION = "This is an ORCID integration through the NZ ORCID HUB connecting"
 APP_URL = "https://" + (ENV + ".orcidhub.org.nz" if ENV != "prod" else "orcidhub.org.nz")
 CSRF_DOMAINS = getenv("CSRF_DOMAINS", "localhost;c9users.io").split(";")
 SEED_HUB_ADMIN = getenv("SEED_HUB_ADMIN", "rad42@mailinator.com")

@@ -1,0 +1,9 @@
+:
+# sets up tmux with running server at the top pane; nvim in the middle and a command pane at the bottom..
+[ -n "$1" ] && cd "$1"
+export DEBUG=1
+export PYTHONPATH="$PWD"
+tmux send-keys 'source ./venv/bin/activate ; export DEBUG=1 PYTHONPATH="$PWD"; flask run' C-m \
+    \; split-window -v -p 86 'source ./venv/bin/activate ; nvim -S .session.vim' \
+    \; split-window -v -p 12 \; send-keys 'source ./venv/bin/activate' C-m \
+    \; select-pane -U
