@@ -914,10 +914,8 @@ def request_orcid_credentials():
 
     client_secret_url = append_qs(
         iri_to_uri(MEMBER_API_FORM_BASE_URL),
-        new_existing=(
-            "Existing_Update" if current_user.organisation.confirmed else "New_Credentials"
-        ),
-        note=NOTE_ORCID + " " + current_user.organisation.name,
+        update_creds="Yes" if current_user.organisation.confirmed else "No",
+        staff_notes=NOTE_ORCID + " " + current_user.organisation.name,
         contact_email=current_user.email,
         contact_name=current_user.name,
         org_name=current_user.organisation.name,
