@@ -607,9 +607,11 @@ def test_show_record_section(client, mocker):
         view_keywords.assert_called_once_with(user.orcid, _preload_content=False)
 
 
-def test_status(client):
+def test_status(client, mocker):
     """Test status is workinkg both when DB is accessible or not."""
     with patch("orcid_hub.views.db") as db:
+        mocker.patch("shutil.disk_usage", return_value=(100, 0, 100))
+
         result = MagicMock()
         result.fetchone.return_value = (datetime.datetime(2042, 1, 1, 0, 0),)
         db.execute_sql.return_value = result
@@ -618,6 +620,10 @@ def test_status(client):
         assert resp.status_code == 200
         assert data["status"] == "Connection successful."
         assert data["db-timestamp"] == "2042-01-01T00:00:00"
+
+        mocker.patch("shutil.disk_usage", return_value=(100, 0, 1))
+        resp = client.get("/status")
+        assert resp.status_code == 418
 
     with patch("orcid_hub.views.db") as db:  # , request_ctx("/status") as ctx:
         db.execute_sql.side_effect = Exception("FAILURE")
