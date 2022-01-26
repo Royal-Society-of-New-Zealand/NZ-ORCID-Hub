@@ -1158,7 +1158,7 @@ def test_shorturl(request_ctx):
     url = "http://localhost/xsdsdsfdds"
     with request_ctx():
         resp = views.shorturl(url)
-        assert "http://" in resp
+        assert "https://" in resp
 
 
 def test_activate_all(client):
