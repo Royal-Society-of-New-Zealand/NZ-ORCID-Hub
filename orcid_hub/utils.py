@@ -2935,7 +2935,8 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     }
     call = OrcidApiCall(method="DELETE" if delete else "PUT", url=url, query_params=headers)
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
-    call.response = resp.text
+    if resp.status_code not in [200, 201, 204]:
+        call.response = resp.text
     call.status = resp.status_code
     call.set_response_time()
     call.save()
