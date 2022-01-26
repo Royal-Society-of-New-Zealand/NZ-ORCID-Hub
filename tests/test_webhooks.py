@@ -2,17 +2,17 @@
 """Tests for webhooks functions."""
 
 import datetime
-import logging
 import json
+import logging
 from types import SimpleNamespace as SimpleObject
+from unittest.mock import MagicMock, Mock, call, patch
 from urllib.parse import urlparse
 
-from flask_login import login_user
 import pytest
-from unittest.mock import call, MagicMock, Mock, patch
+from flask_login import login_user
 
 from orcid_hub import utils
-from orcid_hub.models import Client, OrcidToken, Organisation, User, UserOrg, Token
+from orcid_hub.models import Client, OrcidToken, Organisation, Token, User, UserOrg
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -213,10 +213,10 @@ def test_org_webhook(client, mocker):
         ),
     )
     mocker.patch.object(
-        utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201)
+        utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201, text="")
     )
     mocker.patch.object(
-        utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204)
+        utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204, text="")
     )
 
     org = client.data["org"]
