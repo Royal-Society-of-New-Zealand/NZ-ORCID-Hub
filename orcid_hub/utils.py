@@ -332,6 +332,8 @@ def set_server_name():
     if not app.config.get("SERVER_NAME"):
         if EXTERNAL_SP:
             app.config["SERVER_NAME"] = "127.0.0.1:5000"
+        elif request and hasattr(request, "url"):
+            app.config["SERVER_NAME"] = urlparse(request.url).hostname
         else:
             app.config["SERVER_NAME"] = (
                 "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
