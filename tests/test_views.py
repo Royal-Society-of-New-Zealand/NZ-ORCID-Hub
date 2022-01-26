@@ -1557,7 +1557,7 @@ def test_email_template(app, request_ctx):
             logo=None,
             org_name="TEST0",
             recipient=("TEST ORG #0 ADMIN", "admin@test0.edu"),
-            reply_to=("TEST ORG #0 ADMIN", "admin@test0.edu"),
+            reply_to="admin@test0.edu",
             sender=("TEST ORG #0 ADMIN", "admin@test0.edu"),
             subject="TEST EMAIL",
         )
@@ -1625,10 +1625,10 @@ def test_email_template(app, request_ctx):
             "email/test.html",
             base="TEST TEMPLATE {EMAIL}",
             cc_email=("TEST ORG #0 ADMIN", "admin@test0.edu"),
-            logo=f"http://{ctx.request.host}/logo/TOKEN000",
+            logo=f"https://{ctx.request.host}/logo/TOKEN000",
             org_name="TEST0",
             recipient=("TEST ORG #0 ADMIN", "admin@test0.edu"),
-            reply_to=("TEST ORG #0 ADMIN", "admin@test0.edu"),
+            reply_to="admin@test0.edu",
             sender=("TEST ORG #0 ADMIN", "admin@test0.edu"),
             subject="TEST EMAIL",
         )
