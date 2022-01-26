@@ -39,7 +39,7 @@ from werkzeug.utils import secure_filename
 
 from orcid_api_v3.rest import ApiException
 
-from . import app, cache, db
+from . import app, cache, db, orcid_client
 from . import orcid_client as scopes
 
 # TODO: need to read form app.config[...]
