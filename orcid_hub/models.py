@@ -26,12 +26,25 @@ from flask import json
 from flask_login import UserMixin, current_user
 from peewee import JOIN, BlobField
 from peewee import BooleanField as BooleanField_
-from peewee import (CharField, DateTimeField, DeferredForeignKey, Field,
-                    FixedCharField, ForeignKeyField, IntegerField,
-                    ManyToManyField, Model, OperationalError,
-                    PostgresqlDatabase, SmallIntegerField, SqliteDatabase,
-                    TextField, fn)
+from peewee import (
+    CharField,
+    DateTimeField,
+    DeferredForeignKey,
+    Field,
+    FixedCharField,
+    ForeignKeyField,
+    IntegerField,
+    ManyToManyField,
+    Model,
+    OperationalError,
+    PostgresqlDatabase,
+    SmallIntegerField,
+    SqliteDatabase,
+    TextField,
+    fn,
+)
 from peewee_validates import ModelValidator
+
 # from playhouse.reflection import generate_models
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries, currencies, languages
@@ -433,7 +446,7 @@ class PartialDateField(Field):
             return None
 
         parts = [int(p) for p in value.split("-") if "*" not in p]
-        return PartialDate(**dict(zip_longest(("year", "month", "day",), parts)))
+        return PartialDate(**dict(zip_longest(("year", "month", "day"), parts)))
 
 
 class UUIDField(Field):
@@ -603,7 +616,7 @@ class BaseModel(Model):
     @classmethod
     def get(cls, *query, **kwargs):
         """Get a single model instance."""
-        if query and not kwargs and len(query) == 1 and isinstance(query[0], (int, str,)):
+        if query and not kwargs and len(query) == 1 and isinstance(query[0], (int, str)):
             return super().get(id=query[0])
         elif not query and not kwargs:
             return cls.select().limit(1).first()
@@ -893,12 +906,12 @@ class User(AuditedModel, UserMixin):
     @property
     def full_name(self):
         """Full name of the user"""
-        value = self.first_name or ''
+        value = self.first_name or ""
         if value:
             value += " "
-        value += self.last_name or ''
+        value += self.last_name or ""
         if not value:
-            value = self.name or ''
+            value = self.name or ""
         return value
 
     @property
@@ -1941,7 +1954,9 @@ class AffiliationRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(
+                f"Failed to map fields based on the header of the file: {header}"
+            )
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -2138,10 +2153,7 @@ class FundingRecord(RecordModel):
     def to_export_dict(self):
         """Map the funding record to dict for export into JSON/YAML."""
         d = super().to_export_dict()
-        d["amount"] = {
-            "currency-code": self.currency,
-            "value": self.amount,
-        }
+        d["amount"] = {"currency-code": self.currency, "value": self.amount}
         return d
 
     @classmethod
@@ -2208,7 +2220,9 @@ class FundingRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(
+                f"Failed to map fields based on the header of the file: {header}"
+            )
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -2266,7 +2280,9 @@ class FundingRecord(RecordModel):
                 )
 
             if not title:
-                raise ModelExceptionError(f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
+                raise ModelExceptionError(
+                    f"Title is mandatory, #{row_no+2}: {row}. Header: {header}"
+                )
 
             if external_id_relationship not in RELATIONSHIPS:
                 raise ModelExceptionError(
@@ -2367,7 +2383,9 @@ class FundingRecord(RecordModel):
                         rec = FundingInvitee(record=fr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
-                            raise ModelExceptionError(f"Invalid invitee record: {validator.errors}")
+                            raise ModelExceptionError(
+                                f"Invalid invitee record: {validator.errors}"
+                            )
                         rec.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
@@ -2749,7 +2767,9 @@ class PeerReviewRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(
+                f"Failed to map fields based on the header of the file: {header}"
+            )
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -2930,7 +2950,9 @@ class PeerReviewRecord(RecordModel):
                         rec = PeerReviewInvitee(record=prr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
-                            raise ModelExceptionError(f"Invalid invitee record: {validator.errors}")
+                            raise ModelExceptionError(
+                                f"Invalid invitee record: {validator.errors}"
+                            )
                         rec.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
@@ -3295,7 +3317,9 @@ class PropertyRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(
+                f"Failed to map fields based on the header of the file: {header}"
+            )
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -3617,7 +3641,9 @@ class WorkRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(
+                f"Failed to map fields based on the header of the file: {header}"
+            )
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -3676,7 +3702,9 @@ class WorkRecord(RecordModel):
                 )
 
             if not title:
-                raise ModelExceptionError(f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
+                raise ModelExceptionError(
+                    f"Title is mandatory, #{row_no+2}: {row}. Header: {header}"
+                )
 
             if external_id_relationship not in RELATIONSHIPS:
                 raise ModelExceptionError(
@@ -3777,7 +3805,9 @@ class WorkRecord(RecordModel):
                         rec = WorkInvitee(record=wr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
-                            raise ModelExceptionError(f"Invalid invitee record: {validator.errors}")
+                            raise ModelExceptionError(
+                                f"Invalid invitee record: {validator.errors}"
+                            )
                         rec.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
@@ -4254,7 +4284,9 @@ class OtherIdRecord(ExternalIdModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(
+                f"Failed to map fields based on the header of the file: {header}"
+            )
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -4638,7 +4670,9 @@ class ResourceRecord(RecordModel, Invitee):
         idxs = {column: index(ex) for ex, column in header_rexs}
 
         if all(idx is None for idx in idxs):
-            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(
+                f"Failed to map fields based on the header of the file: {header}"
+            )
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -4792,9 +4826,7 @@ class ResourceRecord(RecordModel, Invitee):
     def to_export_dict(self):
         """Map the funding record to dict for export into JSON/YAML."""
         d = self.orcid_research_resource
-        d["invitees"] = [
-            Invitee.to_export_dict(self),
-        ]
+        d["invitees"] = [Invitee.to_export_dict(self)]
         return d
 
     @classmethod
