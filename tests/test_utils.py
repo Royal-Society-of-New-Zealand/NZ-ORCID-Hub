@@ -986,7 +986,7 @@ def test_send_email(app):
                 "NZ ORCID HUB",
                 "no-reply@orcidhub.org.nz",
             )
-            expected_html = f"BASE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
+            expected_html = f"BASE https://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
             assert kwargs["html"] == expected_html
             assert kwargs["text"] == expected_html + "\n\n"
 
@@ -1009,7 +1009,7 @@ def test_send_email(app):
                 "NZ ORCID HUB",
                 "no-reply@orcidhub.org.nz",
             )
-            expected_html = f"TEMPLATE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
+            expected_html = f"TEMPLATE https://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
             assert kwargs["html"] == expected_html
             assert kwargs["text"] == expected_html + "\n\n"
 
@@ -1030,8 +1030,8 @@ def test_send_email(app):
 
 def test_is_valid_url():
     """Test URL validation for call-back URLs."""
-    assert utils.is_valid_url("http://www.orcidhub.org.nz/some_path")
-    assert utils.is_valid_url("http://www.orcidhub.org.nz")
+    assert utils.is_valid_url("https://www.orcidhub.org.nz/some_path")
+    assert utils.is_valid_url("https://www.orcidhub.org.nz")
     assert not utils.is_valid_url("www.orcidhub.org.nz/some_path")
     assert not utils.is_valid_url(12345)
 

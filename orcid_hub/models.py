@@ -226,7 +226,7 @@ disambiguation_source_choices = [(v, v) for v in DISAMBIGUATION_SOURCES]
 property_type_choices = [(v, v) for v in PROPERTY_TYPES]
 
 
-class ModelException(Exception):
+class ModelExceptionError(Exception):
     """Application model exception."""
 
     pass
@@ -351,7 +351,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         if isinstance(value, str):
             match = PARTIAL_DATE_REGEX.search(value)
             if not match:
-                raise ModelException(f"Wrong partial date value '{value}'")
+                raise ModelExceptionError(f"Wrong partial date value '{value}'")
             value0 = match[0]
             for sep in ["/", "."]:
                 if sep in value0:
@@ -1844,7 +1844,7 @@ class AffiliationRecord(RecordModel):
                     if rec.is_dirty():
                         validator = ModelValidator(rec)
                         if not validator.validate():
-                            raise ModelException(f"Invalid record: {validator.errors}")
+                            raise ModelExceptionError(f"Invalid record: {validator.errors}")
                         rec.save()
                         if r.get("external-id"):
                             for exi in r.get("external-id"):
@@ -1857,7 +1857,7 @@ class AffiliationRecord(RecordModel):
                                 if ext_data.get("type") and ext_data.get("value"):
                                     ext_id = AffiliationExternalId.create(record=rec, **ext_data)
                                     if not ModelValidator(ext_id).validate():
-                                        raise ModelException(
+                                        raise ModelExceptionError(
                                             f"Invalid affiliation exteral-id: {validator.errors}"
                                         )
                                     ext_id.save()
@@ -1889,10 +1889,10 @@ class AffiliationRecord(RecordModel):
             reader = csv.reader(source, delimiter="\t")
             header = next(reader)
         if len(header) < 2:
-            raise ModelException("Expected CSV or TSV format file.")
+            raise ModelExceptionError("Expected CSV or TSV format file.")
 
         if len(header) < 3:
-            raise ModelException(
+            raise ModelExceptionError(
                 "Wrong number of fields. Expected at least 4 fields "
                 "(first name, last name, email address or another unique identifier, student/staff). "
                 f"Read header: {header}"
@@ -1941,7 +1941,7 @@ class AffiliationRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -1975,7 +1975,7 @@ class AffiliationRecord(RecordModel):
                     ]
                     if delete_record:
                         if not put_code:
-                            raise ModelException(
+                            raise ModelExceptionError(
                                 f"Missing put-code. Cannot delete a record without put-code. "
                                 f"#{row_no+2}: {row}. Header: {header}"
                             )
@@ -1994,13 +1994,13 @@ class AffiliationRecord(RecordModel):
                         try:
                             country = countries.lookup(country).alpha_2
                         except Exception:
-                            raise ModelException(
+                            raise ModelExceptionError(
                                 f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                                 f"#{row_no+2}: {row}. Header: {header}"
                             )
 
                     if not delete_record and not (email or orcid):
-                        raise ModelException(
+                        raise ModelExceptionError(
                             f"Missing user identifier (email address or ORCID iD) in the row "
                             f"#{row_no+2}: {row}. Header: {header}"
                         )
@@ -2024,7 +2024,7 @@ class AffiliationRecord(RecordModel):
                     first_name = val(row, 0)
                     last_name = val(row, 1)
                     if not delete_record and not (email or orcid):
-                        raise ModelException(
+                        raise ModelExceptionError(
                             "Wrong number of fields. Expected at least 4 fields "
                             "(first name, last name, email address or another unique identifier, "
                             f"student/staff): {row}"
@@ -2067,7 +2067,7 @@ class AffiliationRecord(RecordModel):
                     )
                     validator = ModelValidator(af)
                     if not validator.validate():
-                        raise ModelException(f"Invalid record: {validator.errors}")
+                        raise ModelExceptionError(f"Invalid record: {validator.errors}")
                     af.save()
 
                     external_id_type = val(row, 21, "").lower()
@@ -2090,7 +2090,7 @@ class AffiliationRecord(RecordModel):
 
                         validator = ModelValidator(ae)
                         if not validator.validate():
-                            raise ModelException(f"Invalid record: {validator.errors}")
+                            raise ModelExceptionError(f"Invalid record: {validator.errors}")
                         ae.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
@@ -2160,7 +2160,7 @@ class FundingRecord(RecordModel):
             header = next(reader)
 
         if len(header) < 2:
-            raise ModelException("Expected CSV or TSV format file.")
+            raise ModelExceptionError("Expected CSV or TSV format file.")
 
         header_rexs = [
             re.compile(ex, re.I)
@@ -2208,7 +2208,7 @@ class FundingRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -2255,21 +2255,21 @@ class FundingRecord(RecordModel):
             external_id_relationship = val(row, 22, "").replace("_", "-").lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
                     f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers"
                 )
 
             if not external_id_value:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Invalid External Id Value or Funding Id: {external_id_value}, #{row_no+2}: {row}."
                 )
 
             if not title:
-                raise ModelException(f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
+                raise ModelExceptionError(f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
 
             if external_id_relationship not in RELATIONSHIPS:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
                     f"{RELATIONSHIPS}, #{row_no+2}: {row}."
                 )
@@ -2291,7 +2291,7 @@ class FundingRecord(RecordModel):
 
             funding_type = val(row, 3)
             if not funding_type:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}"
                 )
             else:
@@ -2303,7 +2303,7 @@ class FundingRecord(RecordModel):
                 try:
                     country = countries.lookup(country).alpha_2
                 except Exception:
-                    raise ModelException(
+                    raise ModelExceptionError(
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}"
                     )
@@ -2350,7 +2350,7 @@ class FundingRecord(RecordModel):
                     fr = cls(task=task, **dict(funding))
                     validator = ModelValidator(fr)
                     if not validator.validate():
-                        raise ModelException(f"Invalid record: {validator.errors}")
+                        raise ModelExceptionError(f"Invalid record: {validator.errors}")
                     fr.save()
 
                     for external_id in set(
@@ -2367,7 +2367,7 @@ class FundingRecord(RecordModel):
                         rec = FundingInvitee(record=fr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
-                            raise ModelException(f"Invalid invitee record: {validator.errors}")
+                            raise ModelExceptionError(f"Invalid invitee record: {validator.errors}")
                         rec.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
@@ -2696,7 +2696,7 @@ class PeerReviewRecord(RecordModel):
             header = next(reader)
 
         if len(header) < 2:
-            raise ModelException("Expected CSV or TSV format file.")
+            raise ModelExceptionError("Expected CSV or TSV format file.")
 
         header_rexs = [
             re.compile(ex, re.I)
@@ -2749,7 +2749,7 @@ class PeerReviewRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -2792,7 +2792,7 @@ class PeerReviewRecord(RecordModel):
 
             review_group_id = val(row, 0)
             if not review_group_id:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Review Group ID is mandatory, #{row_no+2}: {row}. Header: {header}"
                 )
 
@@ -2804,19 +2804,19 @@ class PeerReviewRecord(RecordModel):
                 external_id_relationship = external_id_relationship.replace("_", "-").lower()
 
                 if external_id_relationship not in RELATIONSHIPS:
-                    raise ModelException(
+                    raise ModelExceptionError(
                         f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
                         f"{RELATIONSHIPS}, #{row_no+2}: {row}."
                     )
 
             if external_id_type not in EXTERNAL_ID_TYPES:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
                     f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers"
                 )
 
             if not external_id_value:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Invalid External Id Value or Peer Review Id: {external_id_value}, #{row_no+2}: {row}."
                 )
 
@@ -2840,7 +2840,7 @@ class PeerReviewRecord(RecordModel):
             convening_org_country = val(row, 19)
 
             if not (convening_org_name and convening_org_city and convening_org_country):
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Information about Convening Organisation (Name, City and Country) is mandatory, "
                     f"#{row_no+2}: {row}. Header: {header}"
                 )
@@ -2850,7 +2850,7 @@ class PeerReviewRecord(RecordModel):
                 try:
                     convening_org_country = countries.lookup(convening_org_country).alpha_2
                 except Exception:
-                    raise ModelException(
+                    raise ModelExceptionError(
                         f" (Convening Org Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}"
                     )
@@ -2913,7 +2913,7 @@ class PeerReviewRecord(RecordModel):
                     prr = cls(task=task, **dict(peer_review))
                     validator = ModelValidator(prr)
                     if not validator.validate():
-                        raise ModelException(f"Invalid record: {validator.errors}")
+                        raise ModelExceptionError(f"Invalid record: {validator.errors}")
                     prr.save()
 
                     for external_id in set(
@@ -2930,7 +2930,7 @@ class PeerReviewRecord(RecordModel):
                         rec = PeerReviewInvitee(record=prr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
-                            raise ModelException(f"Invalid invitee record: {validator.errors}")
+                            raise ModelExceptionError(f"Invalid invitee record: {validator.errors}")
                         rec.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
@@ -3258,10 +3258,10 @@ class PropertyRecord(RecordModel):
             header = next(reader)
 
         if len(header) < 2:
-            raise ModelException("Expected CSV or TSV format file.")
+            raise ModelExceptionError("Expected CSV or TSV format file.")
 
         if len(header) < 4:
-            raise ModelException(
+            raise ModelExceptionError(
                 "Wrong number of fields. Expected at least 3 fields "
                 "(email address or another unique identifier, name and/or value) "
                 f"and property type. Read header: {header}"
@@ -3295,7 +3295,7 @@ class PropertyRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -3322,7 +3322,7 @@ class PropertyRecord(RecordModel):
                     orcid = validate_orcid_id(val(row, 6))
 
                     if not (email or orcid):
-                        raise ModelException(
+                        raise ModelExceptionError(
                             f"Missing user identifier (email address or ORCID iD) in the row "
                             f"#{row_no+2}: {row}. Header: {header}"
                         )
@@ -3344,7 +3344,7 @@ class PropertyRecord(RecordModel):
                         property_type = property_type.strip().upper()
 
                     if not property_type or property_type not in PROPERTY_TYPES:
-                        raise ModelException(
+                        raise ModelExceptionError(
                             "Missing or incorrect property type. "
                             f"(expected: {','.join(PROPERTY_TYPES)}: {row}"
                         )
@@ -3352,7 +3352,7 @@ class PropertyRecord(RecordModel):
                     if property_type == "URL":
                         name = val(row, 0, "")
                         if not name:
-                            raise ModelException(
+                            raise ModelExceptionError(
                                 f"Missing URL Name. For Researcher URL Name is expected: {row}."
                             )
                     elif property_type == "COUNTRY":
@@ -3361,13 +3361,13 @@ class PropertyRecord(RecordModel):
                             try:
                                 value = countries.lookup(value).alpha_2
                             except Exception:
-                                raise ModelException(
+                                raise ModelExceptionError(
                                     f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                                     f"#{row_no+2}: {row}. Header: {header}"
                                 )
 
                     if not value:
-                        raise ModelException(
+                        raise ModelExceptionError(
                             "Wrong number of fields. Expected at least fields ( content or value or country and "
                             f"email address or another unique identifier): {row}"
                         )
@@ -3391,7 +3391,7 @@ class PropertyRecord(RecordModel):
                     )
                     validator = ModelValidator(rr)
                     if not validator.validate():
-                        raise ModelException(f"Invalid record: {validator.errors}")
+                        raise ModelExceptionError(f"Invalid record: {validator.errors}")
                     rr.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
@@ -3472,7 +3472,7 @@ class PropertyRecord(RecordModel):
                         is_enqueue = is_active
 
                     if not property_type or property_type not in PROPERTY_TYPES:
-                        raise ModelException(
+                        raise ModelExceptionError(
                             "Missing or incorrect property type. "
                             f"(expected: {','.join(PROPERTY_TYPES)}: {r}"
                         )
@@ -3480,7 +3480,7 @@ class PropertyRecord(RecordModel):
                     if property_type == "URL":
                         name = r.get("name") or r.get("url-name")
                         if not name:
-                            raise ModelException(
+                            raise ModelExceptionError(
                                 f"Missing URL Name. For Researcher URL Name is expected: {r}."
                             )
                     elif property_type == "COUNTRY":
@@ -3489,7 +3489,7 @@ class PropertyRecord(RecordModel):
                             try:
                                 value = countries.lookup(value).alpha_2
                             except Exception:
-                                raise ModelException(
+                                raise ModelExceptionError(
                                     f"(Country {value} must be 2 character from ISO 3166-1 alpha-2): {r}."
                                 )
                     cls.create(
@@ -3572,7 +3572,7 @@ class WorkRecord(RecordModel):
             header = next(reader)
 
         if len(header) < 2:
-            raise ModelException("Expected CSV or TSV format file.")
+            raise ModelExceptionError("Expected CSV or TSV format file.")
 
         header_rexs = [
             re.compile(ex, re.I)
@@ -3617,7 +3617,7 @@ class WorkRecord(RecordModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -3665,21 +3665,21 @@ class WorkRecord(RecordModel):
             external_id_relationship = val(row, 20, "").replace("_", "-").lower()
 
             if external_id_type not in EXTERNAL_ID_TYPES:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
                     f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers"
                 )
 
             if not external_id_value:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Invalid External Id Value or Work Id: {external_id_value}, #{row_no+2}: {row}."
                 )
 
             if not title:
-                raise ModelException(f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
+                raise ModelExceptionError(f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
 
             if external_id_relationship not in RELATIONSHIPS:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
                     f"{RELATIONSHIPS}, #{row_no+2}: {row}."
                 )
@@ -3701,7 +3701,7 @@ class WorkRecord(RecordModel):
 
             work_type = val(row, 5, "").replace("_", "-").lower()
             if not work_type:
-                raise ModelException(
+                raise ModelExceptionError(
                     f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}"
                 )
 
@@ -3711,7 +3711,7 @@ class WorkRecord(RecordModel):
                 try:
                     country = countries.lookup(country).alpha_2
                 except Exception:
-                    raise ModelException(
+                    raise ModelExceptionError(
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}"
                     )
@@ -3760,7 +3760,7 @@ class WorkRecord(RecordModel):
                     wr = cls(task=task, **dict(work))
                     validator = ModelValidator(wr)
                     if not validator.validate():
-                        raise ModelException(f"Invalid record: {validator.errors}")
+                        raise ModelExceptionError(f"Invalid record: {validator.errors}")
                     wr.save()
 
                     for external_id in set(
@@ -3777,7 +3777,7 @@ class WorkRecord(RecordModel):
                         rec = WorkInvitee(record=wr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
-                            raise ModelException(f"Invalid invitee record: {validator.errors}")
+                            raise ModelExceptionError(f"Invalid invitee record: {validator.errors}")
                         rec.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
@@ -3870,7 +3870,7 @@ class WorkRecord(RecordModel):
 
                     validator = ModelValidator(record)
                     if not validator.validate():
-                        raise ModelException(f"Invalid Work record: {validator.errors}")
+                        raise ModelExceptionError(f"Invalid Work record: {validator.errors}")
 
                     invitee_list = r.get("invitees")
                     if invitee_list:
@@ -4216,10 +4216,10 @@ class OtherIdRecord(ExternalIdModel):
             header = next(reader)
 
         if len(header) < 2:
-            raise ModelException("Expected CSV or TSV format file.")
+            raise ModelExceptionError("Expected CSV or TSV format file.")
 
         if len(header) < 5:
-            raise ModelException(
+            raise ModelExceptionError(
                 "Wrong number of fields. Expected at least 5 fields "
                 "(email address or another unique identifier, External ID Type, External ID Value, External ID URL, "
                 f"External ID Relationship). Read header: {header}"
@@ -4254,7 +4254,7 @@ class OtherIdRecord(ExternalIdModel):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -4281,7 +4281,7 @@ class OtherIdRecord(ExternalIdModel):
                     orcid = validate_orcid_id(val(row, 8))
 
                     if not (email or orcid):
-                        raise ModelException(
+                        raise ModelExceptionError(
                             f"Missing user identifier (email address or ORCID iD) in the row "
                             f"#{row_no+2}: {row}. Header: {header}"
                         )
@@ -4304,13 +4304,13 @@ class OtherIdRecord(ExternalIdModel):
                         is_enqueue = is_active
 
                     if rec_type not in EXTERNAL_ID_TYPES:
-                        raise ModelException(
+                        raise ModelExceptionError(
                             f"Invalid External Id Type: '{rec_type}', Use 'doi', 'issn' "
                             f"or one of the accepted types found here: https://pub.orcid.org/v3.0/identifiers"
                         )
 
                     if not value:
-                        raise ModelException(
+                        raise ModelExceptionError(
                             f"Missing External Id Value: {value}, #{row_no+2}: {row}."
                         )
 
@@ -4334,7 +4334,7 @@ class OtherIdRecord(ExternalIdModel):
                     )
                     validator = ModelValidator(rr)
                     if not validator.validate():
-                        raise ModelException(f"Invalid record: {validator.errors}")
+                        raise ModelExceptionError(f"Invalid record: {validator.errors}")
                     rr.save()
                 if is_enqueue:
                     from .utils import enqueue_task_records
@@ -4585,7 +4585,7 @@ class ResourceRecord(RecordModel, Invitee):
             header = next(reader)
 
         if len(header) < 2:
-            raise ModelException("Expected CSV or TSV format file.")
+            raise ModelExceptionError("Expected CSV or TSV format file.")
 
         header_rexs = [
             (re.compile(ex, re.I), c)
@@ -4638,7 +4638,7 @@ class ResourceRecord(RecordModel, Invitee):
         idxs = {column: index(ex) for ex, column in header_rexs}
 
         if all(idx is None for idx in idxs):
-            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelExceptionError(f"Failed to map fields based on the header of the file: {header}")
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -4655,7 +4655,7 @@ class ResourceRecord(RecordModel, Invitee):
                 try:
                     country = countries.lookup(country).alpha_2
                 except Exception:
-                    raise ModelException(
+                    raise ModelExceptionError(
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}"
                     )
@@ -4898,7 +4898,7 @@ class MessageRecord(RecordModel):
                 for r in records:
                     invitees = r.get("invitees")
                     if not invitees:
-                        raise ModelException(
+                        raise ModelExceptionError(
                             f"Missing invitees, expected to have at lease one: {r}"
                         )
                     del r["invitees"]
