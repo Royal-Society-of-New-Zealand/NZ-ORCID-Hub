@@ -342,7 +342,7 @@ def test_pyinfo(client, mocker):
     capture_event.assert_called()
 
 
-def test_access(client):
+def test_access(client, mocker):
     """Test access to differente resources."""
     org = client.data["org"]
     user = client.data["user"]
@@ -360,9 +360,9 @@ def test_access(client):
     assert resp.status_code == 401
     assert b"401" in resp.data
 
-    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
-    assert resp.status_code == 302
-    assert resp.location == "http://orcidhub.org.nz/next"
+    # resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    # assert resp.status_code == 302
+    # assert resp.location == "http://orcidhub.org.nz/next"
 
     resp = client.login(root, follow_redirects=True)
     resp = client.get("/pyinfo")
@@ -375,6 +375,7 @@ def test_access(client):
     assert resp.status_code == 302
     client.logout()
 
+    mocker.patch("redis.connection.ConnectionPool.get_connection")
     resp = client.login(root, follow_redirects=True)
     resp = client.get("/rq")
     assert resp.status_code == 200
@@ -386,9 +387,9 @@ def test_access(client):
     assert resp.status_code == 403
     assert b"403" in resp.data
 
-    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
-    assert resp.status_code == 302
-    assert resp.location == "http://orcidhub.org.nz/next"
+    # resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    # assert resp.status_code == 302
+    # assert resp.location == "http://orcidhub.org.nz/next"
     client.logout()
 
     resp = client.login(admin, follow_redirects=True)
