@@ -9,6 +9,7 @@ export FLASK_APP=orcid_hub
 export LANG=en_US.UTF-8
 export ENV=test
 # ENV=dev0
+export TOKEN_PASSWORD_SALT=testsalt
 
 ##   flask process
 export DATABASE_URL="sqlite:///:memory:"
@@ -23,7 +24,8 @@ export RQ_CONNECTION_CLASS=fakeredis.FakeStrictRedis
 export ORCID_API_BASE="https://api.sandbox.orcid.org/v2.0/"
 export ORCID_BASE_URL="https://sandbox.orcid.org/"
 export SECRET_KEY="***********"
-
+export ORCID_CLIENT_ID=APP-1234567890123456
+export ORCID_CLIENT_SECRET=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
 export AUTHORIZATION_BASE_URL="${ORCID_BASE_URL}oauth/authorize"
 export TOKEN_URL="${ORCID_BASE_URL}oauth/token"
 
@@ -51,8 +53,4 @@ export DEFAULT_COUNTRY="NZ"
 pytest --ignore=venv --ignore=orcid_api -v --cov-config .coveragerc  --cov . $dest $@
 
 # OAUTHLIB_INSECURE_TRANSPORT=1
-# ORCID_CLIENT_ID=APP-6D4L3L2H5L36H6GE
-# ORCID_CLIENT_SECRET=4234539a-b3f9-4988-8772-160db671d814
 # P12_PASSWORD=p455w0rd
-# PAGER=most
-
