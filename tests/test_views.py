@@ -335,11 +335,11 @@ def test_pyinfo(client, mocker):
     resp = client.get("/pyinfo")
     assert b"PYINFO_TEST_42" in resp.data
     assert b"Life, the Universe and Everything" in resp.data
-    # capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+    capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     with pytest.raises(Exception) as exinfo:
         resp = client.get("/pyinfo/expected an exception")
     assert str(exinfo.value) == "expected an exception"
-    # capture_event.assert_called()
+    capture_event.assert_called()
 
 
 def test_access(client, mocker):
