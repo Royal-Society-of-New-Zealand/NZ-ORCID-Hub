@@ -8,6 +8,7 @@ export PYTHONPATH=$DIR
 export FLASK_APP=orcid_hub
 export LANG=en_US.UTF-8
 export ENV=test
+export FLASK_DEBUG=1
 # ENV=dev0
 export TOKEN_PASSWORD_SALT=testsalt
 
