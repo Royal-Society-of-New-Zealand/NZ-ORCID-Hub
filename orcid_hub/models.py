@@ -1026,7 +1026,7 @@ class User(AuditedModel, UserMixin):
 
     @is_superuser.setter
     def is_superuser(self, value):  # noqa: D401
-        """Sets user as a HUB admin."""
+        """Set user as a HUB admin."""
         if value:
             self.roles |= Role.SUPERUSER.value
         else:

@@ -254,7 +254,7 @@ if __redis_available:
 
 @app.before_first_request
 def setup_app():
-    """Set-up logger to log to STDOUT (eventually conainer log), set up the DB, and some other setttings."""
+    """Set up logger to log to STDOUT (eventually conainer log), set up the DB, and some other setttings."""
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.DEBUG if app.debug else logging.WARNING)
     models.create_tables()

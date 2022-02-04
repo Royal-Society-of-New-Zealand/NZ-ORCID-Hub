@@ -42,7 +42,7 @@ LOAD_TEST = getenv("LOAD_TEST")
 
 # NB! Disable in production
 if ENV in ("dev0",):
-    DEBUG = "1"
+    DEBUG = getenv("FLASK_DEBUG", "1")
     MAIL_DEBUG = "1"
     TESTING = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
@@ -52,8 +52,11 @@ if ENV in ("dev0",):
     TEMPLATES_AUTO_RELOAD = True
     # EXPLAIN_TEMPLATE_LOADING = True
 
+
 if "DEBUG" not in dir():
     PREFERRED_URL_SCHEME = "https"
+else:
+    DEBUG = getenv("FLASK_DEBUG", False)
 
 OAUTH2_PROVIDER_TOKEN_EXPIRES_IN = 86400  # Default Bearer token expires time, default is 3600.
 
