@@ -39,4 +39,5 @@ jobs:
     - name: Test with pytest
       run: |
         # ./pytest.sh
+        export SENTRY_DSN
         ./pytest.sh -o log_cli=true -vv -k test_pyinfo
