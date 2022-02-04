@@ -23,8 +23,6 @@ jobs:
       with:
         python-version: "3.9"
     - name: Install dependencies
-      env:
-        SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       run: |
         openssl genrsa -out .keys/dkim.key 512
         python -m pip install --upgrade pip
@@ -37,6 +35,8 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         ## flake8 orcid_hub tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
+      env:
+        SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       run: |
         # ./pytest.sh
         export SENTRY_DSN
