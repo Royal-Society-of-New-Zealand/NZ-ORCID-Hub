@@ -23,6 +23,8 @@ jobs:
       with:
         python-version: "3.9"
     - name: Install dependencies
+      env:
+        SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       run: |
         openssl genrsa -out .keys/dkim.key 512
         python -m pip install --upgrade pip
