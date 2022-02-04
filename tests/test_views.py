@@ -339,6 +339,8 @@ def test_pyinfo(client, mocker):
     with pytest.raises(Exception) as exinfo:
         resp = client.get("/pyinfo/expected an exception")
     assert str(exinfo.value) == "expected an exception"
+    for (k,v) in client.application.config.items():
+        logger.info(f"{k}:\t{v}")
     capture_event.assert_called()
 
 
