@@ -38,5 +38,5 @@ jobs:
         ## flake8 orcid_hub tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        ./pytest.sh
-        # ./pytest.sh -o log_cli=true -vv -k test_pyinfo
+        # ./pytest.sh
+        ./pytest.sh -o log_cli=true -vv -k test_pyinfo
