@@ -38,7 +38,7 @@ jobs:
       env:
         SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       run: |
-        # ./pytest.sh
-        export SENTRY_DSN
-        echo AAA${SENTRY_DSN}BBB
-        ./pytest.sh -o log_cli=true -vv -k test_pyinfo
+        ./pytest.sh
+        # export SENTRY_DSN
+        # echo AAA${SENTRY_DSN}BBB
+        # ./pytest.sh -o log_cli=true -vv -k test_pyinfo
