@@ -339,7 +339,7 @@ def test_pyinfo(client, mocker):
     with pytest.raises(Exception) as exinfo:
         resp = client.get("/pyinfo/expected an exception")
     assert str(exinfo.value) == "expected an exception"
-    for (k,v) in client.application.config.items():
+    for (k, v) in client.application.config.items():
         logger.info(f"{k}:\t{v}")
     capture_event.assert_called()
 
@@ -1442,15 +1442,27 @@ def test_researcher_invitation(client, mocker):
     user = User.get(email="test123abc@test.test.net")
     assert user.orcid == "0123-1234-5678-0123"
 
-    # Test web-hook:
-    send_email.reset_mock()
+
+def test_researcher_invitation_with_webhook(client, mocker):
+    """Test full researcher invitation flow."""
+    # mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+    mocker.patch("orcid_hub.MemberAPIV3.create_or_update_affiliation")
+    mocker.patch(
+        "orcid_hub.views.send_user_invitation.queue",
+        lambda *args, **kwargs: (views.send_user_invitation(*args, **kwargs) and Mock()),
+    )
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+
+    admin = client.data["admin"]
     org = admin.organisation
+
+    # Test web-hook:
     org.webhook_enabled = True
     org.webhook_url = "http://test.webhook"
     org.webhook_append_orcid = True
     org.confirmed = True
     org.save()
-    client.logout()
+
     client.login(admin)
     post = mocker.patch("requests.post")
     resp = client.post(
@@ -1480,6 +1492,7 @@ def test_researcher_invitation(client, mocker):
     oauth_state = qs["state"][0]
     callback_url = redirect_uri + "&state=" + oauth_state
     assert session["oauth_state"] == oauth_state
+
     mocker.patch(
         "orcid_hub.authcontroller.OAuth2Session.fetch_token",
         return_value={
@@ -1491,9 +1504,11 @@ def test_researcher_invitation(client, mocker):
             "expires_in": "12121",
         },
     )
+    mocker.patch("requests.put", return_value=MagicMock(status_code=201))
 
     send_email.reset_mock()
     post.reset_mock()
+
     resp = client.get(callback_url, follow_redirects=True)
     user = User.get(email="test123abc123@test.test.net")
     assert user.orcid == "0123-1234-5678-0124"
