@@ -1,0 +1,44 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+# Run tests w/o PostgreSQL DB and Redis
+
+name: Python application
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.9"
+    - name: Install dependencies
+      run: |
+        openssl genrsa -out .keys/dkim.key 512
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f test_requirements.txt ]; then pip install -r test_requirements.txt; fi
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 orcid_hub tests --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        ## flake8 orcid_hub tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      env:
+        SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      run: |
+        ./pytest.sh
+        # export SENTRY_DSN
+        # echo AAA${SENTRY_DSN}BBB
+        # ./pytest.sh -o log_cli=true -vv -k test_pyinfo

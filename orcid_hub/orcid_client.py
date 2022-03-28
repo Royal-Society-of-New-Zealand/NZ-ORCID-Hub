@@ -96,8 +96,9 @@ class OrcidRESTClientObjectMixing:
                 if res.data:
                     oac.response = res.data
         finally:
-            oac.response_time_ms = round((time() - request_time) * 1000)
-            oac.save()
+            if oac:
+                oac.response_time_ms = round((time() - request_time) * 1000)
+                oac.save()
 
         return res
 

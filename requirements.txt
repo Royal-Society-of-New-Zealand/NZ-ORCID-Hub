@@ -7,12 +7,13 @@ psycopg2-binary
 peewee>=3.9.6,<3.11.0
 python-slugify
 emails
+WTForms<3.0.0 # https://dev.to/sm0ke/cannot-import-name-textfield-from-wtforms-58n8
 wtf-peewee
 pycountry
 html2text
 tablib<1.0.0
 openpyxl>=2.4.9,<2.5.0
-pyyaml
+PyYAML<6.0
 pykwalify
 pybtex
 pybtex-apa-style

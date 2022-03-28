@@ -52,7 +52,7 @@ from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId, CharField,
                      Client, Delegate, ExternalId, FixedCharField, File, FundingContributor,
                      FundingInvitee, FundingRecord, Grant, GroupIdRecord, Invitee, MessageRecord,
-                     ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
+                     ModelExceptionError, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
                      Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, RecordInvitee, Role, Task,
                      TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
@@ -3002,7 +3002,7 @@ def load_task(task_type):
             return redirect(url_for(task_view, task_id=task.id))
         except (
                 ValueError,
-                ModelException,
+                ModelExceptionError,
         ) as ex:
             flash(f"Failed to load record file: {ex}", "danger")
             app.logger.exception("Failed to load records.")

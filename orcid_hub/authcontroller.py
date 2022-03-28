@@ -49,12 +49,12 @@ from .config import (
     APP_URL,
     AUTHORIZATION_BASE_URL,
     CRED_TYPE_PREMIUM,
+    MAIL_SUPPORT_ADDRESS,
     MEMBER_API_FORM_BASE_URL,
     NOTE_ORCID,
     ORCID_API_BASE,
     ORCID_BASE_URL,
     TOKEN_URL,
-    MAIL_SUPPORT_ADDRESS,
 )
 from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
@@ -77,8 +77,8 @@ from .models import (
 )
 from .utils import (
     append_qs,
-    get_next_url,
     enqueue_user_records,
+    get_next_url,
     notify_about_update,
     read_uploaded_file,
     register_orcid_webhook,
@@ -712,7 +712,7 @@ def orcid_callback():
     in the redirect URL. We will use that to obtain an access token.
 
 
-    Call back gets called when:
+    Call-back gets called when:
     - User authenticatest via ORCID (uses AUTHENTICATION key);
     - User authorises an organisation (uses org. key);
     - User completes registration (uses org. key);

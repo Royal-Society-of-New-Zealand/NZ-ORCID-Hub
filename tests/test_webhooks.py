@@ -2,17 +2,17 @@
 """Tests for webhooks functions."""
 
 import datetime
-import logging
 import json
+import logging
 from types import SimpleNamespace as SimpleObject
+from unittest.mock import MagicMock, Mock, call, patch
 from urllib.parse import urlparse
 
-from flask_login import login_user
 import pytest
-from unittest.mock import call, MagicMock, Mock, patch
+from flask_login import login_user
 
 from orcid_hub import utils
-from orcid_hub.models import Client, OrcidToken, Organisation, User, UserOrg, Token
+from orcid_hub.models import Client, OrcidToken, Organisation, Token, User, UserOrg
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -213,10 +213,10 @@ def test_org_webhook(client, mocker):
         ),
     )
     mocker.patch.object(
-        utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201)
+        utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201, text="")
     )
     mocker.patch.object(
-        utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204)
+        utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204, text="")
     )
 
     org = client.data["org"]
@@ -507,11 +507,12 @@ def test_org_webhook_api(client, mocker):
     )
     assert resp.status_code == 201
 
+    server_name = client.application.config["SERVER_NAME"]
     mockput.assert_has_calls(
         [
             call(
                 "https://api.sandbox.orcid.org/1001-0001-0001-0001/webhook/"
-                "https%3A%2F%2Flocalhost%2Fservices%2F21%2Fupdated",
+                f"https%3A%2F%2F{server_name}%2Fservices%2F21%2Fupdated",
                 headers={
                     "Accept": "application/json",
                     "Authorization": "Bearer ABC123",
@@ -519,8 +520,8 @@ def test_org_webhook_api(client, mocker):
                 },
             ),
             call(
-                "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook"
-                "/https%3A%2F%2Flocalhost%2Fservices%2F22%2Fupdated",
+                "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/"
+                f"https%3A%2F%2F{server_name}%2Fservices%2F22%2Fupdated",
                 headers={
                     "Accept": "application/json",
                     "Authorization": "Bearer ABC123",
@@ -528,8 +529,8 @@ def test_org_webhook_api(client, mocker):
                 },
             ),
             call(
-                "https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook"
-                "/https%3A%2F%2Flocalhost%2Fservices%2F30%2Fupdated",
+                "https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook/"
+                f"https%3A%2F%2F{server_name}%2Fservices%2F30%2Fupdated",
                 headers={
                     "Accept": "application/json",
                     "Authorization": "Bearer ABC123",
@@ -566,10 +567,12 @@ def test_org_webhook_api(client, mocker):
             "notification-email": "notify_me@org.edu",
         },
     )
+    server_name = client.application.config["SERVER_NAME"]
     mockput.assert_has_calls(
         [
             call(
-                "https://api.sandbox.orcid.org/1001-0001-0001-0001/webhook/%2Fservices%2F21%2Fupdated",  # noqa E501
+                "https://api.sandbox.orcid.org/1001-0001-0001-0001/webhook/"
+                f"https%3A%2F%2F{server_name}%2Fservices%2F21%2Fupdated",
                 headers={
                     "Accept": "application/json",
                     "Authorization": "Bearer ABC123",
@@ -577,7 +580,8 @@ def test_org_webhook_api(client, mocker):
                 },
             ),
             call(
-                "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/%2Fservices%2F22%2Fupdated",  # noqa E501
+                "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/"
+                f"https%3A%2F%2F{server_name}%2Fservices%2F22%2Fupdated",
                 headers={
                     "Accept": "application/json",
                     "Authorization": "Bearer ABC123",
@@ -585,7 +589,8 @@ def test_org_webhook_api(client, mocker):
                 },
             ),
             call(
-                "https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook/%2Fservices%2F30%2Fupdated",  # noqa E501
+                "https://api.sandbox.orcid.org/0000-0000-0000-11X2/webhook/"
+                f"https%3A%2F%2F{server_name}%2Fservices%2F30%2Fupdated",
                 headers={
                     "Accept": "application/json",
                     "Authorization": "Bearer ABC123",

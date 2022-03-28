@@ -375,11 +375,11 @@ def app(testdb):
     _app.config['TESTING'] = True
     _app.test_client_class = HubClient
     #_app.config["SERVER_NAME"] = "ORCIDHUB"
-    _app.sentry = None
+    # _app.sentry = None
     _app.db = models.db = views.db = testdb
     _app.config["DATABASE_URL"] = DATABASE_URL
     _app.config["EXTERNAL_SP"] = None
-    _app.config["SENTRY_DSN"] = None
+    # _app.config["SENTRY_DSN"] = None
     _app.config["WTF_CSRF_ENABLED"] = False
     _app.config["DEBUG_TB_ENABLED"] = False
     _app.config["LOAD_TEST"] = True

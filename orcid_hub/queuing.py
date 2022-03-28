@@ -4,6 +4,7 @@
 import logging
 from time import sleep, time
 
+import rq_dashboard
 from flask import abort
 from flask_login import current_user
 from flask_rq2 import RQ
@@ -16,9 +17,9 @@ __redis_available = bool(REDIS_URL)
 
 if __redis_available:
     try:
-        import rq_dashboard
         from rq import Queue as _Queue
         import redis
+
         with redis.Redis.from_url(REDIS_URL, socket_connect_timeout=1) as r:
             r.ping()
 
@@ -52,27 +53,29 @@ if __redis_available:
         __redis_available = False
 
 if not __redis_available:
-    app.config.RQ_CONNECTION_CLASS = app.config["RQ_CONNECTION_CLASS"] = "fakeredis.FakeStrictRedis"
+    app.config.RQ_CONNECTION_CLASS = app.config[
+        "RQ_CONNECTION_CLASS"
+    ] = "fakeredis.FakeStrictRedis"
     app.config.RQ_ASYNC = app.config["RQ_ASYNC"] = False
 
     if "RQ_QUEUE_CLASS" in app.config:
-        del(app.config["RQ_QUEUE_CLASS"])
+        del app.config["RQ_QUEUE_CLASS"]
     if "REDIS_URL" in app.config:
-        del(app.config["REDIS_URL"])
+        del app.config["REDIS_URL"]
     if "RQ_REDIS_URL" in app.config:
-        del(app.config["RQ_REDIS_URL"])
+        del app.config["RQ_REDIS_URL"]
 
 rq = RQ(app)
 
 
-if __redis_available:
-    @rq_dashboard.blueprint.before_request
-    def restrict_rq(*args, **kwargs):
-        """Restrict access to RQ-Dashboard."""
-        if not current_user.is_authenticated:
-            abort(401)
-        if not current_user.has_role(models.Role.SUPERUSER):
-            abort(403)
+@rq_dashboard.blueprint.before_request
+def restrict_rq(*args, **kwargs):
+    """Restrict access to RQ-Dashboard."""
+    if not current_user.is_authenticated:
+        abort(401)
+    if not current_user.has_role(models.Role.SUPERUSER):
+        abort(403)
 
-    app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
-    logging.getLogger("rq.worker").addHandler(logging.StreamHandler())
+
+app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
+logging.getLogger("rq.worker").addHandler(logging.StreamHandler())

@@ -49,7 +49,7 @@ def test_upload_affiliation_with_wrong_country(request_ctx, mocker):
         exception = mocker.patch.object(ctx.app.logger, "exception")
         login_user(super_user)
         # flake8: noqa
-        with pytest.raises(ModelException):
+        with pytest.raises(ModelExceptionError):
             task = AffiliationRecord.load_from_csv(
                 """First name\tLast name\temail address\tOrganisation\tCampus/Department\tCity\tCourse or Job title\tStart date\tEnd date\tStudent/Staff\tCountry
 FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09 19:00:00 PM\t\tStaff\tNO COUNTRY

@@ -17,13 +17,12 @@ import pytest
 import yaml
 from flask import make_response, session
 from flask_login import login_user
-from peewee import SqliteDatabase, JOIN
+from peewee import JOIN, SqliteDatabase
 
 from orcid_api_v3.rest import ApiException
-from orcid_hub import orcid_client, rq, utils, views
+from orcid_hub import models, orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
-from orcid_hub import models
 from orcid_hub.models import (
     Affiliation,
     AffiliationRecord,
@@ -287,18 +286,24 @@ def test_superuser_view_access(client):
         assert user.email == "new_" + u.email
         assert user.name == u.name + "_NEW"
 
+    is_async = client.application.config.RQ_ASYNC
+
     resp = client.get("/admin/schedude/")
     assert resp.status_code == 200
-    assert b"interval" in resp.data
+    if is_async:
+        assert b"interval" in resp.data
 
     resp = client.get("/admin/schedude/?search=TEST")
     assert resp.status_code == 200
-    assert b"interval" in resp.data
+    if is_async:
+        assert b"interval" in resp.data
 
     jobs = list(rq.get_scheduler().get_jobs())
-    resp = client.get(f"/admin/schedude/details/?id={jobs[0].id}")
-    assert resp.status_code == 200
-    assert b"interval" in resp.data
+    if jobs:
+        resp = client.get(f"/admin/schedude/details/?id={jobs[0].id}")
+        assert resp.status_code == 200
+        if is_async:
+            assert b"interval" in resp.data
 
     resp = client.get("/admin/schedude/details/?id=99999999")
     assert resp.status_code == 404
@@ -334,10 +339,12 @@ def test_pyinfo(client, mocker):
     with pytest.raises(Exception) as exinfo:
         resp = client.get("/pyinfo/expected an exception")
     assert str(exinfo.value) == "expected an exception"
+    for (k, v) in client.application.config.items():
+        logger.info(f"{k}:\t{v}")
     capture_event.assert_called()
 
 
-def test_access(client):
+def test_access(client, mocker):
     """Test access to differente resources."""
     org = client.data["org"]
     user = client.data["user"]
@@ -355,9 +362,9 @@ def test_access(client):
     assert resp.status_code == 401
     assert b"401" in resp.data
 
-    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
-    assert resp.status_code == 302
-    assert resp.location == "http://orcidhub.org.nz/next"
+    # resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    # assert resp.status_code == 302
+    # assert resp.location == "http://orcidhub.org.nz/next"
 
     resp = client.login(root, follow_redirects=True)
     resp = client.get("/pyinfo")
@@ -370,6 +377,7 @@ def test_access(client):
     assert resp.status_code == 302
     client.logout()
 
+    mocker.patch("redis.connection.ConnectionPool.get_connection")
     resp = client.login(root, follow_redirects=True)
     resp = client.get("/rq")
     assert resp.status_code == 200
@@ -381,9 +389,9 @@ def test_access(client):
     assert resp.status_code == 403
     assert b"403" in resp.data
 
-    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
-    assert resp.status_code == 302
-    assert resp.location == "http://orcidhub.org.nz/next"
+    # resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    # assert resp.status_code == 302
+    # assert resp.location == "http://orcidhub.org.nz/next"
     client.logout()
 
     resp = client.login(admin, follow_redirects=True)
@@ -608,9 +616,11 @@ def test_show_record_section(client, mocker):
         view_keywords.assert_called_once_with(user.orcid, _preload_content=False)
 
 
-def test_status(client):
+def test_status(client, mocker):
     """Test status is workinkg both when DB is accessible or not."""
     with patch("orcid_hub.views.db") as db:
+        mocker.patch("shutil.disk_usage", return_value=(100, 0, 100))
+
         result = MagicMock()
         result.fetchone.return_value = (datetime.datetime(2042, 1, 1, 0, 0),)
         db.execute_sql.return_value = result
@@ -619,6 +629,10 @@ def test_status(client):
         assert resp.status_code == 200
         assert data["status"] == "Connection successful."
         assert data["db-timestamp"] == "2042-01-01T00:00:00"
+
+        mocker.patch("shutil.disk_usage", return_value=(100, 0, 1))
+        resp = client.get("/status")
+        assert resp.status_code == 418
 
     with patch("orcid_hub.views.db") as db:  # , request_ctx("/status") as ctx:
         db.execute_sql.side_effect = Exception("FAILURE")
@@ -691,12 +705,12 @@ def test_application_registration(client):
     assert urlparse(resp.location).path == "/settings/applications"
 
     Token.create(client=c, token_type="TEST", access_token="TEST000")
-    resp = client.post(f"/settings/credentials/{c.id}", data={"revoke": "Revoke", "name": c.name,})
+    resp = client.post(f"/settings/credentials/{c.id}", data={"revoke": "Revoke", "name": c.name})
     assert resp.status_code == 200
     assert Token.select().where(Token.client == c).count() == 0
 
     old_client = c
-    resp = client.post(f"/settings/credentials/{c.id}", data={"reset": "Reset", "name": c.name,})
+    resp = client.post(f"/settings/credentials/{c.id}", data={"reset": "Reset", "name": c.name})
     c = Client.get(name="TEST APP")
     assert resp.status_code == 200
     assert c.client_id != old_client.client_id
@@ -720,7 +734,7 @@ def test_application_registration(client):
 
     old_client = c
     resp = client.post(
-        f"/settings/credentials/{c.id}", data={"delete": "Delete", "name": "NEW APP NAME",}
+        f"/settings/credentials/{c.id}", data={"delete": "Delete", "name": "NEW APP NAME"}
     )
     assert resp.status_code == 302
     assert urlparse(resp.location).path == "/settings/applications"
@@ -844,7 +858,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
         "/admin/orginfo/action/",
         follow_redirects=True,
         data=dict(
-            url="/admin/orginfo/", action="delete", rowid=OrgInfo.select().limit(1).first().id,
+            url="/admin/orginfo/", action="delete", rowid=OrgInfo.select().limit(1).first().id
         ),
     )
     assert OrgInfo.select().count() == 13
@@ -852,7 +866,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
     resp = client.post(
         "/admin/orginfo/action/",
         follow_redirects=True,
-        data=dict(url="/admin/orginfo/", action="delete", rowid=[r.id for r in OrgInfo.select()],),
+        data=dict(url="/admin/orginfo/", action="delete", rowid=[r.id for r in OrgInfo.select()]),
     )
     assert OrgInfo.select().count() == 0
 
@@ -879,7 +893,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
             "/admin/orginfo/action/",
             follow_redirects=True,
             data=dict(
-                url="/admin/orginfo/", action="invite", rowid=[r.id for r in OrgInfo.select()],
+                url="/admin/orginfo/", action="invite", rowid=[r.id for r in OrgInfo.select()]
             ),
         )
         send_email.assert_called()
@@ -1135,7 +1149,7 @@ def test_shorturl(request_ctx):
     url = "http://localhost/xsdsdsfdds"
     with request_ctx():
         resp = views.shorturl(url)
-        assert "http://" in resp
+        assert "https://" in resp
 
 
 def test_activate_all(client):
@@ -1428,15 +1442,27 @@ def test_researcher_invitation(client, mocker):
     user = User.get(email="test123abc@test.test.net")
     assert user.orcid == "0123-1234-5678-0123"
 
-    # Test web-hook:
-    send_email.reset_mock()
+
+def test_researcher_invitation_with_webhook(client, mocker):
+    """Test full researcher invitation flow."""
+    # mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+    mocker.patch("orcid_hub.MemberAPIV3.create_or_update_affiliation")
+    mocker.patch(
+        "orcid_hub.views.send_user_invitation.queue",
+        lambda *args, **kwargs: (views.send_user_invitation(*args, **kwargs) and Mock()),
+    )
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+
+    admin = client.data["admin"]
     org = admin.organisation
+
+    # Test web-hook:
     org.webhook_enabled = True
     org.webhook_url = "http://test.webhook"
     org.webhook_append_orcid = True
     org.confirmed = True
     org.save()
-    client.logout()
+
     client.login(admin)
     post = mocker.patch("requests.post")
     resp = client.post(
@@ -1466,6 +1492,7 @@ def test_researcher_invitation(client, mocker):
     oauth_state = qs["state"][0]
     callback_url = redirect_uri + "&state=" + oauth_state
     assert session["oauth_state"] == oauth_state
+
     mocker.patch(
         "orcid_hub.authcontroller.OAuth2Session.fetch_token",
         return_value={
@@ -1477,12 +1504,16 @@ def test_researcher_invitation(client, mocker):
             "expires_in": "12121",
         },
     )
+    mocker.patch("requests.put", return_value=MagicMock(status_code=201))
+
     send_email.reset_mock()
     post.reset_mock()
+
     resp = client.get(callback_url, follow_redirects=True)
     user = User.get(email="test123abc123@test.test.net")
     assert user.orcid == "0123-1234-5678-0124"
     assert post.call_count == 2
+
     # Last "post":
     args, kwargs = post.call_args
     assert args[0] == "http://test.webhook/0123-1234-5678-0124"
@@ -1499,7 +1530,7 @@ def test_email_template(app, request_ctx):
     with request_ctx(
         "/settings/email_template",
         method="POST",
-        data={"email_template_enabled": "y", "prefill": "Pre-fill",},
+        data={"email_template_enabled": "y", "prefill": "Pre-fill"},
     ) as ctx:
         login_user(user)
         resp = ctx.app.full_dispatch_request()
@@ -1529,7 +1560,7 @@ def test_email_template(app, request_ctx):
             logo=None,
             org_name="TEST0",
             recipient=("TEST ORG #0 ADMIN", "admin@test0.edu"),
-            reply_to=("TEST ORG #0 ADMIN", "admin@test0.edu"),
+            reply_to="admin@test0.edu",
             sender=("TEST ORG #0 ADMIN", "admin@test0.edu"),
             subject="TEST EMAIL",
         )
@@ -1567,7 +1598,7 @@ def test_email_template(app, request_ctx):
         html.assert_called_once()
         _, kwargs = html.call_args
         assert kwargs["subject"] == "TEST EMAIL"
-        assert kwargs["mail_from"] == ("NZ ORCID HUB", "no-reply@orcidhub.org.nz",)
+        assert kwargs["mail_from"] == ("NZ ORCID HUB", "no-reply@orcidhub.org.nz")
         assert "<!DOCTYPE html>\n<html>\n" in kwargs["html"]
         assert "TEST0" in kwargs["text"]
 
@@ -1594,10 +1625,10 @@ def test_email_template(app, request_ctx):
             "email/test.html",
             base="TEST TEMPLATE {EMAIL}",
             cc_email=("TEST ORG #0 ADMIN", "admin@test0.edu"),
-            logo=f"http://{ctx.request.host}/logo/TOKEN000",
+            logo=f"https://{ctx.request.host}/logo/TOKEN000",
             org_name="TEST0",
             recipient=("TEST ORG #0 ADMIN", "admin@test0.edu"),
-            reply_to=("TEST ORG #0 ADMIN", "admin@test0.edu"),
+            reply_to="admin@test0.edu",
             sender=("TEST ORG #0 ADMIN", "admin@test0.edu"),
             subject="TEST EMAIL",
         )
@@ -1610,7 +1641,7 @@ def test_logo_file(request_ctx):
     with request_ctx(
         "/settings/logo",
         method="POST",
-        data={"upload": "Upload", "logo_file": (BytesIO(b"FAKE IMAGE"), "logo.png",),},
+        data={"upload": "Upload", "logo_file": (BytesIO(b"FAKE IMAGE"), "logo.png")},
     ) as ctx:
         login_user(user)
         resp = ctx.app.full_dispatch_request()
@@ -1618,7 +1649,7 @@ def test_logo_file(request_ctx):
         org = Organisation.get(org.id)
         assert org.logo is not None
         assert org.logo.filename == "logo.png"
-    with request_ctx("/settings/logo", method="POST", data={"reset": "Reset",}) as ctx:
+    with request_ctx("/settings/logo", method="POST", data={"reset": "Reset"}) as ctx:
         login_user(user)
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 200
@@ -1645,7 +1676,7 @@ def test_affiliation_deletion_task(client, mocker):
     )
     resp = client.post(
         "/load/task/AFFILIATION",
-        data={"save": "Upload", "file_": (BytesIO(content.encode()), "affiliations.csv",),},
+        data={"save": "Upload", "file_": (BytesIO(content.encode()), "affiliations.csv")},
     )
     assert resp.status_code == 302
     task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
@@ -2603,7 +2634,7 @@ def test_edit_record(request_ctx):
     ), request_ctx(
         f"/section/{user.id}/ONR/new",
         method="POST",
-        data={"content": "xyz", "visibility": "public", "display_index": "FIRST",},
+        data={"content": "xyz", "visibility": "public", "display_index": "FIRST"},
     ) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2614,7 +2645,7 @@ def test_edit_record(request_ctx):
     ), request_ctx(
         f"/section/{user.id}/KWR/new",
         method="POST",
-        data={"content": "xyz", "visibility": "public", "display_index": "FIRST",},
+        data={"content": "xyz", "visibility": "public", "display_index": "FIRST"},
     ) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -2850,7 +2881,7 @@ def test_viewmembers_delete(mockpost, client):
         "/admin/viewmembers/delete/",
         method="POST",
         follow_redirects=True,
-        data={"id": str(researcher0.id), "url": "/admin/viewmembers/",},
+        data={"id": str(researcher0.id), "url": "/admin/viewmembers/"},
     )
     assert resp.status_code == 200
     with pytest.raises(User.DoesNotExist):
@@ -2860,10 +2891,7 @@ def test_viewmembers_delete(mockpost, client):
     UserOrg.create(org=admin0.organisation, user=researcher1)
     OrcidToken.create(org=admin0.organisation, user=researcher1, access_token="ABC123")
     client.login(admin1)
-    payload = {
-        "id": str(researcher1.id),
-        "url": "/admin/viewmembers/",
-    }
+    payload = {"id": str(researcher1.id), "url": "/admin/viewmembers/"}
     org = researcher1.organisation
     mockpost.return_value = MagicMock(status_code=400)
 
@@ -2912,7 +2940,7 @@ def test_action_insert_update_group_id(mocker, client):
     org.save()
 
     gr = GroupIdRecord.create(
-        name="xyz", group_id="issn:test", description="TEST", type="journal", organisation=org,
+        name="xyz", group_id="issn:test", description="TEST", type="journal", organisation=org
     )
 
     fake_response = make_response
@@ -3280,7 +3308,7 @@ xyzurl,https://test.com,0,xyz@mailinator.com,sdksdsd,sds1,0000-0001-6817-9711,43
 xyzurlinfo,https://test123.com,10,xyz1@mailinator.com,sdksasadsd,sds1,,,PUBLIC,,""".encode()
                 ),
                 "researcher_urls.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3306,7 +3334,7 @@ dummy 1220,0,rad42@mailinator.com,sdsd,sds1,,,PUBLIC,,
 dummy 10,0,raosti12dckerpr13233jsdpos8jj2@mailinator.com,sdsd,sds1,0000-0002-0146-7409,16878,PUBLIC,,""".encode()
                 ),
                 "other_names.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3334,7 +3362,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
 issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,radsdsd22@mailinator.com,,00032,sdsssd,ffww,,PUBLIC,source-work-id,232xxx22fff,https://localsystem.org/1234,SELF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "peer_review.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3355,7 +3383,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
 issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number,,https://www.grant-url.com2,PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "peer_review.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3370,7 +3398,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
 issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number_incorrect,sdsds,https://www.grant-url.com2,PART_OF""".encode()  # noqa: E501
                 ),
                 "peer_review.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3385,7 +3413,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
 issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number,sdsds,https://www.grant-url.com2,part-of-incorrect""".encode()  # noqa: E501
                 ),
                 "peer_review.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3412,7 +3440,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
 THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS9999999999,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3484,7 +3512,7 @@ THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000
 THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900962	https://www.grant-url2.com	PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.tsv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3560,7 +3588,7 @@ THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025
 """.encode()  # noqa: E501
                 ),  # noqa: E501
                 "error.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3595,7 +3623,7 @@ THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025
 THIS IS A TITLE #2, नमस्ते #2,hi, CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,**ERROR**,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3613,7 +3641,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi, CONTRACT,MY TYPE,Minerals unde.,90
 THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3631,7 +3659,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
 THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,NZ,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3653,7 +3681,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
 ,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor5@mailinator.com,John,Doe,,co_lead,grant_number,XXX1702,,SELF,8888 """.encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings042.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3694,7 +3722,7 @@ XXX1701,00003,,This is the project title,,,CONTRACT,Fast-Start,This is the proje
 XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor4@mailinator.com,Felix,Contributor 4,,,Y,grant_number,,SELF"""  # noqa: E501
                 ),  # noqa: E501
                 "fundings_ex.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3739,14 +3767,14 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     url = quote(f"/admin/fundingrecord/?record_id={record.id}&task_id={task.id}", safe="")
     resp = client.post(
         f"/admin/fundingcontributor/new/?url={url}",
-        data={"email": "contributor123@test.test.test.org", "name": "FN LN", "role": "role",},
+        data={"email": "contributor123@test.test.test.org", "name": "FN LN", "role": "role"},
     )
     assert record.contributors.count() > contributor_count
 
     contributor = record.contributors.first()
     resp = client.post(
         f"/admin/fundingcontributor/edit/?id={contributor.id}&url={url}",
-        data={"email": "contributor_new@test.test.test.org", "orcid": "AAAA-2738-3738-00X3",},
+        data={"email": "contributor_new@test.test.test.org", "orcid": "AAAA-2738-3738-00X3"},
     )
     c = FundingContributor.get(contributor.id)
     assert c.email != "contributor_new@test.test.test.org"
@@ -3755,7 +3783,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
 
     resp = client.post(
         f"/admin/fundingcontributor/edit/?id={contributor.id}&url={url}",
-        data={"email": "contributor_new@test.test.test.org", "orcid": "1631-2631-3631-00X3",},
+        data={"email": "contributor_new@test.test.test.org", "orcid": "1631-2631-3631-00X3"},
     )
     c = FundingContributor.get(contributor.id)
     assert c.email == "contributor_new@test.test.test.org"
@@ -3784,7 +3812,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number_incorrect,,SELF"""  # noqa: E501
                 ),
                 "fundings_ex.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3799,7 +3827,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF-incorrect"""  # noqa: E501
                 ),
                 "fundings_ex.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3814,7 +3842,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     ,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF"""  # noqa: E501
                 ),
                 "fundings_ex.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -3831,7 +3859,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
 XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF"""  # noqa: E501
                 ),
                 "fundingABC.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4064,7 +4092,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
 sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,formatted_unspecified,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "work.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4082,7 +4110,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
 sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "work.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4100,7 +4128,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
 sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "work.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4116,7 +4144,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
             "file_": (
                 open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "rb"),
                 "works042.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4132,7 +4160,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
             "file_": (
                 open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "rb"),
                 "works042.json",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4187,14 +4215,14 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     contributor_count = record.contributors.count()
     url = quote(f"/admin/workcontributor/?record_id={record.id}", safe="")
     resp = client.post(
-        f"/admin/workcontributor/new/?url={url}", data={"email": "test@test.test.test.org",}
+        f"/admin/workcontributor/new/?url={url}", data={"email": "test@test.test.test.org"}
     )
     assert record.contributors.count() > contributor_count
 
     contributor = record.contributors.first()
     resp = client.post(
         f"/admin/workcontributor/edit/?id={contributor.id}&url={url}",
-        data={"email": "test_new@test.test.test.org", "name": "CONTRIBUTOR NAME",},
+        data={"email": "test_new@test.test.test.org", "name": "CONTRIBUTOR NAME"},
     )
     contributor = record.contributors.first()
     assert record.contributors.first().name == "CONTRIBUTOR NAME"
@@ -4210,14 +4238,14 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     url = quote(f"/admin/workexternalid/?record_id={record.id}", safe="")
     resp = client.post(
         f"/admin/workexternalid/new/?url={url}",
-        data={"type": "grant_number", "value": "EXTERNAL ID VALUE", "relationship": "self",},
+        data={"type": "grant_number", "value": "EXTERNAL ID VALUE", "relationship": "self"},
     )
     assert record.external_ids.count() == 1
 
     external_id = record.external_ids.first()
     resp = client.post(
         f"/admin/workexternalid/edit/?id={external_id.id}&url={url}",
-        data={"type": "grant_number", "value": "EXTERNAL ID VALUE 123", "relationship": "self",},
+        data={"type": "grant_number", "value": "EXTERNAL ID VALUE 123", "relationship": "self"},
     )
     assert record.external_ids.first().value == "EXTERNAL ID VALUE 123"
 
@@ -4234,7 +4262,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
 1,invitee1@mailinator.com,Alice,invitee 1,0000-0002-9207-4933,,,This is a title,Subtiitle,xxx,hi,This is a journal title,this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,12/01/2001,,bibcode,,http://url.edu/abs/ghjghghj,SELF,,en,NZ""".encode()  # noqa: E501
                 ),
                 "work.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4249,7 +4277,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
 1,invitee1@mailinator.com,Alice,invitee 1,0000-0002-9207-4933,,,This is a title,Subtiitle,xxx,hi,This is a journal title,this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,12/01/2001,,bibcode_incorrect,sdsd,http://url.edu/abs/ghjghghj,SELF,,en,NZ""".encode()  # noqa: E501
                 ),
                 "work.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4264,7 +4292,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
 1,invitee1@mailinator.com,Alice,invitee 1,0000-0002-9207-4933,,,This is a title,Subtiitle,xxx,hi,This is a journal title,this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,12/01/2001,,bibcode,sdsd,http://url.edu/abs/ghjghghj,SELF_incorrect,,en,NZ""".encode()  # noqa: E501
                 ),
                 "work.csv",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4361,7 +4389,7 @@ def test_peer_reviews(client):
 }]"""
                 ),
                 "peer_reviews_001.json",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4550,7 +4578,7 @@ def test_keyword(client):
   "updated-at": "2019-02-19T19:31:49"}"""
                 ),
                 "keyword_sample_latest.json",
-            ),
+            )
         },
         follow_redirects=True,
     )
@@ -4803,7 +4831,7 @@ def test_delete_affiliations(client, mocker):
     )
     resp = client.post(
         "/load/task/AFFILIATION",
-        data={"save": "Upload", "file_": (BytesIO(resp.data), "affiliations.csv",),},
+        data={"save": "Upload", "file_": (BytesIO(resp.data), "affiliations.csv")},
     )
     assert resp.status_code == 302
     task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
