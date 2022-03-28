@@ -62,7 +62,7 @@ AFFILIATION_TYPES = [
     "membership",
     "service",
 ]
-DISAMBIGUATION_SOURCES = ["RINGGOLD", "GRID", "FUNDREF", "ISNI"]
+DISAMBIGUATION_SOURCES = ["ROR", "RINGGOLD", "GRID", "FUNDREF", "ISNI"]
 VISIBILITIES = ["public", "private", "registered-only", "limited"]
 visibility_choices = [(v, v.replace("-", " ").title()) for v in VISIBILITIES]
 EXTERNAL_ID_TYPES = [
