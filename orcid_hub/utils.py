@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import random
+import re
 import string
 import time
 from collections import defaultdict
@@ -205,7 +206,14 @@ def send_email(
 
     kwargs["sender"] = _jinja2_email(*sender)
     if isinstance(recipient, str):
-        recipient = (recipient, recipient)
+        m = re.search(r" *(.*) *<(.*@.*)>", recipient)
+        if m:
+            if m[1]:
+                recipient = (m[1], m[2])
+            else:
+                recipient = (m[2], m[2])
+        else:
+            recipient = (recipient, recipient)
     kwargs["recipient"] = _jinja2_email(*recipient)
     if subject is not None:
         kwargs["subject"] = subject
@@ -921,7 +929,7 @@ def send_user_invitation(
             )
         else:
             logger.info(
-                f"*** Sending an invitation to '{first_name} <{email}>' "
+                f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
                 f"submitted by {inviter} of {org}"
             )
 
