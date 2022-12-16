@@ -125,7 +125,7 @@ class AppResource(Resource):
             except jsonschema.exceptions.ValidationError as ex:
                 return jsonify({"error": "Validation error.", "message": ex.message}), 422
             except Exception as ex:
-                return jsonify({"error": "Unhandled exception occurred.", "exception": ex}), 400
+                return jsonify({"error": "Unhandled exception occurred.", "message": ex}), 400
 
             org = current_user.organisation
             email = data.get("email")
@@ -146,12 +146,21 @@ class AppResource(Resource):
                 try:
                     models.validate_orcid_id(identifier)
                 except Exception as ex:
-                    return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
+                    return jsonify({
+                        "error": "Incorrect identifier value",
+                        "message": f"Incorrect identifier value '{identifier}': {ex}",
+                    }), 400
                 user = User.select().where(User.orcid == identifier).first()
             else:
-                return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
+                return jsonify({
+                    "error": "Incorrect identifier value",
+                    "message": f"Incorrect identifier value: {identifier}.",
+                }), 400
             if not user:
-                return jsonify({"error": f"The user ({identifier}) doesn't exist."}), 404
+                return jsonify({
+                    "error": "The user doesn't exist",
+                    "message": f"The user ({identifier}) doesn't exist.",
+                }), 404
 
         elif request.method == "POST":
             user = User.select()
@@ -164,7 +173,10 @@ class AppResource(Resource):
                 user, created = User.get_or_create(email=email, orcid=orcid)
             if not created and (user.organisation != org or not UserOrg.select().where(
                     UserOrg.org == org, UserOrg.user == user).exists()):
-                return jsonify({"error": f"The user ({identifier or email or orcid}) already exists."}), 400
+                return jsonify({
+                    "error": f"The user aready exists",
+                    "message": f"The user ({identifier or email or orcid}) already exists.",
+                }), 400
             if created:
                 user.organisation = org
                 UserOrg.create(user=user, org=org)
@@ -174,8 +186,10 @@ class AppResource(Resource):
                 user.delete_instance()
                 return make_response('', 204)
             except Exception as ex:
-                return jsonify({"error": "Failed to delete the user.", "message": str(ex)}), 400
-
+                return jsonify({
+                    "error": "Failed to delete the user",
+                    "message": str(ex)
+                }), 400
         else:
             for k in ["orcid", "email", "name", "eppn", "confirmed"]:
                 if k in data:
@@ -183,7 +197,7 @@ class AppResource(Resource):
             try:
                 user.save()
             except Exception as ex:
-                return jsonify({"error": "Failed to update the user.", "message": str(ex)}), 400
+                return jsonify({"error": "Failed to update the user", "message": str(ex)}), 400
 
             data = user.to_dict(
                     recurse=False, to_dashes=True,
@@ -321,10 +335,13 @@ class TaskResource(AppResource):
         try:
             task = Task.get(id=task_id)
         except Task.DoesNotExist:
-            return jsonify({"error": "The task doesn't exist."}), 404
+            return jsonify({
+                "error": "The task doesn't exist.",
+                "message": f"The task doesn't exist (ID: {task_id}).",
+            }), 404
         except Exception as ex:
             app.logger.exception(f"Failed to find the task with ID: {task_id}")
-            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "message": str(ex)}), 400
 
         if task.created_by_id != current_user.id:
             abort(403)
@@ -352,7 +369,7 @@ class TaskResource(AppResource):
         except jsonschema.exceptions.ValidationError as ex:
             return jsonify({"error": "Validation error.", "message": ex.message}), 422
         except Exception as ex:
-            return jsonify({"error": "Unhandled exception occurred.", "exception": ex}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "message": ex}), 400
         if "records" not in data:
             return jsonify({"error": "Validation error.", "message": "Missing affiliation records."}), 422
 
@@ -372,9 +389,11 @@ class TaskResource(AppResource):
                 skip_schema_validation=True,
                 override=(request.method == "POST"),
                 org=self.org)
+        except models.ModelExceptionError as ex:
+            return jsonify({"error": "Data or model error occurred.", "message": str(ex)}), 422
         except Exception as ex:
             app.logger.exception("Failed to handle affiliation API request.")
-            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "message": str(ex)}), 400
 
         return self.jsonify_task(task)
 
@@ -392,9 +411,11 @@ class TaskResource(AppResource):
                 task = None
             task = self.load_from_json(task=task)
             enqueue_task_records(task)
+        except models.ModelExceptionError as ex:
+            return jsonify({"error": "Data or model error occurred.", "message": str(ex)}), 422
         except Exception as ex:
             app.logger.exception("Failed to handle funding API request.")
-            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "message": str(ex)}), 400
 
         return self.jsonify_task(task)
 
@@ -576,7 +597,10 @@ class TaskAPI(TaskList):
             else:
                 task_type = data.get("task-type")
                 if not task_type:
-                    return jsonify({"error": "Missing task type."}), 400
+                    return jsonify({
+                        "error": "Missing task type.",
+                        "message": f"Missing task type (ID: {task_id})."
+                    }), 400
                 task_type = TaskType(task_type)
                 task = Task(task_type=task_type, org=current_user.organisation)
             if "filename" in data:
@@ -593,7 +617,7 @@ class TaskAPI(TaskList):
                     reset_all_records(task)
         except Exception as ex:
             app.logger.exception("Failed to handle funding API request.")
-            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "message": str(ex)}), 400
 
         return self.jsonify_task(task, include_records=False)
 
@@ -659,12 +683,16 @@ class TaskAPI(TaskList):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -698,12 +726,16 @@ class TaskAPI(TaskList):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -737,12 +769,16 @@ class TaskAPI(TaskList):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -765,12 +801,16 @@ class TaskAPI(TaskList):
         responses:
           200:
             description: "Successful operation"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.delete_task(task_id)
 
@@ -812,12 +852,16 @@ class AffiliationListAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         definitions:
         - schema:
             id: AffiliationTask
@@ -986,12 +1030,16 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_affiliation_task(task_id)
 
@@ -1024,12 +1072,16 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_affiliation_task(task_id)
 
@@ -1062,12 +1114,16 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_affiliation_task(task_id)
 
@@ -1142,12 +1198,16 @@ class FundListAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/FundTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         definitions:
         - schema:
             id: FundTask
@@ -1249,12 +1309,16 @@ class FundAPI(FundListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/FundTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -1328,12 +1392,16 @@ class WorkListAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/WorkTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         definitions:
         - schema:
             id: WorkTask
@@ -1396,12 +1464,16 @@ class WorkAPI(WorkListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/WorkTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.jsonify_task(task_id)
 
@@ -1435,12 +1507,16 @@ class WorkAPI(WorkListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/WorkTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -1514,12 +1590,16 @@ class PeerReviewListAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/PeerReviewTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         definitions:
         - schema:
             id: PeerReviewTask
@@ -1582,12 +1662,16 @@ class PeerReviewAPI(PeerReviewListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/PeerReviewTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.jsonify_task(task_id)
 
@@ -1621,12 +1705,16 @@ class PeerReviewAPI(PeerReviewListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/PeerReviewTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -1825,12 +1913,16 @@ class PropertyAPI(PropertyListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/PropertyTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.jsonify_task(task_id)
 
@@ -1864,12 +1956,16 @@ class PropertyAPI(PropertyListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/PropertyTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -1902,12 +1998,16 @@ class PropertyAPI(PropertyListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/PropertyTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -1940,12 +2040,16 @@ class PropertyAPI(PropertyListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/PropertyTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -2048,6 +2152,8 @@ class UserListAPI(AppResourceList):
               type: array
               items:
                 $ref: "#/definitions/HubUser"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -2055,7 +2161,7 @@ class UserListAPI(AppResourceList):
           404:
             $ref: "#/responses/NotFound"
           422:
-            description: "Unprocessable Entity"
+            $ref: "#/responses/UnprocessableEntity"
         """
         users = User.select().where(User.organisation == current_user.organisation)
         for a in ["from_date", "to_date"]:
@@ -2102,6 +2208,8 @@ class UserListAPI(AppResourceList):
             description: "successful operation"
             schema:
               $ref: "#/definitions/HubUser"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -2109,7 +2217,7 @@ class UserListAPI(AppResourceList):
           404:
             $ref: "#/responses/NotFound"
           422:
-            description: "Unprocessable Entity"
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_user()
 
@@ -2206,6 +2314,8 @@ class UserAPI(AppResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/HubUser"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -2213,7 +2323,7 @@ class UserAPI(AppResource):
           404:
             $ref: "#/responses/NotFound"
           422:
-            description: "Unprocessable Entity"
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_user(identifier)
 
@@ -2247,6 +2357,8 @@ class UserAPI(AppResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/HubUser"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -2254,7 +2366,7 @@ class UserAPI(AppResource):
           404:
             $ref: "#/responses/NotFound"
           422:
-            description: "Unprocessable Entity"
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_user(identifier)
 
@@ -2288,6 +2400,8 @@ class UserAPI(AppResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/HubUser"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -2295,7 +2409,7 @@ class UserAPI(AppResource):
           404:
             $ref: "#/responses/NotFound"
           422:
-            description: "Unprocessable Entity"
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_user(identifier)
 
@@ -2319,6 +2433,8 @@ class UserAPI(AppResource):
         responses:
           202:
             description: "successful operation"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -2326,7 +2442,7 @@ class UserAPI(AppResource):
           404:
             $ref: "#/responses/NotFound"
           422:
-            description: "Unprocessable Entity"
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_user(identifier)
 
@@ -2423,6 +2539,8 @@ class TokenAPI(MethodView):
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         user, error_message, status_code = self.get_user(identifier)
         if not user:
@@ -2478,6 +2596,8 @@ class TokenAPI(MethodView):
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         user, error_message, status_code = self.get_user(identifier)
         if not user:
@@ -2599,12 +2719,18 @@ class ResourceListAPI(TaskResource):
             description: "Successful operation"
             schema:
               $ref: "#/definitions/ResourceTask"
+          400:
+            $ref: "#/responses/BadRequest"
+            schema:
+              $ref: "#/definitions/Error"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         definitions:
         - schema:
             id: ResourceTask
@@ -2723,12 +2849,16 @@ class ResourceAPI(ResourceListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/ResourceTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.jsonify_task(task_id)
 
@@ -2762,12 +2892,16 @@ class ResourceAPI(ResourceListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/ResourceTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -2800,12 +2934,16 @@ class ResourceAPI(ResourceListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/ResourceTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -2838,12 +2976,16 @@ class ResourceAPI(ResourceListAPI):
             description: "successful operation"
             schema:
               $ref: "#/definitions/ResourceTask"
+          400:
+            $ref: "#/responses/BadRequest"
           401:
             $ref: "#/responses/Unauthorized"
           403:
             $ref: "#/responses/AccessDenied"
           404:
             $ref: "#/responses/NotFound"
+          422:
+            $ref: "#/responses/UnprocessableEntity"
         """
         return self.handle_task(task_id)
 
@@ -2988,18 +3130,26 @@ def get_spec(app):
     }
     # Common responses:
     swag["responses"] = {
-            "AccessDenied": {
-                "description": "Access Denied",
+            "BadRequest": {
+                "description": "Bad Request (400)",
                 "schema": {"$ref": "#/definitions/Error"}
             },
             "Unauthorized": {
-                "description": "Unauthorized",
+                "description": "Unauthorized (401)",
+                "schema": {"$ref": "#/definitions/Error"}
+            },
+            "AccessDenied": {
+                "description": "Access Denied / Forbidden (403)",
                 "schema": {"$ref": "#/definitions/Error"}
             },
             "NotFound": {
-                "description": "The specified resource was not found",
+                "description": "The specified resource was not found (404)",
                 "schema": {"$ref": "#/definitions/Error"}
             },
+            "UnprocessableEntity": {
+                "description": "Unprocessable Entity (422)",
+                "schema": {"$ref": "#/definitions/Error"}
+            }
     }
     swag["definitions"]["Error"] = {
         "properties": {
