@@ -1240,6 +1240,7 @@ class UserOrg(AuditedModel):
     is_admin = BooleanField(
         null=True, default=False, help_text="User is an administrator for the organisation"
     )
+    # ALTER TABLE user_org ADD COLUMN "email" VARCHAR(120) NULL;
     email = CharField(max_length=120, unique=True, null=True, verbose_name="User Organisation Email Address")
 
     # Affiliation bit-map:
