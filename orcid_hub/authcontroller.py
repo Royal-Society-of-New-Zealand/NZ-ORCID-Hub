@@ -1398,7 +1398,8 @@ def orcid_login_callback(request):
                     with db.atomic():
                         try:
                             _user.is_locked = True
-                            _user.save(only=[User.is_locked])
+                            _user.email = f"_{_user.email}"
+                            _user.save(only=[User.is_locked, User.email])
                             user.email = email
                             user.save(only=[User.email])
                             uo.email = email
