@@ -1240,12 +1240,18 @@ class UserOrg(AuditedModel):
     is_admin = BooleanField(
         null=True, default=False, help_text="User is an administrator for the organisation"
     )
+    email = CharField(max_length=120, unique=True, null=True, verbose_name="User Organisation Email Address")
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
+
+    @property
+    def current_email(self):
+        """User organisation email address"""
+        return self.email or (self.user and self.user.email)
 
     def save(self, *args, **kwargs):
         """Enforce foreign key constraints and consolidate user roles with the linked organisations.
