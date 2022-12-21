@@ -1145,7 +1145,7 @@ class OrgInfo(BaseModel):
                 "city",
                 "(common:)?disambiguated.*identifier",
                 "(common:)?disambiguation.*source",
-                r"saml\s*(name)?",
+                r"saml|tuakiri\s*(name)?",
             )
         ]
 
