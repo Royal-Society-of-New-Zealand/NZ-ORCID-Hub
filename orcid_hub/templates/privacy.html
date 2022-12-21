@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% block content %}
+{% cache 36000, "privacy" %}
+  <div class="container">
+    <h2 class="display-2">Privacy Statement</h2>
+    <p>This is a generic privacy statement for the ORCID Hub</p>
+    <div class="row">
+      <div class="col-md-12">
+        <h3>Why we process personal information?</h3>
+        <p>The hub is intended to write basic information to your ORCID record about you when you login and authenticate your ORCID record </p>
+		    <h3>What information do we collect about you?</h3>
+        <p> The hub collects the following information from your institution:</p>
+        <ul>
+          <li>Given name(s)</li>
+          <li>Surname / family name</li>
+          <li>Email address</li>
+          <li>Your affiliation to your institution (student, staff member)</li>
+          <li>Your home organisation’s personal identifier (username) for you</li>
+          <li>Your ORCID iD</li>
+        </ul>
+        <p>The hub collects the following information from your ORCID record:</p>
+        <ul>
+          <li>Your ORCID iD</li>
+          <li>Employment, affiliation, works and grants listed in your ORCID record.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+{% endcache %}
+{% endblock %}

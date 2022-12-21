@@ -730,9 +730,7 @@ class AuditedModel(BaseModel):
         return super().save(*args, **kwargs)
 
     def delete_instance(self, *args, **kwargs):  # noqa: D102
-        """Mark the entry id_deleted and save (with the link to the user
-        that invoked the deletion) for audit trail.
-        """
+        """Mark the entry id_deleted and save (with the link to the user that invoked the deletion) for audit trail."""
         self.is_deleted = True
         self.save()
         return super().delete_instance(*args, **kwargs)
@@ -758,7 +756,7 @@ class Organisation(AuditedModel):
     country_choices.insert(0, ("", "Country"))
 
     name = CharField(max_length=100, unique=True, null=True)
-    tuakiri_name = CharField(max_length=80, unique=True, null=True)
+    saml_name = CharField(max_length=80, unique=True, null=True)
     if ENV != "prod":
         orcid_client_id = CharField(max_length=80, null=True)
         orcid_secret = CharField(max_length=80, null=True)
@@ -847,14 +845,14 @@ class Organisation(AuditedModel):
         return self.users.where(UserOrg.is_admin)
 
     def __str__(self):
-        return self.name or self.tuakiri_name
+        return self.name or self.saml_name
 
     def save(self, *args, **kwargs):
         """Handle data consistency validation and saving."""
         if self.is_dirty():
 
             if self.name is None:
-                self.name = self.tuakiri_name
+                self.name = self.saml_name
 
             if self.field_is_updated("tech_contact") and self.tech_contact:
                 if not self.tech_contact.has_role(Role.TECHNICAL):
@@ -905,7 +903,7 @@ class User(AuditedModel, UserMixin):
 
     @property
     def full_name(self):
-        """Full name of the user"""
+        """Full name of the user."""
         value = self.first_name or ""
         if value:
             value += " "
@@ -916,7 +914,7 @@ class User(AuditedModel, UserMixin):
 
     @property
     def full_name_with_email(self):
-        """Full name with the email address of the user"""
+        """Full name with the email address of the user."""
         value = self.full_name
         if value:
             value += " "
@@ -924,7 +922,7 @@ class User(AuditedModel, UserMixin):
 
     @property
     def username(self):
-        """Usename for comlying with Flask-Login API"""
+        """Usename for comlying with Flask-Login API."""
         return self.orcid or self.email
 
     @property
@@ -1091,7 +1089,7 @@ class OrgInfo(BaseModel):
     """Preloaded organisation data."""
 
     name = CharField(max_length=100, unique=True, help_text="Organisation name")
-    tuakiri_name = CharField(max_length=100, unique=True, null=True, help_text="TUAKIRI Name")
+    saml_name = CharField(max_length=100, unique=True, null=True, help_text="SAML Name")
     title = CharField(null=True, help_text="Contact Person Tile")
     first_name = CharField(null=True, help_text="Contact Person's First Name")
     last_name = CharField(null=True, help_text="Contact Person's Last Name")
@@ -1147,7 +1145,7 @@ class OrgInfo(BaseModel):
                 "city",
                 "(common:)?disambiguated.*identifier",
                 "(common:)?disambiguation.*source",
-                r"tuakiri\s*(name)?",
+                r"saml\s*(name)?",
             )
         ]
 
@@ -1187,7 +1185,7 @@ class OrgInfo(BaseModel):
             oi.city = val(row, 9)
             oi.disambiguated_id = val(row, 10)
             oi.disambiguation_source = val(row, 11)
-            oi.tuakiri_name = val(row, 12)
+            oi.saml_name = val(row, 12)
 
             oi.save()
 
@@ -1436,7 +1434,9 @@ class Task(AuditedModel):
 
     @property
     def is_ready(self):
-        """Indicate that the task is 'ready to go':
+        """Indicate that the task is 'ready to go'.
+
+        The task is 'ready to go' if:
             - the task is "ACTIVE"
             or
             - there is at least one activated record.

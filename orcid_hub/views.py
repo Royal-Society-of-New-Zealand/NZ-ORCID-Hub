@@ -189,6 +189,7 @@ def orcid_link_formatter(view, context, model, name):
 
 class AppCustomModelConverter(CustomModelConverter):
     """Customized field mapping to revove the extra validator.
+
     This is a workaround for https://github.com/coleifer/wtf-peewee/issues/48.
     TODO: remove it as soon as the issue gets resoved.
     """
@@ -483,7 +484,7 @@ class OrganisationAdmin(AppModelView):
     form_excluded_columns.append("logo")
     column_searchable_list = (
         "name",
-        "tuakiri_name",
+        "saml_name",
         "city",
     )
     form_ajax_refs = {
@@ -519,14 +520,14 @@ class OrgInfoAdmin(AppModelView):
     can_export = True
     column_searchable_list = (
         "name",
-        "tuakiri_name",
+        "saml_name",
         "city",
         "first_name",
         "last_name",
         "email",
     )
     form_rules = [
-        rules.FieldSet(["name", "tuakiri_name"], "Naming"),
+        rules.FieldSet(["name", "saml_name"], "Naming"),
         rules.FieldSet(["title", "first_name", "last_name", "role", "email", "phone", "is_public"],
                        "Technical Contact"),
         rules.FieldSet(["country", "city"], "Address"),
@@ -544,7 +545,7 @@ class OrgInfoAdmin(AppModelView):
                     org_name=oi.name,
                     email=oi.email,
                     tech_contact=True,
-                    via_orcid=(False if oi.tuakiri_name else True),
+                    via_orcid=(False if oi.saml_name else True),
                     first_name=oi.first_name,
                     last_name=oi.last_name,
                     city=oi.city,
@@ -578,7 +579,7 @@ class OrcidTokenAdmin(AppModelView):
             "page_size": 5
         },
         "org": {
-            "fields": (Organisation.name, Organisation.tuakiri_name),
+            "fields": (Organisation.name, Organisation.saml_name),
             "page_size": 5
         },
     }
@@ -3205,7 +3206,7 @@ def register_org(org_name,
         except OrgInfo.DoesNotExist:
             pass
         else:
-            org.tuakiri_name = org_info.tuakiri_name
+            org.saml_name = org_info.saml_name
 
         try:
             org.save()

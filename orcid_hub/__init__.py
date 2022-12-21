@@ -337,7 +337,7 @@ def create_hub_administrator(email,
 
     org, _ = models.Organisation.get_or_create(name=org_name or "ORCID Hub")
     if internal_org_name:
-        org.tuakiri_name = internal_org_name
+        org.saml_name = internal_org_name
     org.confirmed = True
     org.save()
     models.UserOrg.get_or_create(user=super_user, org=org)
