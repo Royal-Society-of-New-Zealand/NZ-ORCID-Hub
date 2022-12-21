@@ -935,6 +935,7 @@ class User(AuditedModel, UserMixin):
                 Organisation,
                 (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
                 ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin"),
+                (fn.COALESCE(UserOrg.email, self.email).alias("current_email")),
             )
             .join(UserOrg, on=(UserOrg.org_id == Organisation.id))
             .where(UserOrg.user_id == self.id)
