@@ -1397,9 +1397,12 @@ def orcid_login_callback(request):
                     _user, user = user, uo.user
                     with db.atomic():
                         try:
-                            _user.is_locked = True
-                            _user.email = f"_{_user.email}"
-                            _user.save(only=[User.is_locked, User.email])
+                            invitation.invitee = user
+                            invitation.save(only=[UserInvitation.invitee])
+                            _user.delete_instance()
+                            # _user.is_locked = True
+                            # _user.email = f"_{_user.email}"
+                            # _user.save(only=[User.is_locked, User.email])
                             user.email = email
                             user.save(only=[User.email])
                             uo.email = email
