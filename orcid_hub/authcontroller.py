@@ -1400,9 +1400,6 @@ def orcid_login_callback(request):
                             invitation.invitee = user
                             invitation.save(only=[UserInvitation.invitee])
                             _user.delete_instance()
-                            # _user.is_locked = True
-                            # _user.email = f"_{_user.email}"
-                            # _user.save(only=[User.is_locked, User.email])
                             user.email = email
                             user.save(only=[User.email])
                             uo.email = email
