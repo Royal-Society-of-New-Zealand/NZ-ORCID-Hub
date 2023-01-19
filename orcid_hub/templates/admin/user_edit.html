@@ -62,6 +62,7 @@
               <tr>
                 <th class="column-header">Remove</th>
                 <th class="column-header">Name</th>
+                <th class="column-header">Email</th>
                 <th class="column-header">Is Admin</th>
                 <th class="column-header">Is Tech.Contact</th>
               </tr>
@@ -79,6 +80,7 @@
                   </button>
                 </td>
                 <td class="col-name">{{r.name}}</td>
+                <td class="col-name">{{r.current_email}}</td>
                 <td class="col-name"><input type="checkbox" v-on:change="change(r)" v-model="r.is_admin"></td>
                 <td class="col-name"><input type="checkbox" v-on:change="change(r)" v-model="r.is_tech_contact"></td>
               </tr>
