@@ -26,12 +26,12 @@ class DummyWriter:
         return line
 
 
-def iter_users_csv(query, headers, from_date, to_date, total_user_count, total_linked_user_count):
+def iter_users_csv(query, from_date, to_date, total_user_count, total_linked_user_count):
     writer = csv.writer(DummyWriter())
     yield writer.writerow(["From:", from_date])
     yield writer.writerow(["To:", to_date])
     yield writer.writerow([])
-    yield writer.writerow(headers)
+    yield writer.writerow(["Name", "Linked User Count", "User Count"])
     for row in query:
         yield writer.writerow([row.name, row.linked_user_count, row.user_count])
     yield writer.writerow(["TOTAL:", total_linked_user_count, total_user_count])
@@ -114,7 +114,6 @@ def user_summary():  # noqa: D103
         response = Response(
             iter_users_csv(
                 query,
-                headers=["Name", "Linked User Count", "User Count"],
                 from_date=form.from_date.data,
                 to_date=form.to_date.data,
                 total_user_count = total_user_count,
