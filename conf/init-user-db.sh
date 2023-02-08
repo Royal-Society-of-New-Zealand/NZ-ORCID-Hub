@@ -32,7 +32,7 @@ cat >>$PGDATA/pg_hba.conf <<EOF
 local    replication     postgres                            trust
 hostssl  replication     postgres        34.225.18.251/32    trust
 hostssl  all             all             34.225.18.251/32    trust
-host     orcidhub        orcidhub        $(hostname -I|tr -d ' \n')/24     trust
+host     orcidhub        orcidhub        $(hostname -I|cut -d\  -f1)/16     trust
 host     orcidhub        orcidhub        app                 trust
 # host   all             all             gateway             trust
 EOF
