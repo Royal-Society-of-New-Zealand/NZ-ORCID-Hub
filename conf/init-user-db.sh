@@ -1,7 +1,4 @@
 #!/bin/bash
-set -e
-
-
 
 cat >>$PGDATA/postgresql.conf <<EOF
 
@@ -14,10 +11,8 @@ archive_timeout = 3600
 max_wal_senders = 5  # Sets the maximum number of simultaneously running WAL sender processes.
 
 #hot_standby = 'on'  # uncomment on "slave" DB server and create recovery.conf
-
-ssl = on
-
 EOF
+
 sed -i 's/#ssl = off/ssl = on/' $PGDATA/postgresql.conf
 
 cat >>$PGDATA/_recovery.conf <<EOF
@@ -37,7 +32,7 @@ cat >>$PGDATA/pg_hba.conf <<EOF
 local    replication     postgres                            trust
 hostssl  replication     postgres        34.225.18.251/32    trust
 hostssl  all             all             34.225.18.251/32    trust
-host     orcidhub        orcidhub        $(hostname -I|tr -d ' \n')/24     trust
+host     orcidhub        orcidhub        $(hostname -I|cut -d\  -f1)/16     trust
 host     orcidhub        orcidhub        app                 trust
 # host   all             all             gateway             trust
 EOF
@@ -58,7 +53,8 @@ EOSQL
 
 cd $PGDATA
 export PASSPHRASE=$(head -c 64 /dev/urandom  | base64)
-openssl genrsa -des3 -passout env:PASSPHRASE -out server_.key 1024
+# openssl genrsa -des3 -passout env:PASSPHRASE -out server_.key 1024
+openssl genrsa -des3 -passout env:PASSPHRASE -out server_.key
 openssl rsa -in server_.key -out server.key -passin env:PASSPHRASE
 chmod 400 server.key
 openssl req -new -key server.key -days 3650 -out server.crt -x509 -subj '/CN=orcidhubdb'

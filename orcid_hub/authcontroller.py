@@ -1391,14 +1391,35 @@ def orcid_login_callback(request):
                 # One ORCID iD cannot be associated with two different email address of same organisation.
                 users = User.select().where(User.orcid == orcid_id, User.email != email)
                 if UserOrg.select().where(UserOrg.user.in_(users), UserOrg.org == org).exists():
-                    flash(
-                        f"This {orcid_id} is already associated with other email address of same organisation: {org}. "
-                        "Please use other ORCID iD to login. If you need help then "
-                        f"kindly contact {MAIL_SUPPORT_ADDRESS} support for issue",
-                        "danger",
-                    )
-                    logout_user()
-                    return redirect(url_for("index"))
+                    uo = UserOrg.select().where(
+                            UserOrg.user.in_(users),
+                            UserOrg.org == org
+                    ).order_by(-UserOrg.id).limit(1).first()
+                    _user, user = user, uo.user
+                    with db.atomic():
+                        try:
+                            invitation.invitee = user
+                            invitation.save(only=[UserInvitation.invitee])
+                            _user.delete_instance()
+                            user.email = email
+                            user.save(only=[User.email])
+                            uo.email = email
+                            uo.save(only=[User.email])
+                        except Exception as ex:
+                            db.rollback()
+                            flash(f"Failed to save data: {ex}")
+                            app.logger.exception("Failed to save token.")
+                            logout_user()
+                            return redirect(url_for("index"))
+
+                    # flash(
+                    #     f"This {orcid_id} is already associated with other email address of same organisation: {org}. "
+                    #     "Please use other ORCID iD to login. If you need help then "
+                    #     f"kindly contact {MAIL_SUPPORT_ADDRESS} support for issue",
+                    #     "danger",
+                    # )
+                    # logout_user()
+                    # return redirect(url_for("index"))
 
         except User.DoesNotExist:
             if not email:

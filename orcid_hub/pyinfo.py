@@ -12,7 +12,10 @@ import platform
 import socket
 import sys
 
+from peewee import SqliteDatabase
+
 from . import app
+from .models import db
 
 optional_modules_list = [
     "Cookie",
@@ -195,6 +198,11 @@ def get_database_info():  # noqa: D103
     database_info.append(("Python Data Objects (PyDO)", is_imported("PyDO")))
     database_info.append(("SAP DB (sapdbapi)", is_imported("sapdbapi")))
     database_info.append(("SQLite3", is_imported("sqlite3")))
+    if not isinstance(db, SqliteDatabase):
+        database_info.append((
+            "PostgreSQL Version", 
+            db.execute_sql("SELECT version()").fetchone()[0]
+        ))
     return database_info
 
 

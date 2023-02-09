@@ -933,6 +933,7 @@ class User(AuditedModel, UserMixin):
                 Organisation,
                 (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
                 ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin"),
+                (fn.COALESCE(UserOrg.email, self.email).alias("current_email")),
             )
             .join(UserOrg, on=(UserOrg.org_id == Organisation.id))
             .where(UserOrg.user_id == self.id)
@@ -1238,12 +1239,20 @@ class UserOrg(AuditedModel):
     is_admin = BooleanField(
         null=True, default=False, help_text="User is an administrator for the organisation"
     )
+    # ALTER TABLE user_org ADD COLUMN "email" VARCHAR(120) NULL;
+    # ALTER TABLE audit.user_org ADD COLUMN "email" VARCHAR(120) NULL;
+    email = CharField(max_length=120, unique=True, null=True, verbose_name="User Organisation Email Address")
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
+
+    @property
+    def current_email(self):
+        """User organisation email address"""
+        return self.email or (self.user and self.user.email)
 
     def save(self, *args, **kwargs):
         """Enforce foreign key constraints and consolidate user roles with the linked organisations.

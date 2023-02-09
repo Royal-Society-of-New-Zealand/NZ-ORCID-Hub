@@ -5,6 +5,7 @@ import json
 import re
 import requests
 import zipstream
+import csv
 
 from datetime import datetime
 from flask import flash, make_response, Response, redirect, render_template, request, url_for
@@ -20,12 +21,31 @@ from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInv
 from .orcid_client import MemberAPIV3
 
 
+class DummyWriter:
+    def write(self, line):
+        return line
+
+
+def iter_users_csv(query, from_date, to_date, total_user_count, total_linked_user_count):
+    writer = csv.writer(DummyWriter())
+    yield writer.writerow(["From:", from_date])
+    yield writer.writerow(["To:", to_date])
+    yield writer.writerow([])
+    yield writer.writerow(["Name", "Linked User Count", "User Count"])
+    for row in query:
+        yield writer.writerow([row.name, row.linked_user_count, row.user_count])
+    yield writer.writerow(["TOTAL:", total_linked_user_count, total_user_count])
+
+
 @app.route("/user_summary")
 @roles_required(Role.SUPERUSER)
 def user_summary():  # noqa: D103
 
     form = DateRangeForm(request.args)
     sort = request.args.get("sort")
+    export = request.args.get("export")
+    export_url = url_for("user_summary", **{"export": "csv", **request.args})
+
     if sort:
         try:
             sort = int(sort)
@@ -90,14 +110,22 @@ def user_summary():  # noqa: D103
                     desc=1 if sort == i and not desc else 0))
                for i, h in enumerate(["Name", "Linked User Count / User Count (%)"])]
 
-    return render_template(
-        "user_summary.html",
-        form=form,
-        query=query,
-        total_user_count=total_user_count,
-        total_linked_user_count=total_linked_user_count,
-        sort=sort, desc=desc,
-        headers=headers)
+    if export:
+        response = Response(
+            iter_users_csv(
+                query,
+                from_date=form.from_date.data,
+                to_date=form.to_date.data,
+                total_user_count = total_user_count,
+                total_linked_user_count = total_linked_user_count,
+            ),
+            mimetype="text/csv")
+        response.headers["Content-Disposition"] = (
+            f"attachment; filename=users_{form.from_date.data}_{form.to_date.data}.csv"
+        )
+        return response
+
+    return render_template("user_summary.html", **locals())
 
 
 @app.route("/org_invitatin_summary")
@@ -113,8 +141,7 @@ def org_invitation_summary():  # noqa: D103
     return render_template(
         "invitation_summary.html",
         title="Organisation Invitation Summary",
-        summary=summary,
-        unconfirmed_invitations=unconfirmed_invitations)
+        summary=summary, unconfirmed_invitations=unconfirmed_invitations)
 
 
 @app.route("/user_invitatin_summary")

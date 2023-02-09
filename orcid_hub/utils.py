@@ -2846,8 +2846,11 @@ def process_tasks(max_rows=20):
         tasks = tasks.limit(max_rows)
     for task in tasks:
 
-        if not task.task_type or task.records is None:
+        if not task.task_type:
             app.logger.error(f'Unknown task "{task}" (ID: {task.id}) task type.')
+            continue
+
+        if task.records is None:
             continue
 
         if task.filename and "INTEGRATION" in task.filename:
