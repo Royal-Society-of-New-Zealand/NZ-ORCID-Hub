@@ -220,7 +220,7 @@ def send_email(
 
     rendered = template.make_module(vars=kwargs)
     if subject is None:
-        subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
+        subject = getattr(rendered, "subject", "Welcome to the {}".format(app.config.get("APP_NAME", "ORCID Hub")))
 
     html_msg = base.format(
         EMAIL=kwargs["recipient"]["email"],
@@ -343,9 +343,12 @@ def set_server_name():
         elif request and hasattr(request, "url"):
             app.config["SERVER_NAME"] = urlparse(request.url).hostname
         else:
-            app.config["SERVER_NAME"] = (
-                "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
-            )
+            try:
+                app.config["SERVER_NAME"] = urlparse(app.config["APP_URL"]).netloc
+            except ValueError:
+                app.config["SERVER_NAME"] = (
+                    "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
+                )
 
 
 def is_org_rec(org, rec):
@@ -1404,9 +1407,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                         and r.get("department-name") is None
                         and r.get("role-title") is None
                     )
-                    or
                     # partial match
-                    (
+                    or (
                         (
                             # for 'edu' records department and start-date can be missing:
                             rec_type == "education"
