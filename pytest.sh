@@ -21,6 +21,7 @@ export RQ_REDIS_URL=''
 export LOAD_TEST=1
 export RQ_ASYNC=0
 export RQ_CONNECTION_CLASS=fakeredis.FakeStrictRedis
+export RQ_SCHEDULER_CLASS=rq.SimpleWorker
 
 export ORCID_API_BASE="https://api.sandbox.orcid.org/v2.0/"
 export ORCID_BASE_URL="https://sandbox.orcid.org/"

@@ -163,6 +163,7 @@ DKIM_KEY_PATH = path.join(getcwd(), ".keys", "dkim.key")
 RQ_REDIS_URL = getenv("RQ_REDIS_URL")
 RQ_QUEUE_CLASS = "orcid_hub.queuing.ThrottledQueue"
 RQ_CONNECTION_CLASS = getenv("RQ_CONNECTION_CLASS", "redis.StrictRedis")
+RQ_WORKER_CLASS = getenv("RQ_WORKER_CLASS", "rq.Worker")
 RQ_ASYNC = getenv("RQ_ASYNC", True)
 if isinstance(RQ_ASYNC, str):
     RQ_ASYNC = RQ_ASYNC.lower() in ["true", "1", "yes", "on"]
