@@ -32,7 +32,10 @@ from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
 from flask_rq2.job import FlaskJob
-from jinja2 import Markup
+try:
+    from jinja2 import Markup
+except ImportError:
+    from markupsafe import Markup
 from orcid_api_v3.rest import ApiException
 from playhouse.shortcuts import model_to_dict
 from peewee import SQL
