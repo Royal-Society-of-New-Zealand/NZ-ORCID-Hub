@@ -1,5 +1,5 @@
 -r test_requirements.txt
-mistune<2.0.0
+mistune<2.1.0
 sphinx
 sphinx-autobuild
 m2r
@@ -9,7 +9,7 @@ flask-debugtoolbar>=0.10.1
 mccabe>=0.6.1
 pep8-naming>=0.4.1
 # pydocs>=0.2
-pydocstyle>=2.0.0,<4.0.0
+pydocstyle>=2.0.0,<6.4.0
 Pygments>=2.2.0
 # robotframework>=3.0.2
 # robotframework-seleniumlibrary>=3.0.0
