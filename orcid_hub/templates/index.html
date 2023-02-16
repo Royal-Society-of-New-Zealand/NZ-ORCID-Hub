@@ -40,7 +40,7 @@
             <div class="box-blue">
               <ul>
             {% for r in onboarded_organisations() %}
-              {% if (r.tuakiri_name != None and not(r.name == 'Royal Society Te Apārangi')) %}
+              {% if (r.saml_name != None and not(r.name == 'Royal Society Te Apārangi')) %}
                 <li>{{ r.name }}</li>
               {% endif %}
             {% endfor %}
@@ -54,7 +54,7 @@
             <ul>
             <li>Royal Society Te Apārangi</li>
             {% for r in onboarded_organisations() %}
-              {% if r.tuakiri_name == None %}
+              {% if r.saml_name == None %}
                 <li>{{ r.name }}</li>
               {% endif %}
             {% endfor %}
