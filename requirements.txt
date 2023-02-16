@@ -36,12 +36,12 @@ jsonschema>=2.6.0,<3.0.0
 validators
 email-validator==1.1.1
 croniter==0.3.20
-redis<3.5.0
-rq<0.14.0
-rq-scheduler<0.10
-Flask-RQ2[cli]<19.0
+redis<4.6.0  # <3.5.0
+rq<1.13  # <0.14.0
+rq-scheduler<0.13  # <0.10
+Flask-RQ2[cli]<18.4  # <19.0
 Flask-Caching>=1.7.2,<2.0.0
-rq-dashboard<0.5.0
+rq-dashboard<0.7.0  # <0.5.0
 zipstream
 #peewee-validates
 # NB! prefix with a single space for pbr!
