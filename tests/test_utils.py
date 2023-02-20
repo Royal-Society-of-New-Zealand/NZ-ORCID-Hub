@@ -962,7 +962,7 @@ def test_send_email(app):
                 token="TOKEN000")
             org = Organisation.create(
                 name="THE ORGANISATION:test_send_email",
-                tuakiri_name="THE ORGANISATION:test_send_email",
+                saml_name="THE ORGANISATION:test_send_email",
                 confirmed=True,
                 orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
                 orcid_secret="Client Secret",
@@ -1052,7 +1052,7 @@ def test_sync_profile(app, mocker):
 
     org = Organisation.create(
         name="THE ORGANISATION:test_sync_profile",
-        tuakiri_name="THE ORGANISATION:test_sync_profile",
+        saml_name="THE ORGANISATION:test_sync_profile",
         confirmed=True,
         orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
         orcid_secret="Client Secret",

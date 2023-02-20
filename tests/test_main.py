@@ -44,19 +44,19 @@ def test_create_hub_administrator(app):
     runner.invoke(create_hub_administrator, ["root010@test.ac.nz", "-I", "INTERNAL NAME 111"])
     assert User.select().where(User.email == "root010@test.ac.nz").exists()
     assert Organisation.select().where(Organisation.name == "ORCID Hub",
-                                       Organisation.tuakiri_name == "INTERNAL NAME 111").exists()
-    assert User.get(email="root010@test.ac.nz").organisation.tuakiri_name == "INTERNAL NAME 111"
+                                       Organisation.saml_name == "INTERNAL NAME 111").exists()
+    assert User.get(email="root010@test.ac.nz").organisation.saml_name == "INTERNAL NAME 111"
 
     runner.invoke(create_hub_administrator,
                   ["root011@test.ac.nz", "-O", "NEW ORG", "-I", "INTERNAL NAME 222"])
     assert Organisation.select().where(Organisation.name == "NEW ORG",
-                                       Organisation.tuakiri_name == "INTERNAL NAME 222").exists()
-    assert User.get(email="root011@test.ac.nz").organisation.tuakiri_name == "INTERNAL NAME 222"
+                                       Organisation.saml_name == "INTERNAL NAME 222").exists()
+    assert User.get(email="root011@test.ac.nz").organisation.saml_name == "INTERNAL NAME 222"
 
     org_count = Organisation.select().count()
     runner.invoke(create_hub_administrator, ["root012@test.ac.nz", "-O", org.name, "-I", "INTERNAL NAME 333"])
     assert Organisation.select().count() == org_count
-    assert User.get(email="root012@test.ac.nz").organisation.tuakiri_name == "INTERNAL NAME 333"
+    assert User.get(email="root012@test.ac.nz").organisation.saml_name == "INTERNAL NAME 333"
 
 
 def test_index(client, monkeypatch):
@@ -327,7 +327,7 @@ def test_sso_loging_with_external_sp(client, mocker):
 
 def test_tuakiri_login_usgin_eppn(client):
     """Test logging attempt via Shibboleth using differt values to identify the user."""
-    org = Organisation(tuakiri_name="ORGANISATION 123ABC")
+    org = Organisation(saml_name="ORGANISATION 123ABC")
     org.save()
     user = User.create(
         email="something_else@test.test.net", eppn="eppn123@test.test.net", roles=Role.RESEARCHER)
@@ -416,7 +416,7 @@ def test_tuakiri_login_with_org(client):
 
 def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
     """Test logging attempt by technical contact when organisation is not onboarded."""
-    org = Organisation(name="Org112", tuakiri_name="Org112", confirmed=False, is_email_sent=True)
+    org = Organisation(name="Org112", saml_name="Org112", confirmed=False, is_email_sent=True)
     u = User(
         email="user1113@test.test.net", confirmed=True, roles=Role.TECHNICAL, organisation=org)
     org.tech_contact = u
@@ -474,7 +474,7 @@ def test_onboard_org(client):
     """Test to organisation onboarding."""
     org = Organisation.create(
         name="THE ORGANISATION:test_onboard_org",
-        tuakiri_name="THE ORGANISATION:test_onboard_org",
+        saml_name="THE ORGANISATION:test_onboard_org",
         confirmed=False,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -499,7 +499,7 @@ def test_onboard_org(client):
         organisation=org)
     UserOrg.create(user=second_user, org=org, is_admin=True)
     org_info = OrgInfo.create(
-        name="A NEW ORGANISATION", tuakiri_name="A NEW ORGANISATION")
+        name="A NEW ORGANISATION", saml_name="A NEW ORGANISATION")
     org.tech_contact = u
     org_info.save()
     org.save()
@@ -624,7 +624,7 @@ def test_logout(client):
     """Test to logout."""
     org = Organisation.create(
         name="THE ORGANISATION:test_logout",
-        tuakiri_name="University of Auckland",
+        saml_name="University of Auckland",
         confirmed=True,
         is_email_sent=True)
     user = User.create(
@@ -641,7 +641,7 @@ def test_logout(client):
     assert "Shibboleth.sso" in resp.location
     assert "uoa-slo" in resp.location
 
-    org.tuakiri_name = org.name
+    org.saml_name = org.name
     org.save()
     client.login(user)
     resp = client.get("/logout")
@@ -726,7 +726,7 @@ def test_orcid_login_callback_admin_flow(mocker, client):
     mocker.patch("orcid_hub.orcid_client.MemberAPIV20Api.view_emails", side_effect=get_record_mock)
     org = Organisation.create(
         name="THE ORGANISATION:test_orcid_login_callback_admin_flow",
-        tuakiri_name="THE ORGANISATION:test_orcid_login_callback_admin_flow",
+        saml_name="THE ORGANISATION:test_orcid_login_callback_admin_flow",
         confirmed=False,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -825,7 +825,7 @@ def test_orcid_login_callback_researcher_flow(client, mocker):
                  side_effect=affiliation_mock)
     org = Organisation.create(
         name="THE ORGANISATION:test_orcid_login_callback_researcher_flow",
-        tuakiri_name="THE ORGANISATION:test_orcid_login_callback_researcher_flow",
+        saml_name="THE ORGANISATION:test_orcid_login_callback_researcher_flow",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -886,7 +886,7 @@ def test_select_user_org(request_ctx):
     """Test organisation switch of current user."""
     org = Organisation.create(
         name="THE ORGANISATION:test_select_user_org",
-        tuakiri_name="THE ORGANISATION:test_select_user_org",
+        saml_name="THE ORGANISATION:test_select_user_org",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -897,7 +897,7 @@ def test_select_user_org(request_ctx):
         is_email_sent=True)
     org2 = Organisation.create(
         name="THE ORGANISATION2:test_select_user_org",
-        tuakiri_name="THE ORGANISATION2:test_select_user_org",
+        saml_name="THE ORGANISATION2:test_select_user_org",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -956,7 +956,7 @@ def test_link(request_ctx):
     """Test orcid profile linking."""
     org = Organisation.create(
         name="THE ORGANISATION:test_link",
-        tuakiri_name="THE ORGANISATION:test_link",
+        saml_name="THE ORGANISATION:test_link",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -994,7 +994,7 @@ def test_orcid_callback(client, mocker):
     """Test orcid researcher deny flow."""
     org = Organisation.create(
         name="THE ORGANISATION:test_orcid_callback",
-        tuakiri_name="THE ORGANISATION:test_orcid_callback",
+        saml_name="THE ORGANISATION:test_orcid_callback",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",

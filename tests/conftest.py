@@ -100,14 +100,14 @@ class HubClient(FlaskClient):
                 ("Sn", user.last_name or "SURNAME"),
                 ("Givenname", user.first_name or "GIVENNAME"),
                 ("Mail", user.email),
-                ("O", org.tuakiri_name or org.name),
+                ("O", org.saml_name or org.name),
                 ("Displayname", user.name or "FULL NAME"),
                 ("Unscoped-Affiliation", affiliations),
                 ("Eppn", user.eppn or user.email),
             ] if v is not None
         }
         headers.update(kwargs)
-        return self.get("/Tuakiri/login", headers=headers, follow_redirects=follow_redirects)
+        return self.get("/saml/login", headers=headers, follow_redirects=follow_redirects)
 
     def open(self, *args, **kwargs):
         """Save the last response."""
@@ -149,7 +149,7 @@ class HubClient(FlaskClient):
     def logout(self, follow_redirects=True):
         """Perform log-out."""
         resp = self.get("/logout", follow_redirects=follow_redirects)
-        _request_ctx_stack.pop()
+        # _request_ctx_stack.pop()
         self.cookie_jar.clear()
         return resp
 
@@ -201,7 +201,7 @@ def testdb():
 
         # Add some data:
         for org_no in range(2):
-            org = Organisation.create(name=f"TEST{org_no}", tuakiri_name=f"TEST ORG #{org_no}")
+            org = Organisation.create(name=f"TEST{org_no}", saml_name=f"TEST ORG #{org_no}")
             User.create(
                 created_at=datetime(2017, 11, 16),
                 email=f"researcher_across_orgs@test{org_no}.edu",
@@ -267,7 +267,7 @@ def testdb():
 
         org = Organisation.create(
             name="THE ORGANISATION",
-            tuakiri_name="THE ORGANISATION",
+            saml_name="THE ORGANISATION",
             orcid_client_id="APP-12345678",
             orcid_secret="CLIENT-SECRET",
             confirmed=True,
@@ -341,7 +341,7 @@ def testdb():
 
         org2 = Organisation.create(
             name="THE ORGANISATION #2",
-            tuakiri_name="THE ORGANISATION #2",
+            saml_name="THE ORGANISATION #2",
             confirmed=True,
             city="CITY")
         User.create(

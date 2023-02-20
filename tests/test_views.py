@@ -76,7 +76,7 @@ def test_models(test_db):
         (
             dict(
                 name="Organisation #%d" % i,
-                tuakiri_name="Organisation #%d" % i,
+                saml_name="Organisation #%d" % i,
                 orcid_client_id="client-%d" % i,
                 orcid_secret="secret-%d" % i,
                 confirmed=(i % 2 == 0),
@@ -1122,7 +1122,7 @@ def test_action_invite(patch, request_ctx):
     UserOrg.create(user=user, org=org, is_admin=True)
     org_info = OrgInfo.create(
         name="Test_client",
-        tuakiri_name="xyz",
+        saml_name="xyz",
         title="mr",
         first_name="xyz",
         last_name="xyz",

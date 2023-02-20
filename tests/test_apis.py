@@ -619,21 +619,21 @@ def test_db_api(client):
     assert "objects" in resp.json
     assert len(resp.json["objects"]) == 0
 
-    org = Organisation.select().where(Organisation.tuakiri_name.is_null(False)).first()
+    org = Organisation.select().where(Organisation.saml_name.is_null(False)).first()
     resp = client.get(
             f"/data/api/v0.1/organisations/{org.id}",
             headers=dict(authorization="Bearer TEST"))
     assert resp.status_code == 200
     assert resp.json["name"] == org.name
-    assert resp.json["tuakiri_name"] == org.tuakiri_name
+    assert resp.json["saml_name"] == org.saml_name
 
-    org = Organisation.select().where(Organisation.tuakiri_name.is_null(False), Organisation.id != org.id).first()
+    org = Organisation.select().where(Organisation.saml_name.is_null(False), Organisation.id != org.id).first()
     resp = client.get(
             f"/data/api/v0.1/organisations/{org.id}",
             headers=dict(authorization="Bearer TEST"))
     assert resp.status_code == 200
     assert resp.json["name"] == org.name
-    assert resp.json["tuakiri_name"] == org.tuakiri_name
+    assert resp.json["saml_name"] == org.saml_name
 
 
 def test_users_api(client):
@@ -690,7 +690,10 @@ def test_affiliation_api(client, mocker):
     access_token = data["access_token"]
     resp = client.post(
         "/api/v1/affiliations/?filename=TEST42.csv",
-        headers=dict(authorization=f"Bearer {access_token}"),
+        headers={
+            "authorization": f"Bearer {access_token}",
+            "content-type": "text/csv",
+        },
         content_type="text/csv",
         data=b"First Name,Last Name,email,Organisation,Affiliation Type,Role,Department,Start Date,"
         b"End Date,City,State,Country,Disambiguated Id,Disambiguated Source\n"

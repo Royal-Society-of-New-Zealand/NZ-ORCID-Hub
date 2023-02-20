@@ -5,7 +5,7 @@ coveralls>=1.2.0
 flake8>=3.4.1
 flake8-docstrings>=1.1.0
 flake8-polyfill>=1.0.1
-pytest<6.0.0
+pytest<7.3.0
 pytest-cov>=2.5.1
 pytest-mock
 testpath>=0.3.1
