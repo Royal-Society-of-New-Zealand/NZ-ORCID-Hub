@@ -334,7 +334,7 @@ def test_tuakiri_login_usgin_eppn(client):
     user.save()
 
     resp = client.get(
-        "/Tuakiri/login",
+        "/saml/login",
         headers={
             "Auedupersonsharedtoken": "ABC123",
             "Sn": "LAST NAME/SURNAME/FAMILY NAME",
@@ -363,7 +363,7 @@ def test_tuakiri_login_wo_org(client):
     redirected to the login page.
     """
     resp = client.get(
-        "/Tuakiri/login",
+        "/saml/login",
         headers={
             "Auedupersonsharedtoken": "ABC999",
             "Sn": "LAST NAME/SURNAME/FAMILY NAME",
@@ -393,7 +393,7 @@ def test_tuakiri_login_with_org(client):
     """
     org = client.data.get("org")
     resp = client.get(
-        "/Tuakiri/login",
+        "/saml/login",
         headers={
             "Auedupersonsharedtoken": "ABC111",
             "Sn": "LAST NAME/SURNAME/FAMILY NAME",
@@ -424,7 +424,7 @@ def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
 
     UserOrg(user=u, org=org, is_admin=True)
     resp = client.get(
-        "/Tuakiri/login",
+        "/saml/login",
         headers={
             "Auedupersonsharedtoken": "ABC11s1",
             "Sn": "LAST NAME/SURNAME/FAMILY NAME",
@@ -930,7 +930,7 @@ def test_select_user_org(request_ctx):
 
 def test_shib_sp(client):
     """Test shibboleth SP."""
-    resp = client.get("/Tuakiri/SP?key=123ABC&url=/profile", headers={"USER": "TEST123ABC"})
+    resp = client.get("/saml/SP?key=123ABC&url=/profile", headers={"USER": "TEST123ABC"})
     assert resp.status_code == 302
     assert "/profile" in resp.location
 
@@ -939,7 +939,7 @@ def test_shib_sp(client):
     data = json.loads(zlib.decompress(resp.data))
     assert data["User"] == "TEST123ABC"
 
-    resp = client.get("/Tuakiri/SP?key=123&url=https://harmfull.one/profile")
+    resp = client.get("/saml/SP?key=123&url=https://harmfull.one/profile")
     assert resp.status_code == 403
 
 

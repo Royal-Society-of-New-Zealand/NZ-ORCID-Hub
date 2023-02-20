@@ -871,7 +871,7 @@ def test_affiliation_api(client, mocker):
             f"/api/v1/affiliations/{task_id}",
             headers=dict(authorization=f"Bearer {access_token}"))
         assert resp.status_code == 400
-        assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
+        assert resp.json == {"error": "Unhandled exception occurred.", "message": "ERROR"}
 
     resp = client.delete(
         f"/api/v1/affiliations/{task_id}",
@@ -1010,7 +1010,7 @@ records:
             data="""{"status": "ACTIVE"}""")
         assert Task.get(task_id).status == "RESET"
         assert resp.status_code == 400
-        assert resp.json["exception"] == "FAILURE"
+        assert resp.json["message"] == "FAILURE"
 
     resp = client.post(
         "/api/v1/tasks/999999999999",

@@ -3698,7 +3698,7 @@ def register_webhook(orcid=None, callback_url=None):
             return '', 204
         else:
             if request.method != "GET":
-                data = request.json or {}
+                data = request.data and request.json or {}
                 enabled = data.get("enabled")
                 url = data.get("url", callback_url)
                 append_orcid = data.get("append-orcid")
