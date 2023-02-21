@@ -429,7 +429,6 @@ def test_webhook_invokation(client, mocker):
 
 def test_org_webhook_api(client, mocker):
     """Test Organisation webhooks."""
-    server_name = client.application.config["SERVER_NAME"]
     mocker.patch.object(
         utils.requests,
         "post",
@@ -509,6 +508,7 @@ def test_org_webhook_api(client, mocker):
     )
     assert resp.status_code == 201
 
+    server_name = client.application.config["SERVER_NAME"] or "localhost"
     mockput.assert_has_calls(
         [
             call(

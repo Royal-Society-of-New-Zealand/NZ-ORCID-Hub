@@ -1045,7 +1045,7 @@ records:
 """)
     assert resp.status_code == 400
     assert resp.json["error"] == "Unhandled exception occurred."
-    assert "instance matching query does not exist" in resp.json["exception"]
+    assert "instance matching query does not exist" in resp.json["message"]
 
     with patch.object(AffiliationRecord, "get", side_effect=Exception("ERROR")):
         resp = client.put(
@@ -1068,7 +1068,7 @@ records:
   start-date: 2016-09
 """)
         assert resp.status_code == 400
-        assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
+        assert resp.json == {"error": "Unhandled exception occurred.", "message": "ERROR"}
 
     resp = client.post(
         "/api/v1/affiliations/?filename=TEST42.csv",

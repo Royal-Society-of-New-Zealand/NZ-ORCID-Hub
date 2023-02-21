@@ -790,10 +790,10 @@ def orcid_callback():
     orcid = token["orcid"]
     name = token["name"]
 
-    user = current_user
-    user.orcid = orcid
+    user = User.get(id=current_user.id)
+    user.orcid = current_user.orcid = orcid
     if not user.name and name:
-        user.name = name
+        user.name = current_user.name = name
 
     scope_list = ",".join(token.get("scope", []))
     if not scope_list:
