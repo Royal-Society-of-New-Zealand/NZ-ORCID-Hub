@@ -3676,7 +3676,7 @@ def user_orgs_org(user_id, org_id=None):
     Returns: user_org entry
 
     """
-    data = request.json
+    data = request.get_json(force=True, silent=True)
     if not org_id and not (data and data.get("id")):
         return jsonify({"error": "NOT DATA"}), 400
     if not org_id:

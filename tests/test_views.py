@@ -342,6 +342,7 @@ def test_pyinfo(client, mocker):
     for (k, v) in client.application.config.items():
         logger.info(f"{k}:\t{v}")
     capture_event.assert_called()
+    client.logout()
 
 
 def test_access(client, mocker):
