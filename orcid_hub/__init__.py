@@ -39,7 +39,7 @@ from . import config
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
-from flask_limiter.util import get_ipaddr
+from flask_limiter.util import get_remote_address as get_ipaddr
 from flask_caching import Cache
 
 # from werkzeug.contrib.cache import SimpleCache
@@ -115,8 +115,8 @@ class OAuthProvider(OAuth2Provider):
 oauth = OAuthProvider(app)
 api = Api(app)
 limiter = Limiter(
-    app,
     key_func=get_ipaddr,
+    app=app,
     headers_enabled=True,
     default_limits=[
         "40 per second",  # burst: 40/sec

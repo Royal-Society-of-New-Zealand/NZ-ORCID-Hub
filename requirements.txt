@@ -29,7 +29,7 @@ flask-peewee>=0.6.7
 Flask-OAuthlib<0.9.7
 sentry-sdk[flask]<2.0.0
 flask-peewee-swagger>=1.1.5
-flask-limiter>=1.0.0,<2.0.0
+flask-limiter>=1.0.0,<4.0.0  # <2.0.0
 flask-swagger
 flask-restful
 jsonschema>=2.6.0,<3.0.0
