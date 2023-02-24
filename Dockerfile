@@ -1,7 +1,7 @@
 FROM centos:centos7
 ENV LANG=en_US.UTF-8
 
-LABEL maintainer="The University of Auckland" \
+LABEL maintainer="PRODATA TAPUI Ltd." \
 	description="NZ ORCiD Hub Application Image with Development support"
 
 # ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
@@ -24,17 +24,27 @@ COPY ./conf /conf
 RUN yum -y install \
         https://repo.ius.io/ius-release-el7.rpm \
         https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+    && yum -y remove pgdg-redhat-repo-42.0-32 && yum clean all \
+    && yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm \
+    && yum clean all  \
     && yum -y update \
+    && yum -y upgrade \
     && yum -y install \
+        bzip2 \
         shibboleth.x86_64 \
     	httpd \
         mod_ssl \
     	gcc.x86_64 \
-        httpd-devel.x86_64 \
-        python36.x86_64 \
-        python36-devel.x86_64 \
-        python36-pip \
-        git \
+    && echo $'Installing GCC 12.2...' \
+    && curl -O http://ftp.mirrorservice.org/sites/sourceware.org/pub/gcc/releases/gcc-12.2.0/gcc-12.2.0.tar.gz \
+    && tar xf gcc-12.2.0.tar.gz \
+    && cd gcc-12.2.0 \
+    && ./contrib/download_prerequisites \
+    && ./configure --disable-multilib --enable-languages=c,c++ \
+    && make -j 4 && make install ; cd $HOME ; hash -r \
+    && echo $'Installing Python 3.11...' \
+    && yum -y install httpd-devel.x86_64 python36.x86_64 python36-devel.x86_64 python36-pip \
+    && yum -y install git \
     && echo $'RPMs installed...' \
     && pip3.6 install -U pip \
     && pip install -U mod_wsgi psycopg2-binary \
