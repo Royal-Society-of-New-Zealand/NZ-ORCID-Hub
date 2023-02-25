@@ -14,6 +14,11 @@ pgdata*
 venv
 venv7
 # orcid
+orcid_api_v3
+orcid_api
+orcid_hub
+schemas
+data.db
 htmlcov
 archive
 tests
@@ -26,3 +31,4 @@ migrations
 *egg*
 dist
 load_testing
+data
