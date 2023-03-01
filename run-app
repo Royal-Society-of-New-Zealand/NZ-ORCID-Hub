@@ -107,7 +107,7 @@ ln -sfT /dev/stderr /var/log/httpd/error_log
 
 if [ -z "$DATABASE_URL" ] ; then
     if [ -d /run/postgresql ] ; then
-        DATABASE_URL=postgresql://orcidhub?host=/run/postgresql\&options='-c statement_timeout=100000'
+        DATABASE_URL=postgresql://orcidhub@/orcidhub?host=/run/postgresql\&options='-c statement_timeout=100000'
     else
         DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?sslmode=disable\&options='-c statement_timeout=100000'
     fi

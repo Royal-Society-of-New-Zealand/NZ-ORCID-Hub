@@ -28,7 +28,6 @@ from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
 from flask_restful import Api
 from playhouse import db_url
-from peewee import PostgresqlDatabase
 
 # disable Sentry if there is no SENTRY_DSN:
 import sentry_sdk
@@ -135,11 +134,7 @@ db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
 if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
-    if "host=" in DATABASE_URL:  # temporarily workaround for named sockets
-        db = PostgresqlDatabase('orcidhub', user='orcidhub',  host='/run/postgresql')
-    else:
-        db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
-
+    db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
 
 class JSONEncoder(_JSONEncoder):
     """date and datetime encoding into ISO format for JSON payload."""
