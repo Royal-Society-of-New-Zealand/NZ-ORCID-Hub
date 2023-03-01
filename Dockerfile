@@ -1,10 +1,41 @@
 # syntax=docker/dockerfile:experimental
+# FROM centos:centos7 AS stage00
+# LABEL maintainer="PRODATA TAPUI Ltd." \
+# 	description="Centos image with Apache and Shiboleth"
+# ARG http_proxy
+# # ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
+# ADD https://shibboleth.net/cgi-bin/sp_repo.cgi?platform=CentOS_7 /etc/yum.repos.d/shibboleth.repo
+# COPY conf/app.wsgi /var/www/html/
+# # prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
+# COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
+# COPY requirements.txt /
+# # COPY setup.* orcid* /
+# COPY run-app /usr/local/bin/
+# COPY ./conf /conf
+# RUN test -n "${http_proxy}" && export ftp_proxy=$http_proxy https_proxy=$http_proxy \
+#     && yum -y install \
+#         https://repo.ius.io/ius-release-el7.rpm \
+#         https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+#     && yum -y remove pgdg-redhat-repo-42.0-32 && yum clean all \
+#     && yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm \
+#     && yum install -y centos-release-scl \
+#     && yum clean all  \
+#     && yum update -y \
+#     && yum upgrade -y
+
 FROM centos:centos7 AS orcidhub
 LABEL maintainer="PRODATA TAPUI Ltd." \
 	description="Centos image with Apache and Shiboleth"
 ARG http_proxy
 # ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
 ADD https://shibboleth.net/cgi-bin/sp_repo.cgi?platform=CentOS_7 /etc/yum.repos.d/shibboleth.repo
+COPY conf/app.wsgi /var/www/html/
+# prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
+COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
+COPY requirements.txt /
+# COPY setup.* orcid* /
+COPY run-app /usr/local/bin/
+COPY ./conf /conf
 RUN test -n "${http_proxy}" && export ftp_proxy=$http_proxy https_proxy=$http_proxy \
     && yum -y install \
         https://repo.ius.io/ius-release-el7.rpm \
@@ -13,29 +44,36 @@ RUN test -n "${http_proxy}" && export ftp_proxy=$http_proxy https_proxy=$http_pr
     && yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm \
     && yum install -y centos-release-scl \
     && yum clean all  \
-    && yum -y update \
-    && yum -y upgrade \
-    && yum -y install \
-        devtoolset-8 \
+    && yum update -y \
+    && yum upgrade -y \
+    && yum install -y devtoolset-8 \
+    && yum install -y \
+        shibboleth.x86_64 \
     	httpd \
+        cscope \
+        doxygen \
+        gettext \
+        diffstat \
+        libtool \
+        net-tools \
+        git \
+        openssl11 \
+        openssl11-libs \
+        hwdata \
+        intltool \
+        lzma \
+        json-glib \
+        mod_ssl \
+    && yum -y install \
         apr-util-devel \
         bzip2-devel \
-        cscope \
         cyrus-sasl-devel \
-        diffstat \
-        doxygen \
         expat-devel \
         freetype-devel \
         gdbm-devel \
-        gettext \
-        git \
         glib-networking \
         glibc-devel \
         httpd-devel \
-        hwdata \
-        indent \
-        intltool \
-        json-glib \
         libdb-devel \
         libdhash-devel \
         libdrm-devel \
@@ -44,31 +82,20 @@ RUN test -n "${http_proxy}" && export ftp_proxy=$http_proxy https_proxy=$http_pr
         libglvnd-devel \
         libpng-devel \
         libtirpc-devel \
-        libtool \
         libuuid-devel \
         libxcb-devel \
         libzip-devel \
-        lzma \
         lzma-sdk-devel \
-        mesa-khr-devel \
-        mesa-libGL-devel \
         ncurses-devel \
-        net-tools \
         openldap-devel \
-        openssl11 \
         openssl11-devel \
-        openssl11-lib \
         readline-devel \
-        shibboleth.x86_64 \
         sqlite-devel \
-        subversion \
         systemtap-sdt-devel \
         tcl-devel \
         tix-devel \
         tk-devel \
         xz-devel \
-        mod_ssl \
-    && scl enable devtoolset-8 bash \
     && echo $'Building Python 3.11...' \
     && curl -O https://www.python.org/ftp/python/3.11.2/Python-3.11.2.tar.xz \
     && tar xf Python-3.11.2.tar.xz \
@@ -77,24 +104,30 @@ RUN test -n "${http_proxy}" && export ftp_proxy=$http_proxy https_proxy=$http_pr
         CFLAGS="$CFLAGS $(pkg-config --cflags openssl11)" \
         LDFLAGS="$LDFLAGS $(pkg-config --libs openssl11)" \
         LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
+    && scl enable devtoolset-8 bash \
+    && source /opt/rh/devtoolset-8/enable ; hash -r \
     && ./configure --enable-optimizations --enable-shared \
+    && make && make install ; cd $HOME ; hash -r \
     && echo $'/usr/local/lib\n' > /etc/ld.so.conf.d/local.conf \
     && ldconfig \
-    && make && make install ; cd $HOME ; hash -r \
     && python3.11 -m ensurepip --upgrade \
     && python3 -m pip install -U pip \
     && pip install -U mod_wsgi psycopg2-binary \
+    && /usr/local/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
+    && mkdir -p /var/run/lock && mkdir -p /var/lock/subsys \
     && echo $'export LD_LIBRARY_PATH=/usr/local/lib:/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n' > /etc/sysconfig/shibd \
-    && yum clean all  \
-    && cd /var/lib/rpm \
-    && rm -rf __db* \
-    && rpm --rebuilddb \
-    && yum -y clean all \
-    && chmod -f +x /etc/shibboleth/shibd-redhat \
-    && rm -rf /var/cache/yum \
-    && rm -rf $HOME/.pip/cache \
-    && rm -rf /var/cache/*/* /anaconda-post.log
+    && chmod -f +x /usr/local/bin/run-app \
+    && pip install -U -r /requirements.txt
 
+    # && yum clean all  \
+    # && cd /var/lib/rpm \
+    # && rm -rf __db* \
+    # && rpm --rebuilddb \
+    # && yum -y clean all \
+    # && chmod -f +x /etc/shibboleth/shibd-redhat \
+    # && rm -rf /var/cache/yum \
+    # && rm -rf $HOME/.pip/cache \
+    # && rm -rf /var/cache/*/* /anaconda-post.log /requirements.txt
 
     # && yum erase -y \
     #     "gcc-c++" \
