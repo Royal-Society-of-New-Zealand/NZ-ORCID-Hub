@@ -9,7 +9,7 @@ export LANG=en_US.UTF-8
 export RQ_REDIS_URL="${RQ_REDIS_URL:-redis://redis:6379/0}"
 if [ -z "$DATABASE_URL" ] ; then
     if [ -d /run/postgresql ] ; then
-        DATABASE_URL="postgresql://orcidhub@/orcidhub?host=/run/postgresql\&options='-c statement_timeout=100000'"
+        DATABASE_URL=postgresql://orcidhub@/orcidhub?host=/run/postgresql\&options='-c statement_timeout=100000'
     else
         DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?sslmode=disable\&options='-c statement_timeout=100000'
     fi

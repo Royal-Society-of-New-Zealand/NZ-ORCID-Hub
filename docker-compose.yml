@@ -15,7 +15,7 @@ services:
       - "${PGPORT:-5432}:5432"
     volumes:
       - socketvol:/var/run/postgresql:Z
-      - /etc/passwd:/etc/passwd:ro
+      # - /etc/passwd:/etc/passwd:ro
       - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
       - ./pgdata:/var/lib/postgresql/data:Z
       - ./backup:/backup
@@ -81,7 +81,7 @@ services:
         ipv4_address: ${SUBNET:-172.33}.0.88
 
   worker:
-    image: orcidhub/app-dev:6.13
+    image: orcidhub/app-dev:7.0
     depends_on:
       - redis
       - db
@@ -99,7 +99,7 @@ services:
     restart: always
 
   scheduler:
-    image: orcidhub/app-dev:6.13
+    image: orcidhub/app-dev:7.0
     depends_on:
       - redis
       - db
