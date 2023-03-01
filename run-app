@@ -105,8 +105,13 @@ echo "Starting Apache2 ..."
 ln -sfT /dev/stderr /var/log/httpd/error_log
 # ln -sfT /dev/stdout /var/log/httpd/access_log
 
-# [ -z "$DATABASE_URL" ] && DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?sslmode=disable\&options='-c statement_timeout=100000'
-[ -z "$DATABASE_URL" ] && DATABASE_URL=postgresql://orcidhub?host=/var/lib/postgresql\&options='-c statement_timeout=100000'
+if [ -z "$DATABASE_URL" ] ; then
+    if [ -d /run/postgresql ] ; then
+        DATABASE_URL=postgresql://orcidhub?host=/run/postgresql\&options='-c statement_timeout=100000'
+    else
+        DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?sslmode=disable\&options='-c statement_timeout=100000'
+    fi
+fi
 export DATABASE_URL
 
 [ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://redis:6379/0

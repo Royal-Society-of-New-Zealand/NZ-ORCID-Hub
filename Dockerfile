@@ -48,6 +48,7 @@ RUN test -n "${http_proxy}" && export ftp_proxy=$http_proxy https_proxy=$http_pr
     && yum upgrade -y \
     && yum install -y devtoolset-8 \
     && yum install -y \
+        postgresql15 \
         shibboleth.x86_64 \
     	httpd \
         cscope \

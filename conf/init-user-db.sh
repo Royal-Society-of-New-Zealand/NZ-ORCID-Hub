@@ -1,5 +1,7 @@
 #!/bin/bash
 
+env
+
 cat >>$PGDATA/postgresql.conf <<EOF
 
 wal_level = logical  # Adds information necessary to support logical decoding
@@ -14,6 +16,7 @@ max_wal_senders = 5  # Sets the maximum number of simultaneously running WAL sen
 EOF
 
 sed -i 's/#ssl = off/ssl = on/' $PGDATA/postgresql.conf
+# sed -i "# unix_socket_directories = '\/tmp'/unix_socket_directories = '\/var\/run\/postgresql'/" $PGDATA/postgresql.conf
 
 cat >>$PGDATA/_recovery.conf <<EOF
 # rename this file to recovery.conf and change master DB server IP address:

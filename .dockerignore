@@ -8,8 +8,10 @@ SAML
 tuakiri-mock
 tags
 tags.tmp
+backup
 backup*
 masterdb
+pgdata
 pgdata*
 venv
 venv7
