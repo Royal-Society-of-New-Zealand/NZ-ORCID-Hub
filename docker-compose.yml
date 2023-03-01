@@ -28,7 +28,7 @@ services:
     depends_on:
       - db
       - redis
-    image: orcidhub/app
+    image: orcidhub/app-dev:7.0
     # image: orcidhub/app-dev:6.13
     environment:
       # - SHIB_SP_DOMAINNAME

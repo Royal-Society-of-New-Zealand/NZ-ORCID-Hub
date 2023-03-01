@@ -41,7 +41,7 @@ build: squid
 build-dev: build
 	docker build --squash \
 		--build-arg http_proxy=http://$(PROXY_IP):3128 \
-		--target orcidhub --label version=$(VERSION) -f Dockerfile.dev -t $(NAME)-dev .
+		--target orcidhub-dev --label version=$(VERSION) -f Dockerfile.dev -t $(NAME)-dev .
 
 tag: build
 	docker tag $(NAME) $(NAME):$(VERSION)
