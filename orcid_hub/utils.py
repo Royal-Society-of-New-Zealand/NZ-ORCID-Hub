@@ -1044,7 +1044,7 @@ def send_user_invitation(
                 invitee_class.update(status=status).where(
                     invitee_class.record == record.id, invitee_class.email == email
                 ).execute()
-        return ui
+        return f"{ui}"
 
     except Exception as ex:
         logger.exception(f"Exception occured while sending mail {ex}")
