@@ -12,6 +12,8 @@ RUN test -n "${http_proxy}" && export ftp_proxy=$http_proxy https_proxy=$http_pr
     && ldconfig \
     && yum install -y git \
     && pip install -U -r /dev_requirements.txt \
+    && pip install -U 'flask<2.2.3' \
+    && pip install -U 'flask<2.3.0' \
     && cd /var/lib/rpm \
     && rm -rf __db* \
     && rpm --rebuilddb \

@@ -90,6 +90,9 @@ services:
       - ENV
       - MAIL_DEFAULT_SENDER
       - MAIL_SUPPORT_ADDRESS
+      - MEMBER_API_FORM_MAIL
+      - ORCID_CLIENT_ID
+      - ORCID_CLIENT_SECRET
       - SECRET_KEY
       - SENTRY_DSN
       - SENTRY_TRACES_SAMPLE_RATE
@@ -106,6 +109,12 @@ services:
     command: ["./scheduler.sh"]
     environment:
       - ENV
+      - MAIL_DEFAULT_SENDER
+      - MAIL_SUPPORT_ADDRESS
+      - MEMBER_API_FORM_MAIL
+      - ORCID_CLIENT_ID
+      - ORCID_CLIENT_SECRET
+      - SECRET_KEY
       - SENTRY_DSN
       - SENTRY_TRACES_SAMPLE_RATE
     volumes:

@@ -95,6 +95,8 @@ RUN test -n "${http_proxy}" && export ftp_proxy=$http_proxy https_proxy=$http_pr
     && echo $'export LD_LIBRARY_PATH=/usr/local/lib:/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n' > /etc/sysconfig/shibd \
     && chmod -f +x /usr/local/bin/run-app \
     && pip install -U -r /requirements.txt \
+    && pip install -U 'flask<2.2.3' \
+    && pip install -U 'flask<2.3.0' \
     && yum erase -y \
         gcc \
         devtoolset-8 \
