@@ -3,10 +3,13 @@ version: '3.5'
 services:
 
   db:
-    image: postgres:11
+    image: postgres:11.16
     environment:
+      - GID
       - PGPASSWORD
+      - PGPORT
       - POSTGRES_PASSWORD="${PGPASSWORD:-p455w0rd}"
+      - UID
     domainname: ${DOMAINNAME:-orcidhub.org.nz}
     hostname: db
     ports:
@@ -18,7 +21,7 @@ services:
       - ./backup:/backup
       - ./archive:/archive
       - ${HOME}:${HOME}
-    user: "${UID:-500}:${GID:-500}"
+    user: "${UID:-1000}:${GID:-1000}"
     restart: always
 
   app:
