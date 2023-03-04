@@ -3514,7 +3514,7 @@ def logo_image(token=None):
         logo = File.select().where(File.token == token).first()
         if logo:
             return send_file(
-                BytesIO(logo.data), mimetype=logo.mimetype, attachment_filename=logo.filename)
+                BytesIO(logo.data), mimetype=logo.mimetype, download_name=logo.filename)
     return redirect(url_for("static", filename="images/banner-small.png", _external=True))
 
 
@@ -3532,7 +3532,7 @@ def logo():
         return send_file(
             BytesIO(org.logo.data),
             mimetype=org.logo.mimetype,
-            attachment_filename=org.logo.filename)
+            download_name=org.logo.filename)
 
     form = LogoForm()
     if request.method == "POST" and form.reset.data:
