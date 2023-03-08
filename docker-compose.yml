@@ -1,32 +1,33 @@
 version: '3.5'
-volumes:
-  socketvol:
+# volumes:
+#   socketvol:
 
 services:
 
-  db:
-    image: postgres:15.2
-    environment:
-      - PGPASSWORD
-      - POSTGRES_PASSWORD="${PGPASSWORD:-p455w0rd}"
-    domainname: ${DOMAINNAME:-orcidhub.org.nz}
-    hostname: db
-    ports:
-      - "${PGPORT:-5432}:5432"
-    volumes:
-      - socketvol:/var/run/postgresql:Z
-      # - /etc/passwd:/etc/passwd:ro
-      - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
-      - ./pgdata:/var/lib/postgresql/data:Z
-      - ./backup:/backup
-      - ./archive:/archive
-      - ${HOME}:${HOME}
-    # user: "${UID:-500}:${GID:-500}"
-    restart: always
+  # db:
+  #   image: postgres:15.2
+  #   environment:
+  #     - PGPASSWORD
+  #     - POSTGRES_PASSWORD="${PGPASSWORD:-p455w0rd}"
+  #   domainname: ${DOMAINNAME:-orcidhub.org.nz}
+  #   hostname: db
+  #   ports:
+  #     - "${PGPORT:-5432}:5432"
+  #   volumes:
+  #     # - socketvol:/var/run/postgresql:Z
+  #     - /var/run/postgresql:/var/run/postgresql
+  #     # - /etc/passwd:/etc/passwd:ro
+  #     - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+  #     - ./pgdata:/var/lib/postgresql/data:Z
+  #     - ./backup:/backup
+  #     - ./archive:/archive
+  #     - ${HOME}:${HOME}
+  #   # user: "${UID:-500}:${GID:-500}"
+  #   restart: always
 
   app:
     depends_on:
-      - db
+      # - db
       - redis
     image: orcidhub/app-dev:7.0
     # image: orcidhub/app-dev:6.13
@@ -34,6 +35,7 @@ services:
       # - SHIB_SP_DOMAINNAME
       - ENV
       - EXTERNAL_SP
+      - DATABASE_URL
       - LOAD_TEST
       - MAIL_DEFAULT_SENDER
       - MAIL_SUPPORT_ADDRESS
@@ -57,7 +59,9 @@ services:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     volumes:
-      - socketvol:/var/run/postgresql
+      # - socketvol:/var/run/postgresql
+      # Access to the host PG
+      - /var/run/postgresql:/var/run/postgresql
       - .:/src
       - .:/var/www/orcidhub/
       - ./run-app:/usr/local/bin/run-app
@@ -84,10 +88,11 @@ services:
     image: orcidhub/app-dev:7.0
     depends_on:
       - redis
-      - db
+      # - db
     command: ["./worker.sh"]
     environment:
       - ENV
+      - DATABASE_URL
       - MAIL_DEFAULT_SENDER
       - MAIL_SUPPORT_ADDRESS
       - MEMBER_API_FORM_MAIL
@@ -97,7 +102,9 @@ services:
       - SENTRY_DSN
       - SENTRY_TRACES_SAMPLE_RATE
     volumes:
-      - socketvol:/var/run/postgresql
+      # - socketvol:/var/run/postgresql
+      # Access to the host PG
+      - /var/run/postgresql:/var/run/postgresql
       - .:/src
     restart: always
 
@@ -105,10 +112,11 @@ services:
     image: orcidhub/app-dev:7.0
     depends_on:
       - redis
-      - db
+      # - db
     command: ["./scheduler.sh"]
     environment:
       - ENV
+      - DATABASE_URL
       - MAIL_DEFAULT_SENDER
       - MAIL_SUPPORT_ADDRESS
       - MEMBER_API_FORM_MAIL
@@ -118,7 +126,9 @@ services:
       - SENTRY_DSN
       - SENTRY_TRACES_SAMPLE_RATE
     volumes:
-      - socketvol:/var/run/postgresql
+      # - socketvol:/var/run/postgresql
+      # Access to the host PG
+      - /var/run/postgresql:/var/run/postgresql
       - .:/src
     restart: always
 
