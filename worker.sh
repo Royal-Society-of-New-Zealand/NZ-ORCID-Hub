@@ -7,7 +7,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export PYTHONPATH=$DIR
 export FLASK_APP=orcid_hub
 export LANG=en_US.UTF-8
-export RQ_REDIS_URL="${RQ_REDIS_URL:-redis://redis:6379/0}"
+#export RQ_REDIS_URL="${RQ_REDIS_URL:-redis://redis:6379/0}"
+[ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://gateway.:6379/${ENV}
+export RQ_REDIS_URL
 if [ -z "$DATABASE_URL" ] ; then
     if [ -d /run/postgresql ] ; then
         DATABASE_URL=postgresql://orcidhub@:5432/orcidhub?host=/var/run/postgresql\&options='-c statement_timeout=100000'

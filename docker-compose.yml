@@ -26,9 +26,9 @@ services:
   #   restart: always
 
   app:
-    depends_on:
-      # - db
-      - redis
+    # depends_on:
+    #   # - db
+    #   - redis
     image: orcidhub/app-dev:7.0
     # image: orcidhub/app-dev:6.13
     environment:
@@ -42,6 +42,7 @@ services:
       - MEMBER_API_FORM_MAIL
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
+      - RQ_REDIS_URL
       - SECRET_KEY
       - SENTRY_DSN
       - SENTRY_TRACES_SAMPLE_RATE
@@ -75,20 +76,20 @@ services:
       default:
         ipv4_address: ${SUBNET:-172.33}.0.99
 
-  redis:
-    image: redis
-    volumes:
-      - ./data/redis:/data
-    restart: always
-    networks:
-      default:
-        ipv4_address: ${SUBNET:-172.33}.0.88
+  # redis:
+  #   image: redis
+  #   volumes:
+  #     - ./data/redis:/data
+  #   restart: always
+  #   networks:
+  #     default:
+  #       ipv4_address: ${SUBNET:-172.33}.0.88
 
   worker:
     image: orcidhub/app-dev:7.0
-    depends_on:
-      - redis
-      # - db
+    # depends_on:
+    #   - redis
+    #   # - db
     command: ["./worker.sh"]
     environment:
       - ENV
@@ -98,6 +99,7 @@ services:
       - MEMBER_API_FORM_MAIL
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
+      - RQ_REDIS_URL
       - SECRET_KEY
       - SENTRY_DSN
       - SENTRY_TRACES_SAMPLE_RATE
@@ -110,9 +112,9 @@ services:
 
   scheduler:
     image: orcidhub/app-dev:7.0
-    depends_on:
-      - redis
-      # - db
+    # depends_on:
+    #   - redis
+    #   # - db
     command: ["./scheduler.sh"]
     environment:
       - ENV
@@ -120,6 +122,7 @@ services:
       - MAIL_DEFAULT_SENDER
       - MAIL_SUPPORT_ADDRESS
       - MEMBER_API_FORM_MAIL
+      - RQ_REDIS_URL
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
       - SECRET_KEY
