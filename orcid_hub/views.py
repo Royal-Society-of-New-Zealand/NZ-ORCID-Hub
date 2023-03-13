@@ -515,6 +515,8 @@ class UserAdmin(AppModelView):
                     except Exception as ex:
                         transaction.rollback()
                         flash(f"Failed to merge users: {ex}")
+                        app.log.exception("Failed to merge users.")
+                        count = 0
                 if count != 0:
                     flash(f"{count + 1} users merged")
                 return redirect(url)
