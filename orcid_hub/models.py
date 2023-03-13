@@ -906,8 +906,10 @@ class User(AuditedModel, UserMixin):
             self.last_name = user.last_name
         if not self.email:
             self.email = user.email
-        if not self.eppn:
+        if not self.eppn and user.eppn:
             self.eppn = user.eppn
+            user.epp = None
+            user.save()
         if not self.orcid:
             self.orcid = user.orcid
         if self.confirmed is None:
