@@ -39,7 +39,8 @@ from peewee import SQL
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
 from urllib.parse import parse_qs, urlparse
-from wtforms import validators
+from wtforms import validators, Form
+from wtforms.fields import HiddenField, SelectField
 
 from . import SENTRY_DSN, admin, app, cache, limiter, models, orcid_client, rq, utils
 from .apis import yamlfy
@@ -425,9 +426,19 @@ class MailLogAdmin(AppModelView):
     )
 
 
+class UserMergeFrom(Form):
+    ids = HiddenField()
+    target = SelectField(
+            "Target",
+            coerce=int,
+            description="Choose the targed user",
+            validate_choice=False)
+
+
 class UserAdmin(AppModelView):
     """User model view."""
 
+    list_template = 'admin/user_list.html'
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
     edit_template = "admin/user_edit.html"
 
@@ -459,6 +470,57 @@ class UserAdmin(AppModelView):
         },
     }
     can_export = True
+
+    @action("merge", "Merge Users")
+    def merge(self, ids):
+        """Batch merge of users - redirect to the index view with a modal dialog to select the target."""
+        url = get_redirect_target() or self.get_url('.index_view')
+        return redirect(url, code=307)
+
+    @expose("/", methods=["POST"])
+    def index(self):
+        if request.method == "POST":
+            url = get_redirect_target() or self.get_url(".index_view")
+            ids = request.form.getlist("rowid")
+            joined_ids = ",".join(ids)
+            change_form = UserMergeFrom()
+            change_form.ids.data = joined_ids
+            change_form.target.choices = [
+                    (u.id, u.full_name_with_email) for u in User.select().where(User.id.in_(ids))
+            ]
+            self._template_args["url"] = url
+            self._template_args["change_form"] = change_form
+            self._template_args["change_modal"] = True
+            return self.index_view()
+
+    @expose("/merge_users/", methods=["POST"])
+    def merge_users_view(self):
+        if request.method == "POST":
+            count = 0
+            url = get_redirect_target() or self.get_url(".index_view")
+            change_form = UserMergeFrom(request.form)
+            if change_form.validate():
+                ids = change_form.ids.data.split(",")
+                target = change_form.target.data
+                with db.atomic() as transaction:
+                    try:
+                        target = User.get(target)
+                        users = User.select().where(User.id.in_(ids), User.id != target)
+                        for u in list(users):
+                            target.merge(u)
+                            count += 1
+                    except Exception as ex:
+                        transaction.rollback()
+                        flash(f"Failed to merge users: {ex}")
+                if count != 0:
+                    flash(f"{count + 1} users merged")
+                return redirect(url)
+            else:
+                # Form didn"t validate
+                self._template_args["url"] = url
+                self._template_args["change_form"] = change_form
+                self._template_args["change_modal"] = True
+                return self.index_view()
 
 
 class OrganisationAdmin(AppModelView):
