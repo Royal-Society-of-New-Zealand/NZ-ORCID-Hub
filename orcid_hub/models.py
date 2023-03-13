@@ -926,7 +926,6 @@ class User(AuditedModel, UserMixin):
             self.created_by = user.created_by
         if not self.updated_by:
             self.updated_by = user.updated_by
-        self.save()
 
         Organisation.update({Organisation.tech_contact: self}).where(Organisation.tech_contact == user)
         Organisation.update({Organisation.created_by: self}).where(Organisation.created_by == user)
@@ -986,6 +985,7 @@ class User(AuditedModel, UserMixin):
         Token.update({Token.user: self}).where(Token.user == user)
 
         user.delete_instance()
+        self.save()
 
     def __str__(self):
         if self.name and (self.eppn or self.email):
