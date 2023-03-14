@@ -937,7 +937,7 @@ class User(AuditedModel, UserMixin):
         OrgInvitation.update({OrgInvitation.inviter: self}).where(OrgInvitation.inviter == user)
         OrgInvitation.update({OrgInvitation.created_by: self}).where(OrgInvitation.created_by == user)
         OrgInvitation.update({OrgInvitation.updated_by: self}).where(OrgInvitation.updated_by == user)
-        OrgInvitation.update({OrgInvitation.email: self.email}).where(OrgInvitation.email == email)
+        OrgInvitation.update({OrgInvitation.email: self.email}).where(OrgInvitation.email == user.email)
 
         for uo in list(UserOrg.select().where(UserOrg.user == user)):
             target_uo = UserOrg.select().where(UserOrg.user == self, UserOrg.org == uo.org).first()
