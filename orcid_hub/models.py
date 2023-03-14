@@ -929,64 +929,65 @@ class User(AuditedModel, UserMixin):
         if not self.updated_by:
             self.updated_by = user.updated_by
 
-        Organisation.update({Organisation.tech_contact: self}).where(Organisation.tech_contact == user)
-        Organisation.update({Organisation.created_by: self}).where(Organisation.created_by == user)
-        Organisation.update({Organisation.updated_by: self}).where(Organisation.updated_by == user)
+        user_id = self.id
+        Organisation.update({Organisation.tech_contact: user_id}).where(Organisation.tech_contact == user)
+        Organisation.update({Organisation.created_by: user_id}).where(Organisation.created_by == user)
+        Organisation.update({Organisation.updated_by: user_id}).where(Organisation.updated_by == user)
 
-        OrgInvitation.update({OrgInvitation.invitee: self}).where(OrgInvitation.invitee == user)
-        OrgInvitation.update({OrgInvitation.inviter: self}).where(OrgInvitation.inviter == user)
-        OrgInvitation.update({OrgInvitation.created_by: self}).where(OrgInvitation.created_by == user)
-        OrgInvitation.update({OrgInvitation.updated_by: self}).where(OrgInvitation.updated_by == user)
+        OrgInvitation.update({OrgInvitation.invitee: user_id}).where(OrgInvitation.invitee == user)
+        OrgInvitation.update({OrgInvitation.inviter: user_id}).where(OrgInvitation.inviter == user)
+        OrgInvitation.update({OrgInvitation.created_by: user_id}).where(OrgInvitation.created_by == user)
+        OrgInvitation.update({OrgInvitation.updated_by: user_id}).where(OrgInvitation.updated_by == user)
         OrgInvitation.update({OrgInvitation.email: self.email}).where(OrgInvitation.email == user.email)
 
         for uo in list(UserOrg.select().where(UserOrg.user == user)):
-            target_uo = UserOrg.select().where(UserOrg.user == self, UserOrg.org == uo.org).first()
+            target_uo = UserOrg.select().where(UserOrg.user == user_id, UserOrg.org == uo.org).first()
             if target_uo:
                 if not target_uo.is_admin and uo.is_admin:
                     target_uo.is_admin = True
                 uo.delete_instance()
             else:
-                uo.user = self
+                uo.user = user_id
                 uo.save()
 
-        UserOrg.update({UserOrg.created_by: self}).where(UserOrg.created_by == user)
-        UserOrg.update({UserOrg.updated_by: self}).where(UserOrg.updated_by == user)
+        UserOrg.update({UserOrg.created_by: user_id}).where(UserOrg.created_by == user)
+        UserOrg.update({UserOrg.updated_by: user_id}).where(UserOrg.updated_by == user)
 
-        User.update({User.created_by: self}).where(User.created_by == user)
-        User.update({User.updated_by: self}).where(User.updated_by == user)
+        User.update({User.created_by: user_id}).where(User.created_by == user)
+        User.update({User.updated_by: user_id}).where(User.updated_by == user)
 
-        OrcidToken.update({OrcidToken.user: self}).where(OrcidToken.user == user)
-        OrcidToken.update({OrcidToken.created_by: self}).where(OrcidToken.created_by == user)
-        OrcidToken.update({OrcidToken.updated_by: self}).where(OrcidToken.updated_by == user)
+        OrcidToken.update({OrcidToken.user: user_id}).where(OrcidToken.user == user)
+        OrcidToken.update({OrcidToken.created_by: user_id}).where(OrcidToken.created_by == user)
+        OrcidToken.update({OrcidToken.updated_by: user_id}).where(OrcidToken.updated_by == user)
 
-        UserOrgAffiliation.update({UserOrgAffiliation.user: self}).where(UserOrgAffiliation.user == user)
-        UserOrgAffiliation.update({UserOrgAffiliation.created_by: self}).where(UserOrgAffiliation.created_by == user)
-        UserOrgAffiliation.update({UserOrgAffiliation.updated_by: self}).where(UserOrgAffiliation.updated_by == user)
+        UserOrgAffiliation.update({UserOrgAffiliation.user: user_id}).where(UserOrgAffiliation.user == user)
+        UserOrgAffiliation.update({UserOrgAffiliation.created_by: user_id}).where(UserOrgAffiliation.created_by == user)
+        UserOrgAffiliation.update({UserOrgAffiliation.updated_by: user_id}).where(UserOrgAffiliation.updated_by == user)
 
-        OrcidApiCall.update({OrcidApiCall.user: self}).where(OrcidApiCall.user == user)
+        OrcidApiCall.update({OrcidApiCall.user: user_id}).where(OrcidApiCall.user == user)
 
-        OrcidAuthorizeCall.update({OrcidAuthorizeCall.user: self}).where(OrcidAuthorizeCall.user == user)
+        OrcidAuthorizeCall.update({OrcidAuthorizeCall.user: user_id}).where(OrcidAuthorizeCall.user == user)
 
-        Log.update({Log.created_by: self}).where(Log.created_by == user)
+        Log.update({Log.created_by: user_id}).where(Log.created_by == user)
 
-        Task.update({Task.created_by: self}).where(Task.created_by == user)
-        Task.update({Task.updated_by: self}).where(Task.updated_by == user)
+        Task.update({Task.created_by: user_id}).where(Task.created_by == user)
+        Task.update({Task.updated_by: user_id}).where(Task.updated_by == user)
 
-        Url.update({Url.created_by: self}).where(Url.created_by == user)
-        Url.update({Url.updated_by: self}).where(Url.updated_by == user)
+        Url.update({Url.created_by: user_id}).where(Url.created_by == user)
+        Url.update({Url.updated_by: user_id}).where(Url.updated_by == user)
 
-        UserInvitation.update({UserInvitation.invitee: self}).where(UserInvitation.invitee == user)
-        UserInvitation.update({UserInvitation.inviter: self}).where(UserInvitation.inviter == user)
-        UserInvitation.update({UserInvitation.created_by: self}).where(UserInvitation.created_by == user)
-        UserInvitation.update({UserInvitation.updated_by: self}).where(UserInvitation.updated_by == user)
+        UserInvitation.update({UserInvitation.invitee: user_id}).where(UserInvitation.invitee == user)
+        UserInvitation.update({UserInvitation.inviter: user_id}).where(UserInvitation.inviter == user)
+        UserInvitation.update({UserInvitation.created_by: user_id}).where(UserInvitation.created_by == user)
+        UserInvitation.update({UserInvitation.updated_by: user_id}).where(UserInvitation.updated_by == user)
         UserInvitation.update({UserInvitation.email: self.email}).where(UserInvitation.email == user.email)
 
-        Client.update({Client.user: self}).where(Client.user == user)
-        Client.update({Client.created_by: self}).where(Client.created_by == user)
-        Client.update({Client.updated_by: self}).where(Client.updated_by == user)
+        Client.update({Client.user: user_id}).where(Client.user == user)
+        Client.update({Client.created_by: user_id}).where(Client.created_by == user)
+        Client.update({Client.updated_by: user_id}).where(Client.updated_by == user)
 
-        Grant.update({Grant.user: self}).where(Grant.user == user)
-        Token.update({Token.user: self}).where(Token.user == user)
+        Grant.update({Grant.user: user_id}).where(Grant.user == user)
+        Token.update({Token.user: user_id}).where(Token.user == user)
 
         user.delete_instance()
         self.save()
