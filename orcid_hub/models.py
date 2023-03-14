@@ -929,14 +929,14 @@ class User(AuditedModel, UserMixin):
         if not self.updated_by:
             self.updated_by = user.updated_by
 
-        Organisation.update({Organisation.tech_contact: self}).where(Organisation.tech_contact == user)
-        Organisation.update({Organisation.created_by: self}).where(Organisation.created_by == user)
-        Organisation.update({Organisation.updated_by: self}).where(Organisation.updated_by == user)
+        Organisation.update({Organisation.tech_contact: self.id}).where(Organisation.tech_contact == user)
+        Organisation.update({Organisation.created_by: self.id}).where(Organisation.created_by == user)
+        Organisation.update({Organisation.updated_by: self.id}).where(Organisation.updated_by == user)
 
-        OrgInvitation.update({OrgInvitation.invitee: self}).where(OrgInvitation.invitee == user)
-        OrgInvitation.update({OrgInvitation.inviter: self}).where(OrgInvitation.inviter == user)
-        OrgInvitation.update({OrgInvitation.created_by: self}).where(OrgInvitation.created_by == user)
-        OrgInvitation.update({OrgInvitation.updated_by: self}).where(OrgInvitation.updated_by == user)
+        OrgInvitation.update({OrgInvitation.invitee: self.id}).where(OrgInvitation.invitee == user)
+        OrgInvitation.update({OrgInvitation.inviter: self.id}).where(OrgInvitation.inviter == user)
+        OrgInvitation.update({OrgInvitation.created_by: self.id}).where(OrgInvitation.created_by == user)
+        OrgInvitation.update({OrgInvitation.updated_by: self.id}).where(OrgInvitation.updated_by == user)
         OrgInvitation.update({OrgInvitation.email: self.email}).where(OrgInvitation.email == user.email)
 
         for uo in list(UserOrg.select().where(UserOrg.user == user)):
