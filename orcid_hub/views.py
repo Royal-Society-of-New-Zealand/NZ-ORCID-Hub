@@ -486,8 +486,8 @@ class UserMergeMixin:
                             count += 1
                     except Exception as ex:
                         transaction.rollback()
-                        flash(f"Failed to merge users: {ex}", "error")
-                        app.log.exception("Failed to merge users.")
+                        flash(f"Failed to merge users: {ex}", "denger")
+                        app.logger.exception("Failed to merge users.")
                         count = 0
                 if count != 0:
                     flash(f"{count + 1} users merged", "info")
