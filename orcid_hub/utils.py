@@ -24,6 +24,7 @@ from jinja2 import Template
 from peewee import JOIN
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
+from urllib.parse import urlparse
 
 from orcid_api_v3.rest import ApiException
 
@@ -253,11 +254,24 @@ def send_email(
     # Unsubscribe link:
     token = new_invitation_token(length=10)
     unsubscribe_url = url_for("unsubscribe", token=token, _external=True)
+    if request:
+        domain = request.environ["SERVER_NAME"]
+    else:
+        domain = dkim_domain
+    if not domain:
+        mail_default_sender = app.config.get("MAIL_DEFAULT_SENDER")
+        if mail_default_sender:
+            domain = mail_default_sender.split("@")[1]
+        else:
+            domain = os.getenv("SHIB_SP_DOMAINNAME")
+
     headers = {
         "x-auto-response-suppress": "DR, RN, NRN, OOF",
         "auto-submitted": "auto-generated",
         "List-Unsubscribe": f"<{unsubscribe_url}>",
     }
+    if domain:
+        headers["Message-ID"] = f"<{token}@{domain}>"
     if reply_to:
         headers["reply-to"] = reply_to
     msg.set_headers(headers)
