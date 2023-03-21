@@ -483,14 +483,18 @@ class UserMergeMixin:
                 with db.atomic() as transaction:
                     try:
                         target = User.get(target)
-                        users = User.select().where(User.id.in_(ids), User.id != target)
+                        users = User.select().where(User.id.in_(ids))
                         for u in list(users):
                             target.merge(u)
                             count += 1
                     except Exception as ex:
                         transaction.rollback()
                         flash(f"Failed to merge users: {ex}", "error")
+<<<<<<< Updated upstream
                         app.log.exception("Failed to merge users.")
+=======
+                        app.logger.exception("Failed to merge users.")
+>>>>>>> Stashed changes
                         count = 0
                 if count != 0:
                     flash(f"{count + 1} users merged", "info")

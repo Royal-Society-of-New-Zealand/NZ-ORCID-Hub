@@ -904,18 +904,13 @@ class User(AuditedModel, UserMixin):
             self.first_name = user.first_name
         if not self.last_name:
             self.last_name = user.last_name
-        if not self.email:
-            self.email = user.email
         if not self.eppn and user.eppn:
             self.eppn = user.eppn
             user.eppn = None
             user.save()
-        if not self.orcid:
-            self.orcid = user.orcid
         if self.confirmed is None:
             self.confirmed = user.confirmed
-        if not self.roles:
-            self.roles = user.roles
+        self.roles = self.roles|user.roles
         if self.is_locked is None:
             self.is_locked = user.is_locked
         if self.webhook_enabled is None:
@@ -924,10 +919,15 @@ class User(AuditedModel, UserMixin):
             self.orcid_updated_at = user.orcid_updated_at
         if not self.organisation:
             self.organisation = user.organisation
-        if not self.created_by:
+        if not self.created_by and user.created_by != user:
             self.created_by = user.created_by
-        if not self.updated_by:
+        if not self.updated_by and user.updated_by != user:
             self.updated_by = user.updated_by
+        if self.created_by == user:
+            self.created_by = self
+        if self.updated_by == user:
+            self.updated_by = self
+        self.save()
 
         user_id = self.id
         Organisation.update({Organisation.tech_contact: user_id}).where(Organisation.tech_contact == user)
@@ -990,7 +990,12 @@ class User(AuditedModel, UserMixin):
         Token.update({Token.user: user_id}).where(Token.user == user)
 
         user.delete_instance()
-        self.save()
+        target = User.get(self.id)
+        if not target.email:
+            target.email = user.email
+        if not self.orcid:
+            target.orcid = user.orcid
+        target.save()
 
     def __str__(self):
         if self.name and (self.eppn or self.email):
