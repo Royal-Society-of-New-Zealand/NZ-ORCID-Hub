@@ -896,6 +896,103 @@ class User(AuditedModel, UserMixin):
     created_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref="+")
     updated_by = ForeignKeyField("self", on_delete="SET NULL", null=True, backref="+")
 
+    def merge(self, user):
+        """Merge user 'user' into self and delete the user 'user'."""
+        if not self.name:
+            self.name = user.name
+        if not self.first_name:
+            self.first_name = user.first_name
+        if not self.last_name:
+            self.last_name = user.last_name
+        if not self.eppn and user.eppn:
+            self.eppn = user.eppn
+            user.eppn = None
+            user.save()
+        if self.confirmed is None:
+            self.confirmed = user.confirmed
+        self.roles = self.roles | user.roles
+        if self.is_locked is None:
+            self.is_locked = user.is_locked
+        if self.webhook_enabled is None:
+            self.webhook_enabled = user.webhook_enabled
+        if not self.orcid_updated_at and user.orcid_updated_at:
+            self.orcid_updated_at = user.orcid_updated_at
+        if not self.organisation:
+            self.organisation = user.organisation
+
+        if not self.created_by or self.created_by == user:
+            self.created_by = self if user.created_by == user else user.created_by
+        if not self.updated_by or self.updated_by == user:
+            self.updated_by = self if user.updated_by == user else user.updated_by
+        self.save()
+
+        user_id = self.id
+        Organisation.update({Organisation.tech_contact: user_id}).where(Organisation.tech_contact == user)
+        Organisation.update({Organisation.created_by: user_id}).where(Organisation.created_by == user)
+        Organisation.update({Organisation.updated_by: user_id}).where(Organisation.updated_by == user)
+
+        OrgInvitation.update({OrgInvitation.invitee: user_id}).where(OrgInvitation.invitee == user)
+        OrgInvitation.update({OrgInvitation.inviter: user_id}).where(OrgInvitation.inviter == user)
+        OrgInvitation.update({OrgInvitation.created_by: user_id}).where(OrgInvitation.created_by == user)
+        OrgInvitation.update({OrgInvitation.updated_by: user_id}).where(OrgInvitation.updated_by == user)
+        OrgInvitation.update({OrgInvitation.email: self.email}).where(OrgInvitation.email == user.email)
+
+        for uo in list(UserOrg.select().where(UserOrg.user == user)):
+            target_uo = UserOrg.select().where(UserOrg.user == user_id, UserOrg.org == uo.org).first()
+            if target_uo:
+                if not target_uo.is_admin and uo.is_admin:
+                    target_uo.is_admin = True
+                uo.delete_instance()
+            else:
+                uo.user = user_id
+                uo.save()
+
+        UserOrg.update({UserOrg.created_by: user_id}).where(UserOrg.created_by == user)
+        UserOrg.update({UserOrg.updated_by: user_id}).where(UserOrg.updated_by == user)
+
+        User.update({User.created_by: user_id}).where(User.created_by == user)
+        User.update({User.updated_by: user_id}).where(User.updated_by == user)
+
+        OrcidToken.update({OrcidToken.user: user_id}).where(OrcidToken.user == user)
+        OrcidToken.update({OrcidToken.created_by: user_id}).where(OrcidToken.created_by == user)
+        OrcidToken.update({OrcidToken.updated_by: user_id}).where(OrcidToken.updated_by == user)
+
+        UserOrgAffiliation.update({UserOrgAffiliation.user: user_id}).where(UserOrgAffiliation.user == user)
+        UserOrgAffiliation.update({UserOrgAffiliation.created_by: user_id}).where(UserOrgAffiliation.created_by == user)
+        UserOrgAffiliation.update({UserOrgAffiliation.updated_by: user_id}).where(UserOrgAffiliation.updated_by == user)
+
+        OrcidApiCall.update({OrcidApiCall.user: user_id}).where(OrcidApiCall.user == user)
+
+        OrcidAuthorizeCall.update({OrcidAuthorizeCall.user: user_id}).where(OrcidAuthorizeCall.user == user)
+
+        Log.update({Log.created_by: user_id}).where(Log.created_by == user)
+
+        Task.update({Task.created_by: user_id}).where(Task.created_by == user)
+        Task.update({Task.updated_by: user_id}).where(Task.updated_by == user)
+
+        Url.update({Url.created_by: user_id}).where(Url.created_by == user)
+        Url.update({Url.updated_by: user_id}).where(Url.updated_by == user)
+
+        UserInvitation.update({UserInvitation.invitee: user_id}).where(UserInvitation.invitee == user)
+        UserInvitation.update({UserInvitation.inviter: user_id}).where(UserInvitation.inviter == user)
+        UserInvitation.update({UserInvitation.created_by: user_id}).where(UserInvitation.created_by == user)
+        UserInvitation.update({UserInvitation.updated_by: user_id}).where(UserInvitation.updated_by == user)
+        UserInvitation.update({UserInvitation.email: self.email}).where(UserInvitation.email == user.email)
+
+        Client.update({Client.user: user_id}).where(Client.user == user)
+        Client.update({Client.created_by: user_id}).where(Client.created_by == user)
+        Client.update({Client.updated_by: user_id}).where(Client.updated_by == user)
+
+        Grant.update({Grant.user: user_id}).where(Grant.user == user)
+        Token.update({Token.user: user_id}).where(Token.user == user)
+
+        user.delete_instance()
+        if not self.email:
+            self.email = user.email
+        if not self.orcid:
+            self.orcid = user.orcid
+        self.save()
+
     def __str__(self):
         if self.name and (self.eppn or self.email):
             return f"{self.name} ({self.email or self.eppn})"
