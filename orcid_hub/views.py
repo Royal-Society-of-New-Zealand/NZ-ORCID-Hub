@@ -480,18 +480,19 @@ class UserMergeMixin:
             url = get_redirect_target() or self.get_url(".index_view")
             change_form = UserMergeFrom(request.form)
             if change_form.validate():
-                ids = change_form.ids.data.split(",")
+                ids = list(map(int, change_form.ids.data.split(",")))
                 target = change_form.target.data
+                ids.remove(target)
                 with db.atomic() as transaction:
                     try:
                         target = User.get(target)
-                        users = User.select().where(User.id.in_(ids), User.id != target)
+                        users = User.select().where(User.id.in_(ids))
                         for u in list(users):
                             target.merge(u)
                             count += 1
                     except Exception as ex:
                         transaction.rollback()
-                        flash(f"Failed to merge users: {ex}", "denger")
+                        flash(f"Failed to merge users: {ex}", "error")
                         app.logger.exception("Failed to merge users.")
                         count = 0
                 if count != 0:
