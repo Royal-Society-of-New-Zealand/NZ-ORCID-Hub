@@ -447,7 +447,7 @@ class UserMergeMixin:
         """Batch merge of users - redirect to the index view with a modal dialog to select the target."""
         ids = request.form.getlist("rowid")
         if User.select().where(User.id.in_(ids), User.orcid.is_null(False)).count() > 1:
-            flash("Only one user among the users to be merged can have an ORCID iD. "
+            flash("Only one user among the selected users to be merged can have an ORCID iD. "
                   "Please correct the selection and try again.", "error")
             return
         url = get_redirect_target() or self.get_url('.index_view')
