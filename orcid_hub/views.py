@@ -445,6 +445,11 @@ class UserMergeMixin:
     @action("merge", "Merge Users")
     def merge(self, ids):
         """Batch merge of users - redirect to the index view with a modal dialog to select the target."""
+        ids = request.form.getlist("rowid")
+        if User.select().where(User.id.in_(ids), User.orcid.is_null(False)).count() > 1:
+            flash("Only one user among the users to be merged can have an ORCID iD. "
+                  "Please correct the selection and try again.", "error")
+            return
         url = get_redirect_target() or self.get_url('.index_view')
         return redirect(url, code=307)
 
@@ -464,7 +469,7 @@ class UserMergeMixin:
                 self._template_args["change_form"] = change_form
                 self._template_args["change_modal"] = True
             else:
-                flash("Please select at least 2 users.", "danger")
+                flash("Please select at least 2 users.", "error")
 
             return self.index_view()
 
@@ -475,18 +480,19 @@ class UserMergeMixin:
             url = get_redirect_target() or self.get_url(".index_view")
             change_form = UserMergeFrom(request.form)
             if change_form.validate():
-                ids = change_form.ids.data.split(",")
+                ids = list(map(int, change_form.ids.data.split(",")))
                 target = change_form.target.data
+                ids.remove(target)
                 with db.atomic() as transaction:
                     try:
                         target = User.get(target)
-                        users = User.select().where(User.id.in_(ids), User.id != target)
+                        users = User.select().where(User.id.in_(ids))
                         for u in list(users):
                             target.merge(u)
                             count += 1
                     except Exception as ex:
                         transaction.rollback()
-                        flash(f"Failed to merge users: {ex}", "denger")
+                        flash(f"Failed to merge users: {ex}", "error")
                         app.logger.exception("Failed to merge users.")
                         count = 0
                 if count != 0:
