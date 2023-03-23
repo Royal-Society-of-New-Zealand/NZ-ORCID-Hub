@@ -4916,8 +4916,8 @@ class ResourceRecord(RecordModel, Invitee):
                     )
                 ]
             },
-            "start-date": self.proposal_start_date.as_orcid_dict(),
-            "end-date": self.proposal_end_date.as_orcid_dict(),
+            "start-date": self.proposal_start_date and self.proposal_start_date.as_orcid_dict(),
+            "end-date": self.proposal_end_date and self.proposal_end_date.as_orcid_dict(),
         }
         if self.proposal_url:
             d["proposal"]["url"] = dict(value=self.proposal_url)
