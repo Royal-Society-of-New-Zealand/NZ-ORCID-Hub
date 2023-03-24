@@ -181,4 +181,5 @@ rr.json
 .session.vim
 *.bak
 _locustfile.py
+nohup.out
 .squid

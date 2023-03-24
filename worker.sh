@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+ldconfig  # workaound to pickup /usr/local/...
 # Script location directory:
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -7,8 +8,16 @@ export PYTHONPATH=$DIR
 export FLASK_APP=orcid_hub
 export LANG=en_US.UTF-8
 export RQ_REDIS_URL="${RQ_REDIS_URL:-redis://redis:6379/0}"
-[ -z "$DATABASE_URL" ] && DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?sslmode=disable\&options='-c statement_timeout=3000'
+if [ -z "$DATABASE_URL" ] ; then
+    if [ -d /run/postgresql ] ; then
+        DATABASE_URL=postgresql://orcidhub@:5432/orcidhub?host=/var/run/postgresql\&options='-c statement_timeout=100000'
+    else
+        DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?sslmode=disable\&options='-c statement_timeout=100000'
+    fi
+fi
 export DATABASE_URL
+# pip install -U 'flask<2.2.3'
+# pip install -U flask
 
 # Add $RANDOM to make the neame unique:
-exec flask rq worker -n ORCIDHUB.$$.$RANDOM $@
+exec flask rq worker -n "ORCIDHUB.$$.$RANDOM" $@  &> /dev/stdout

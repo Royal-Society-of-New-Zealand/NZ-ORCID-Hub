@@ -219,7 +219,7 @@ def test_is_emp_or_edu_record_present(app, mocker):
             "Failed to verify presence of employment or education record.")
 
 
-@patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
+@patch.object(requests_oauthlib.oauth2_session.OAuth2Session, "authorization_url",
               lambda self, *args, **kwargs: ("URL_123", None))
 def test_link(request_ctx):
     """Test a user affiliation initialization."""
@@ -236,7 +236,7 @@ def test_link(request_ctx):
         assert b"URL_123" in rv.data, "Expected to have ORCiD authorization link on the page"
 
 
-@patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
+@patch.object(requests_oauthlib.oauth2_session.OAuth2Session, "authorization_url",
               lambda self, base_url, *args, **kwargs: ("URL_123", None))
 def test_link_with_unconfirmed_org(request_ctx):
     """Test a user affiliation initialization if the user Organisation isn't registered yet."""
@@ -254,7 +254,7 @@ def test_link_with_unconfirmed_org(request_ctx):
         assert rv.status_code == 302
 
 
-@patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
+@patch.object(requests_oauthlib.oauth2_session.OAuth2Session, "authorization_url",
               lambda self, base_url, *args, **kwargs: ("URL_123", None))
 def test_link_already_affiliated(request_ctx):
     """Test a user affiliation initialization if the uerer is already affilated."""
@@ -288,13 +288,15 @@ def test_link_already_affiliated(request_ctx):
 @pytest.mark.parametrize("name", ["TEST USER", None])
 def test_link_orcid_auth_callback(name, mocker, client):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    mocker.patch("requests_oauthlib.OAuth2Session.fetch_token", lambda self, *args, **kwargs: dict(
-        name="NEW TEST",
-        access_token="ABC123",
-        orcid="ABC-123-456-789",
-        scope=["/read-limited"],
-        expires_in="1212",
-        refresh_token="ABC1235"))
+    mocker.patch(
+            "requests_oauthlib.oauth2_session.OAuth2Session.fetch_token",
+            lambda self, *args, **kwargs: dict(
+                name="NEW TEST",
+                access_token="ABC123",
+                orcid="ABC-123-456-789",
+                scope=["/read-limited"],
+                expires_in="1212",
+                refresh_token="ABC1235"))
 
     org = Organisation.get(name="THE ORGANISATION")
     test_user = User.create(
@@ -325,11 +327,11 @@ def test_link_orcid_auth_callback(name, mocker, client):
 @pytest.mark.parametrize("name", ["TEST USER", None])
 def test_link_orcid_auth_callback_with_affiliation(name, mocker, client):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    mocker.patch("requests_oauthlib.OAuth2Session.fetch_token", lambda self, *args, **kwargs: dict(
+    mocker.patch("requests_oauthlib.oauth2_session.OAuth2Session.fetch_token", lambda self, *args, **kwargs: dict(
         name="NEW TEST",
         access_token="ABC123",
         orcid="ABC-123-456-789",
-        scope=['/read-limited,/activities/update'],
+        scope=["/read-limited,/activities/update"],
         expires_in="1212",
         refresh_token="ABC1235"))
     m = mocker.patch("orcid_hub.orcid_client.MemberAPIV3")
@@ -371,23 +373,23 @@ def test_link_orcid_auth_callback_with_affiliation(name, mocker, client):
     assert OrcidToken.select().where(OrcidToken.user == test_user, OrcidToken.org == org).count() == 0
     resp = client.get(f"/auth?state={state}")
     assert resp.status_code == 302
-    assert b"<!DOCTYPE HTML" in resp.data, "Expected HTML content"
+    assert b"<!DOCTYPE HTML" in resp.data or b"<!doctype html" in resp.data, "Expected HTML content"
     assert "profile" in resp.location, "redirection to 'profile' showing the ORCID"
     assert OrcidToken.select().where(OrcidToken.user == test_user, OrcidToken.org == org).count() == 1
 
-    get_person = mocker.patch("requests_oauthlib.OAuth2Session.get", return_value=Mock(status_code=200))
+    get_person = mocker.patch("requests_oauthlib.oauth2_session.OAuth2Session.get", return_value=Mock(status_code=200))
     resp = client.get("/profile", follow_redirects=True)
     assert b"can create and update research activities" in resp.data
     get_person.assert_called_once()
 
-    get_person = mocker.patch("requests_oauthlib.OAuth2Session.get", return_value=Mock(status_code=401))
+    get_person = mocker.patch("requests_oauthlib.oauth2_session.OAuth2Session.get", return_value=Mock(status_code=401))
     resp = client.get("/profile", follow_redirects=True)
     assert b"you'll be taken to ORCID to create or sign into your ORCID record" in resp.data
     get_person.assert_called_once()
 
 
 def make_fake_response(text, *args, **kwargs):
-    """Mock out the response object returned by requests_oauthlib.OAuth2Session.get(...)."""
+    """Mock out the response object returned by requests_oauthlib.oauth2_session.OAuth2Session.get(...)."""
     mm = MagicMock(name="response")
     mm.text = text
     if "json" in kwargs:
@@ -399,7 +401,7 @@ def make_fake_response(text, *args, **kwargs):
     return mm
 
 
-@patch.object(requests_oauthlib.OAuth2Session, "get",
+@patch.object(requests_oauthlib.oauth2_session.OAuth2Session, "get",
               lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
 def test_profile(client):
     """Test an affilated user profile and ORCID data retrieval and a user profile that doesn't hava an ORCID."""
@@ -447,7 +449,7 @@ def test_sync_profile(app, mocker):
 
     org = Organisation.create(
         name="THE ORGANISATION:test_sync_profile",
-        tuakiri_name="THE ORGANISATION:test_sync_profile",
+        saml_name="THE ORGANISATION:test_sync_profile",
         confirmed=True,
         orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
         orcid_secret="Client Secret",

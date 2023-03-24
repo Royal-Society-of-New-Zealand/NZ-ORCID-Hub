@@ -24,7 +24,7 @@ def models(testdb):
 
     Organisation.insert_many((dict(
         name="Organisation #%d" % i,
-        tuakiri_name="Organisation #%d" % i,
+        saml_name="Organisation #%d" % i,
         orcid_client_id="client-%d" % i,
         orcid_secret="secret-%d" % i,
         confirmed=(i % 2 == 0)) for i in range(10))).execute()

@@ -32,7 +32,10 @@ from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
 from flask_rq2.job import FlaskJob
-from jinja2 import Markup
+try:
+    from jinja2 import Markup
+except ImportError:
+    from markupsafe import Markup
 from orcid_api_v3.rest import ApiException
 from playhouse.shortcuts import model_to_dict
 from peewee import SQL
@@ -3590,7 +3593,7 @@ def logo_image(token=None):
         logo = File.select().where(File.token == token).first()
         if logo:
             return send_file(
-                BytesIO(logo.data), mimetype=logo.mimetype, attachment_filename=logo.filename)
+                BytesIO(logo.data), mimetype=logo.mimetype, download_name=logo.filename)
     return redirect(url_for("static", filename="images/banner-small.png", _external=True))
 
 
@@ -3608,7 +3611,7 @@ def logo():
         return send_file(
             BytesIO(org.logo.data),
             mimetype=org.logo.mimetype,
-            attachment_filename=org.logo.filename)
+            download_name=org.logo.filename)
 
     form = LogoForm()
     if request.method == "POST" and form.reset.data:
@@ -3752,7 +3755,7 @@ def user_orgs_org(user_id, org_id=None):
     Returns: user_org entry
 
     """
-    data = request.json
+    data = request.get_json(force=True, silent=True)
     if not org_id and not (data and data.get("id")):
         return jsonify({"error": "NOT DATA"}), 400
     if not org_id:

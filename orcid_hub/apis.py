@@ -1,13 +1,13 @@
 """HUB API."""
 
+import gzip
+import json
 import re
 from datetime import datetime
-import gzip
 from urllib.parse import unquote, urlencode
-from uuid import uuid4, UUID
+from uuid import UUID, uuid4
 
 import dateutil.parser
-import json
 import jsonschema
 import requests
 import validators
@@ -19,14 +19,17 @@ from flask_login import current_user
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 from rq import get_current_job
+from werkzeug.exceptions import BadRequest
 
 from . import api, app, models, oauth, rq, schemas, utils
 from .login_provider import roles_required
-from .models import (ORCID_ID_REGEX, AffiliationRecord, AsyncOrcidResponse, Client, FundingRecord,
-                     OrcidApiCall, OrcidToken, PeerReviewRecord, PropertyRecord, ResourceRecord, Role, Task,
-                     TaskType, User, UserOrg, WorkRecord, validate_orcid_id)
-from .utils import (activate_all_records, dump_yaml, enqueue_task_records, is_valid_url,
-                    register_orcid_webhook, reset_all_records)
+from .models import (ORCID_ID_REGEX, AffiliationRecord, AsyncOrcidResponse,
+                     Client, FundingRecord, OrcidApiCall, OrcidToken,
+                     PeerReviewRecord, PropertyRecord, ResourceRecord, Role,
+                     Task, TaskType, User, UserOrg, WorkRecord,
+                     validate_orcid_id)
+from .utils import (activate_all_records, dump_yaml, enqueue_task_records,
+                    is_valid_url, register_orcid_webhook, reset_all_records)
 
 ORCID_API_VERSION_REGEX = re.compile(r"^v[2-3].\d+(_rc\d+)?$")
 SCOPE_REGEX = re.compile(r"^(/[a-z\-]+)+(\,(/[a-z\-]+)+)*$")
@@ -116,7 +119,12 @@ class AppResource(Resource):
                         "message": str(ex)
                     }), 415
             else:
-                data = request.get_json()
+                try:
+                    data = request.get_json()
+                except BadRequest as ex:
+                    if request.content_type not in ["application/json", "text/yaml", "application/x-yaml"]:
+                        return jsonify({"error": f"{ex}"}), 415
+                    data = None
             if not data:
                 return jsonify({"error": "Invalid request format. Only JSON or YAML are acceptable."}), 415
             try:
@@ -285,11 +293,17 @@ class TaskResource(AppResource):
 
     def dispatch_request(self, *args, **kwargs):
         """Do some pre-handling..."""
+        arg_location = (
+            ("json", "headers", "args", "values")
+            if request.content_type == "application/json"
+            else ("headers", "args", "values")
+        )
         parser = reqparse.RequestParser()
         parser.add_argument(
             "type", type=str, required=False,
+            location=arg_location,
             help="Task type: " + ", ".join(self.available_task_types))
-        parser.add_argument("filename", type=str, help="Filename of the task.")
+        parser.add_argument("filename", type=str, location=arg_location, help="Filename of the task.")
         # TODO: fix Flask-Restful
         try:
             parsed_args = parser.parse_args()
@@ -3684,7 +3698,7 @@ def register_webhook(orcid=None, callback_url=None):
             return '', 204
         else:
             if request.method != "GET":
-                data = request.json or {}
+                data = request.data and request.json or {}
                 enabled = data.get("enabled")
                 url = data.get("url", callback_url)
                 append_orcid = data.get("append-orcid")

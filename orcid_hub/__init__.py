@@ -28,6 +28,7 @@ from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
 from flask_restful import Api
 from playhouse import db_url
+
 # disable Sentry if there is no SENTRY_DSN:
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
@@ -38,8 +39,9 @@ from . import config
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
-from flask_limiter.util import get_ipaddr
+from flask_limiter.util import get_remote_address as get_ipaddr
 from flask_caching import Cache
+
 # from werkzeug.contrib.cache import SimpleCache
 IDENT = "$Id$"
 
@@ -66,7 +68,9 @@ app.config.from_object(config)
 cache = Cache(app)
 
 if not app.config.from_pyfile(settings_filename, silent=True) and app.debug:
-    print(f"*** WARNING: Failed to load local application configuration from '{settings_filename}'")
+    print(
+        f"*** WARNING: Failed to load local application configuration from '{settings_filename}'"
+    )
 # if "DATABASE_URL" in os.environ:
 #     app.config["DATABASE_URL"] = os.getenv("DATABASE_URL")
 
@@ -78,6 +82,7 @@ class OAuthProvider(OAuth2Provider):
 
     def require_oauth(self, *scopes):
         """Protect resource with specified scopes."""
+
         def wrapper(f):
             @wraps(f)
             def decorated(*args, **kwargs):
@@ -101,20 +106,23 @@ class OAuthProvider(OAuth2Provider):
                 if not current_user.is_authenticated:
                     login_user(req.user)
                 return f(*args, **kwargs)
+
             return decorated
+
         return wrapper
 
 
 oauth = OAuthProvider(app)
 api = Api(app)
 limiter = Limiter(
-    app,
     key_func=get_ipaddr,
+    app=app,
     headers_enabled=True,
     default_limits=[
         "40 per second",  # burst: 40/sec
         "1440 per minute",  # allowed max: 24/sec
-    ])
+    ],
+)
 if app.config.get("LOAD_TEST"):
     limiter.enabled = False
 
@@ -127,7 +135,6 @@ if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
-
 
 class JSONEncoder(_JSONEncoder):
     """date and datetime encoding into ISO format for JSON payload."""
@@ -162,7 +169,6 @@ class AppAuthentication(Authentication):
         self.app_auth = app_auth
 
     def authorize(self):  # noqa: D102
-
         if self.app_auth:
             # Eithe user application authentication or Access Token
             if current_user and current_user.is_authenticated:
@@ -199,10 +205,10 @@ class DataRestAPI(RestAPI):
         for provider in self._registry.values():
             api_name = provider.get_api_name()
             for url, callback in provider.get_urls():
-                full_url = '/%s%s' % (api_name, url)
+                full_url = "/%s%s" % (api_name, url)
                 self.blueprint.add_url_rule(
                     full_url,
-                    '%s_%s' % (api_name, callback.__name__),
+                    "%s_%s" % (api_name, callback.__name__),
                     self.auth_wrapper(callback, provider),
                     methods=provider.allowed_methods,
                     strict_slashes=False,
@@ -213,7 +219,8 @@ default_auth = AppAuthentication(app_auth=True)
 data_api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, name="data_api")
 
 admin = Admin(
-    app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
+    app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html"
+)
 
 SENTRY_DSN = app.config.get("SENTRY_DSN")
 if SENTRY_DSN:
@@ -225,7 +232,8 @@ if SENTRY_DSN:
         attach_stacktrace=True,
         traces_sample_rate=app.config["SENTRY_TRACES_SAMPLE_RATE"],
         with_locals=True,
-        send_default_pii=True)
+        send_default_pii=True,
+    )
 
 login_manager = LoginManager()
 login_manager.login_view = "index"
@@ -243,12 +251,15 @@ from .reports import *  # noqa: F401,F403,E402
 
 
 from .utils import process_records  # noqa: E402
+
 if app.testing:
     from .mocks import mocks
+
     app.register_blueprint(mocks)
 
 if __redis_available:
     from . import schedule  # noqa: E402
+
     schedule.setup()
 
 
@@ -261,7 +272,8 @@ def setup_app():
     if app.config.get("SHIBBOLETH_DISABLED") is None:
         app.config["SHIBBOLETH_DISABLED"] = not (
             ("mod_wsgi.version" in request.environ and "SHIB_IDP_DOMAINNAME" in os.environ)
-            or "EXTERNAL_SP" in app.config)
+            or "EXTERNAL_SP" in app.config
+        )
 
 
 @app.after_request
@@ -276,10 +288,8 @@ def apply_x_frame(response):
 @click.option("-f", "--force", is_flag=True, help="Enforce table creation.")
 @click.option("-A", "--audit", is_flag=True, help="Create adit trail tables.")
 @click.option(
-    "-V",
-    "--verbose",
-    is_flag=True,
-    help="Shows SQL statements that get sent to the server or DB.")
+    "-V", "--verbose", is_flag=True, help="Shows SQL statements that get sent to the server or DB."
+)
 def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
     """Initialize the database."""
     if verbose:
@@ -309,13 +319,9 @@ def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
 @click.option("--orcid", help="User's ORCID iD (for the users authenticated via ORCID).")
 @click.option("-I", "--internal-org-name", help="Internal organisation name (e.g., used by IdPs).")
 @click.argument("email", nargs=1)
-def create_hub_administrator(email,
-                             name=None,
-                             force=False,
-                             verbose=False,
-                             org_name=None,
-                             orcid=None,
-                             internal_org_name=None):
+def create_hub_administrator(
+    email, name=None, force=False, verbose=False, org_name=None, orcid=None, internal_org_name=None
+):
     """Create a hub administrator, an organisation and link the user to the Organisation."""
     if verbose:
         logger = logging.getLogger("peewee")
@@ -356,7 +362,7 @@ def load(verbose):
 
 
 @load.command()
-@click.argument('input', type=click.File('r'), required=True)
+@click.argument("input", type=click.File("r"), required=True)
 def org_info(input):
     """Pre-loads organisation data."""
     row_count = models.OrgInfo.load_from_csv(input)
@@ -372,13 +378,14 @@ def process(n):
 
 if os.environ.get("ENV") == "dev0":
     # This allows us to use a plain HTTP callback
-    os.environ['DEBUG'] = "1"
-    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    os.environ["DEBUG"] = "1"
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     app.debug = True
 
 if app.debug:
     try:
         from flask_debugtoolbar import DebugToolbarExtension
+
         toolbar = DebugToolbarExtension(app)
         # logger = logging.getLogger('peewee')
         # logger.setLevel(logging.DEBUG)

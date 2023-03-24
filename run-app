@@ -1,5 +1,6 @@
 #!/bin/bash
 
+ldconfig  # workaound to pickup /usr/local/...
 ## Runtime environment name:
 ENV=${ENV:-test}
 echo "Runtime Environment: $ENV"
@@ -54,10 +55,23 @@ echo "Shibboleth metadata certificate file (\$SHIB_METADATA_CERT_FILE): $SHIB_ME
 export ENV SHIB_SP_DOMAINNAME SHIB_IDP_DOMAINNAME SHIB_SSO_DS_URL SHIB_METADATA_PROVIDER_URI
 export SHIB_METADATA_CERT_FILE
 
-cp /.keys/${ENV}-server.key /etc/pki/tls/private/server.key
+SERVER_KEY=/.keys/${ENV}-server.key
+SERVER_CRT=/.keys/${ENV}-server.crt
+# Create a self-signed pair of keys
+if [ ! -f "$SERVER_KEY" ] ; then
+  export PASSPHRASE=$(head -c 64 /dev/urandom  | base64)
+  # openssl genrsa -des3 -passout env:PASSPHRASE -out server_.key 1024
+  openssl genrsa -des3 -passout env:PASSPHRASE -out server_.key
+  openssl rsa -in server_.key -out "$SERVER_KEY" -passin env:PASSPHRASE
+  chmod 400 "$SERVER_KEY"
+  openssl req -new -key "$SERVER_KEY" -days 3650 -out "$SERVER_CRT" -x509 -subj "/CN=$HOSTNAME"
+  [ -f /.keys/CA.crt ] || cp "$SERVER_CRT" /.keys/CA.crt
+fi
+
+cp "$SERVER_KEY" /etc/pki/tls/private/server.key
 chown root /etc/pki/tls/private/server.key
 chmod 400 /etc/pki/tls/private/server.key
-cp /.keys/${ENV}-server.crt /etc/pki/tls/certs/server.crt
+cp "$SERVER_CRT" /etc/pki/tls/certs/server.crt
 chown root /etc/pki/tls/certs/server.crt
 cp /.keys/CA.crt /etc/pki/tls/certs/CA.crt
 chown root /etc/pki/tls/certs/CA.crt
@@ -91,7 +105,13 @@ echo "Starting Apache2 ..."
 ln -sfT /dev/stderr /var/log/httpd/error_log
 # ln -sfT /dev/stdout /var/log/httpd/access_log
 
-[ -z "$DATABASE_URL" ] && DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?sslmode=disable\&options='-c statement_timeout=100000'
+if [ -z "$DATABASE_URL" ] ; then
+    if [ -d /run/postgresql ] ; then
+        DATABASE_URL=postgresql://orcidhub@/orcidhub?host=/run/postgresql\&options='-c statement_timeout=100000'
+    else
+        DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?sslmode=disable\&options='-c statement_timeout=100000'
+    fi
+fi
 export DATABASE_URL
 
 [ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://redis:6379/0

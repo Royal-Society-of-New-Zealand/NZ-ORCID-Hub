@@ -54,6 +54,7 @@ def test_get_client_credentials_token(request_ctx):
 
 def test_webhook_registration(client):
     """Test webhook registration."""
+    server_name = client.application.config["SERVER_NAME"]
     test_client = client
     user = User.get(email="app123@test0.edu")
     test_client.login(user)
@@ -168,7 +169,7 @@ def test_webhook_registration(client):
         mockresp.headers = {
             "Seresper": "TEST123",
             "Connection": "keep-alive",
-            "Location": "TEST-LOCATION",
+            "Location": f"https://{server_name}/TEST-LOCATION",
             "Pragma": "no-cache",
             "Expires": "0",
         }
@@ -178,7 +179,7 @@ def test_webhook_registration(client):
             headers=dict(authorization=f"Bearer {token.access_token}"),
         )
         assert resp.status_code == 204
-        assert urlparse(resp.location).path == f"/api/v1/{orcid_id}/webhook/http://TEST-LOCATION"
+        assert urlparse(resp.location).path == "/TEST-LOCATION"
 
         args, kwargs = mockput.call_args
         assert (
@@ -492,7 +493,7 @@ def test_org_webhook_api(client, mocker):
     mockresp.headers = {
         "Seresper": "TEST123",
         "Connection": "keep-alive",
-        "Location": "TEST-LOCATION",
+        "Location": "https://host/TEST-LOCATION",
         "Pragma": "no-cache",
         "Expires": "0",
     }
@@ -507,7 +508,7 @@ def test_org_webhook_api(client, mocker):
     )
     assert resp.status_code == 201
 
-    server_name = client.application.config["SERVER_NAME"]
+    server_name = client.application.config["SERVER_NAME"] or "localhost"
     mockput.assert_has_calls(
         [
             call(
