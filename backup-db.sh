@@ -21,7 +21,7 @@ else
   # psql -c "VACUUM FULL ANALYZE;" -d orcidhub_dev
   # psql -c "VACUUM FULL ANALYZE;" -d orcidhub_test
   # psql -U postgres -c "SELECT pg_start_backup('$TS_LABEL', false);"
-  # vacuumdb -a -z
+  vacuumdb -a -z
   psql -c "SELECT pg_start_backup('$TS_LABEL');"
   # tar cjf ./backup/$TS_LABEL.tar.bz2 ./pgdata ; mv ./backup/$TS_LABEL.tar.bz2 ./archive/
   sudo bash -c 'sync; echo 3 > /proc/sys/vm/drop_caches'
@@ -35,4 +35,4 @@ else
   psql -c "SELECT pg_stop_backup();"
 fi
 
-sudo find ./archive -mtime +3 -exec rm {} \;
+sudo find ./archive -mtime +3 -name 20??-??-??\* -exec rm {} \;
