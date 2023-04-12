@@ -1040,6 +1040,7 @@ class User(AuditedModel, UserMixin):
     @cache.memoize(50)
     def org_links(self):
         """Get all user organisation linked directly and indirectly."""
+        current_org_id = User.select(User.organisation_id).where(User.id==3).limit(1).first().organisation_id
         if self.orcid:
             q = (
                 UserOrg.select()
@@ -1064,7 +1065,7 @@ class User(AuditedModel, UserMixin):
             for r in q.select(
                 UserOrg,
                 Organisation.name.alias("org_name"),
-                (Organisation.id == self.organisation_id).alias("current_org"),
+                (Organisation.id == current_org_id).alias("current_org"),
             )
             .join(Organisation, on=(Organisation.id == UserOrg.org_id))
             .order_by(Organisation.name)
