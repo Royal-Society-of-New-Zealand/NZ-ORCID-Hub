@@ -1037,10 +1037,10 @@ class User(AuditedModel, UserMixin):
         )
 
     @lazy_property
-    @cache.memoize(50)
     def org_links(self):
         """Get all user organisation linked directly and indirectly."""
-        current_org_id = User.select(User.organisation_id).where(User.id==3).limit(1).first().organisation_id
+        current_org_id = User.select(User.organisation_id).where(
+                User.id == current_user.id).limit(1).first().organisation_id
         if self.orcid:
             q = (
                 UserOrg.select()
