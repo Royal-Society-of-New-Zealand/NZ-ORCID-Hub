@@ -35,4 +35,6 @@ else
   psql -c "SELECT pg_stop_backup();"
 fi
 
+sudo chmod g+r archive/00*.xz
 sudo find ./archive -mtime +3 -name 20??-??-??\* -exec rm {} \;
+sudo find ./archive -mtime +4 -name 000\*.xz -exec rm {} \;
