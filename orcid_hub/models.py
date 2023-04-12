@@ -1057,7 +1057,7 @@ class User(AuditedModel, UserMixin):
                 )
             )
         else:
-            q = self.userorg_set
+            q = self.user_orgs
 
         return [
             r
