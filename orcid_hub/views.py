@@ -534,6 +534,18 @@ class UserAdmin(UserMergeMixin, AppModelView):
         "eppn",
         "organisation.name",
     )
+    column_filters = (
+        filters.FilterEqual(
+            column=User.organisation,
+            options=lambda: list(
+                Organisation.select(
+                    Organisation.id,
+                    Organisation.name,
+                ).order_by(Organisation.name).tuples()
+            ),
+            name="Organisation",
+        ),
+    )
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_ajax_refs = {
         "organisation": {
