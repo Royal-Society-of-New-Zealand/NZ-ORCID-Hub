@@ -103,9 +103,14 @@ def utility_processor():  # noqa: D202
         rv = cache.get("onboarded_organisations")
         if not rv:
             rv = list(
-                Organisation.select(Organisation.name, Organisation.saml_name).where(
+                Organisation.select(
+                    Organisation.name,
+                    Organisation.saml_name,
+                    Organisation.created_at,
+                    Organisation.updated_at,
+                ).where(
                     Organisation.confirmed.__eq__(True)
-                )
+                ).order_by(Organisation.name)
             )
             cache.set("onboarded_organisations", rv, timeout=3600)
         return rv
