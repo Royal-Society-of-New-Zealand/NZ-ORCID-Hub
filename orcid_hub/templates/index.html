@@ -41,7 +41,11 @@
               <ul>
             {% for r in onboarded_organisations() %}
               {% if (r.saml_name != None and not(r.name == 'Royal Society Te Apārangi')) %}
-                <li>{{ r.name }}</li>
+                <li>
+                  {{ r.name }}{% if current_user.is_admin or current_user.is_superuser %}:
+                    {{ (r.created_at or r.updated_at)|isodate }}
+                  {% endif %}
+                </li>
               {% endif %}
             {% endfor %}
               </ul>
@@ -52,10 +56,14 @@
             <h4>Non-Tuakiri Members</h4>
             <div class="box-green">
             <ul>
-            <li>Royal Society Te Apārangi</li>
+            <!-- li>Royal Society Te Apārangi</li -->
             {% for r in onboarded_organisations() %}
-              {% if r.saml_name == None %}
-                <li>{{ r.name }}</li>
+              {% if r.saml_name == None or r.name == 'Royal Society Te Apārangi' %}
+                <li>
+                 {{ r.name }}{% if current_user.is_admin or current_user.is_superuser %}:
+                   {{ (r.created_at or r.updated_at)|isodate }}
+                 {% endif %}
+                </li>
               {% endif %}
             {% endfor %}
             </ul>
