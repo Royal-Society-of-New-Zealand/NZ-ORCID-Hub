@@ -241,6 +241,7 @@ def get_attributes(key):
 
 @app.route("/sso/login", endpoint="sso-login")
 @app.route("/saml/login")
+@app.route("/Tuakiri/login")
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
 
