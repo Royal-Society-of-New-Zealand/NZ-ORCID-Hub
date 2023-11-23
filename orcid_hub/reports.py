@@ -14,7 +14,7 @@ from peewee import JOIN, SQL, fn
 from pybtex.plugin import find_plugin
 from pybtex.database import parse_string
 
-from . import app, cache
+from . import app, cache, models
 from .forms import DateRangeForm
 from .login_provider import roles_required
 from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg, NestedDict
@@ -35,6 +35,18 @@ def iter_users_csv(query, from_date, to_date, total_user_count, total_linked_use
     for row in query:
         yield writer.writerow([row.name, row.linked_user_count, row.user_count])
     yield writer.writerow(["TOTAL:", total_linked_user_count, total_user_count])
+
+
+
+@app.route("/user_summary_totals")
+@roles_required(Role.SUPERUSER)
+def user_summary_totals():  # noqa: D103
+
+    query = list(models.SummaryView.select())
+    if query:
+        totals = query[-1]
+    
+    return render_template("user_summary_totals.html", **locals())
 
 
 @app.route("/user_summary")

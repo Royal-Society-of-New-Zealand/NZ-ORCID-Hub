@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application models."""
 
+import calendar
 import copy
 import csv
 import os
@@ -29,6 +30,7 @@ from peewee import BooleanField as BooleanField_
 from peewee import (
     CharField,
     DateTimeField,
+    DecimalField,
     DeferredForeignKey,
     Field,
     FixedCharField,
@@ -5315,6 +5317,26 @@ class MailLog(BaseModel):
 DeferredForeignKey.resolve(User)
 
 
+class SummaryView(BaseModel):
+    
+    year = SmallIntegerField(null=True)
+    month = SmallIntegerField(null=True)
+    user_count = IntegerField(null=True)
+    linked_count = IntegerField(null=True)
+    linked_percent = DecimalField(null=True)
+
+    @property
+    def month_name(self):
+        return self.month and calendar.month_name[self.month]
+
+    class Meta:  # noqa: D101,D106
+        database = db
+        legacy_table_names = False
+        table_name = "user_summary_total"
+        table_alias = "ust"
+        primary_key = False
+
+
 def readup_file(input_file):
     """Read up the whole content and decode it and return the whole content."""
     raw = input_file.read()
@@ -5385,6 +5407,48 @@ def create_tables(safe=True, drop=False):
             model.drop_table()
         if not model.table_exists():
             model.create_table(safe=safe)
+
+    db.execute_sql("""
+ CREATE OR REPLACE VIEW public.user_summary_total AS
+ WITH uc AS (
+         SELECT EXTRACT(year FROM "user".created_at) AS year,
+            EXTRACT(month FROM "user".created_at)::integer AS month,
+            count(*) AS user_count
+           FROM "user"
+          GROUP BY ROLLUP((EXTRACT(year FROM "user".created_at)), (EXTRACT(month FROM "user".created_at)))
+        ), lc AS (
+         SELECT EXTRACT(year FROM orcid_token.created_at) AS year,
+            EXTRACT(month FROM orcid_token.created_at) AS month,
+            count(*) AS linked_count
+           FROM orcid_token
+          GROUP BY ROLLUP((EXTRACT(year FROM orcid_token.created_at)), (EXTRACT(month FROM orcid_token.created_at)))
+        ), yy AS (
+         SELECT min(EXTRACT(year FROM "user".created_at)) AS start_year,
+            max(EXTRACT(year FROM "user".created_at)) AS end_year
+           FROM "user"
+        ), mm AS (
+         SELECT m.month
+           FROM generate_series(0, 12) m(month)
+        ), calendar AS (
+         SELECT y.year,
+            mm.month
+           FROM generate_series(( SELECT yy.start_year
+                   FROM yy), ( SELECT yy.end_year
+                   FROM yy)) y(year)
+             CROSS JOIN mm
+        UNION
+         VALUES (0,0)
+        )
+ SELECT NULLIF(c.year, 0::numeric) AS year,
+    NULLIF(c.month, 0) AS month,
+    uc.user_count,
+    lc.linked_count,
+    CASE WHEN uc.user_count > 0 AND lc.linked_count > 0 THEN (100.0*lc.linked_count)/uc.user_count END AS linked_percent
+   FROM calendar c
+     LEFT JOIN uc ON (uc.year = c.year OR uc.year IS NULL AND c.year = 0::numeric) AND (uc.month = c.month OR c.month = 0 AND uc.month IS NULL)
+     LEFT JOIN lc ON (lc.year = c.year OR lc.year IS NULL AND c.year = 0::numeric) AND (lc.month = c.month::numeric OR c.month = 0 AND lc.month IS NULL)
+  ORDER BY (NULLIF(c.year, 0::numeric)), (NULLIF(c.month, 0));
+""")
 
 
 def create_audit_tables():
