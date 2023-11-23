@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+{% block title %}User Summary (TOTALS){% endblock %}
+{% block content %}
+
+  <div class="row">
+    <div class="col">
+      <table class="table table-striped table-bordered table-hover model-list">
+        <thead>
+          <tr>
+              <th scope="col" class="column-header">Year</th>
+              <th scope="col" class="column-header">Month</th>
+              <th scope="col" class="column-header">User Count</th>
+              <th scope="col" class="column-header">Linked User Count</th>
+              <th scope="col" class="column-header">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for r in query %}
+              {% if r.year %}
+                <tr>
+                  <th scope="row" class="col-name">{{r.year}}</th>
+                  <th scope="row" class="col-name"{% if r.month %} style="text-align: right;"{% endif %}>{{r.month_name if r.month else "<strong><u>Total:</u></strong>"|safe}}</th>
+                  <td class="col-user_count">{{r.user_count or ''}} </td>
+                  <td class="col-user_count">{{r.linked_count or ''}} </td>
+                  <td class="col-user_count">
+                    {%- if r.linked_percent %} {{ "%0.0f%%" % r.linked_percent }}{% endif -%}
+                  </td>
+                </tr>
+              {% endif %}
+          {% endfor %}
+        </tbody>
+	{% if totals %}
+          <tfoot>
+            <tr>
+              <th scope="row" class="col-name" colspan="2"><strong><u>Total:</u></strong></th>
+                <td class="column-footer col-user_count">{{ totals.user_count }} </td>
+                <td class="column-footer col-user_count">{{ totals.linked_count }} </td>
+                <td class="column-footer col-user_count">{{ "%0.0f%%" % totals.linked_percent }}</td>
+            </tr>
+          </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+{% endblock %}
