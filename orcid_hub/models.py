@@ -179,7 +179,7 @@ WORK_TYPES = [
     "conference-presentation",  # apiv3.0
     "conference-poster",
     "conference-proceedings",  # apiv3.0
-    "jounral-article",
+    "journal-article",
     "preprint",
     "dissertation-thesis",  # apiv3.0
     "working-paper",
