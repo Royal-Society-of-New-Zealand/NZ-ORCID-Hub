@@ -175,13 +175,13 @@ WORK_TYPES = [
     "book",
     "book-chapter",
     "conference-paper",
-    # "conference-output",  # apiv3.0
-    # "conference-presentation",  # apiv3.0
+    "conference-output",  # apiv3.0
+    "conference-presentation",  # apiv3.0
     "conference-poster",
-    # "conference-proceedings",  # apiv3.0
+    "conference-proceedings",  # apiv3.0
     "journal-article",
     "preprint",
-    # "dissertation-thesis",  # apiv3.0
+    "dissertation-thesis",  # apiv3.0
     "working-paper",
     "other",
 
@@ -189,13 +189,12 @@ WORK_TYPES = [
     "annotation",  # apiv3.0
     "book-review",
     "journal-issue",
-    # "review",  # apiv3.0
-    # "transcription",  # apiv3.0
+    "review",  # apiv3.0
+    "transcription",  # apiv3.0
     "translation",
-    # "other",
 
     # Articles & Online Content
-    # "blog-post",  # apiv3.0
+    "blog-post",  # apiv3.0
     "dictionary-entry",
     "encyclopedia-entry",
     "magazine-article",
@@ -203,28 +202,25 @@ WORK_TYPES = [
     "report",
     "public-speech",
     "website",
-    # "other",
 
     # Creative Works
     "artistic-performance",
-    # "design",  # apiv3.0
-    # "image",  # apiv3.0
+    "design",  # apiv3.0
+    "image",  # apiv3.0
     "online-resource",
-    # "moving-image",  # apiv3.0
-    # "musical-composition",  # apiv3.0
-    # "sound",  # apiv3.0
-    # "other",
+    "moving-image",  # apiv3.0
+    "musical-composition",  # apiv3.0
+    "sound",  # apiv3.0
 
     # Research & Technical Data
-    # "cartographic-material",  # apiv3.0
-    # "clinical-study",  # apiv3.0
+    "cartographic-material",  # apiv3.0
+    "clinical-study",  # apiv3.0
     "data-set",
-    # "data-management-plan",  # apiv3.0
-    # "physical-object",  # apiv3.0
+    "data-management-plan",  # apiv3.0
+    "physical-object",  # apiv3.0
     "research-technique",
     "research-tool",
     "software",
-    # "other",
 
     # Intellectual Property
     "invention",
@@ -233,13 +229,11 @@ WORK_TYPES = [
     "registered-copyright",
     "standards-and-policy",
     "trademark",
-    # "other",
 
     # Educational & Learning
     "lecture-speech",
-    # "learning-object",  # apiv3.0
+    "learning-object",  # apiv3.0
     "supervised-student-publication",
-    # "other",
 ]
 
 WORK_TYPES = sorted(WORK_TYPES)
