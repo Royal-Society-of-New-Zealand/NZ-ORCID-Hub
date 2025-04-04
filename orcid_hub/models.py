@@ -173,45 +173,83 @@ review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
 RELATIONSHIPS = ["part-of", "self", "version-of", "funded-by"]
 
 WORK_TYPES = [
-    "artistic-performance",
+    # General Publications
     "book",
     "book-chapter",
-    "book-review",
-    "conference-abstract",
     "conference-paper",
+    "conference-output",  # apiv3.0
+    "conference-presentation",  # apiv3.0
     "conference-poster",
-    "data-set",
-    "dictionary-entry",
-    "disclosure",
-    "dissertation",
-    "edited-book",
-    "encyclopedia-entry",
-    "invention",
+    "conference-proceedings",  # apiv3.0
     "journal-article",
+    "preprint",
+    "dissertation-thesis",  # apiv3.0
+    "working-paper",
+    "other",
+
+    # Reviews & Annotations
+    "annotation",  # apiv3.0
+    "book-review",
     "journal-issue",
-    "lecture-speech",
-    "license",
+    "review",  # apiv3.0
+    "transcription",  # apiv3.0
+    "translation",
+
+    # Articles & Online Content
+    "blog-post",  # apiv3.0
+    "dictionary-entry",
+    "encyclopedia-entry",
     "magazine-article",
-    "manual",
-    "newsletter-article",
     "newspaper-article",
-    "online-resource",
-    "other" "patent",
-    "registered-copyright",
     "report",
+    "public-speech",
+    "website",
+
+    # Creative Works
+    "artistic-performance",
+    "design",  # apiv3.0
+    "image",  # apiv3.0
+    "online-resource",
+    "moving-image",  # apiv3.0
+    "musical-composition",  # apiv3.0
+    "sound",  # apiv3.0
+
+    # Research & Technical Data
+    "cartographic-material",  # apiv3.0
+    "clinical-study",  # apiv3.0
+    "data-set",
+    "data-management-plan",  # apiv3.0
+    "physical-object",  # apiv3.0
     "research-technique",
     "research-tool",
-    "spin-off-company",
+    "software",
+
+    # Intellectual Property
+    "invention",
+    "license",
+    "patent",
+    "registered-copyright",
     "standards-and-policy",
-    "supervised-student-publication",
-    "technical-standard",
-    "test",
     "trademark",
-    "translation",
-    "undefined",
-    "website",
-    "working-paper",
+
+    # Educational & Learning
+    "lecture-speech",
+    "learning-object",  # apiv3.0
+    "supervised-student-publication",
+
+    # Legacy Worktypes
+    "conference-abstract",
+    "disclosure",
+    "edited-book",
+    "manual",
+    "newsletter-article",
+    "spin-off-company",
+    "technical-standards",
+    "test",
 ]
+
+WORK_TYPES = sorted(WORK_TYPES)
+
 work_type_choices = [(v, v.replace("-", " ").title()) for v in WORK_TYPES]
 CITATION_TYPES = [
     "bibtex",
