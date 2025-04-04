@@ -234,6 +234,16 @@ WORK_TYPES = [
     "lecture-speech",
     "learning-object",  # apiv3.0
     "supervised-student-publication",
+
+    # Legacy Worktypes
+    "conference-abstract",
+    "disclosure",
+    "edited-book",
+    "manual",
+    "newsletter-article",
+    "spin-off-company",
+    "technical-standards",
+    "test",
 ]
 
 WORK_TYPES = sorted(WORK_TYPES)
