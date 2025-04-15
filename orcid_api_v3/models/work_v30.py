@@ -341,7 +341,82 @@ class WorkV30(object):
         :param type: The type of this WorkV30.  # noqa: E501
         :type: str
         """
-        allowed_values = [c.replace('_', '-').lower() for c in ["ARTISTIC_PERFORMANCE", "BOOK_CHAPTER", "BOOK_REVIEW", "BOOK", "CONFERENCE_ABSTRACT", "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE", "DISSERTATION_THESIS", "EDITED_BOOK", "ENCYCLOPEDIA_ENTRY", "INVENTION", "JOURNAL_ARTICLE", "JOURNAL_ISSUE", "LECTURE_SPEECH", "LICENSE", "MAGAZINE_ARTICLE", "MANUAL", "NEWSLETTER_ARTICLE", "NEWSPAPER_ARTICLE", "ONLINE_RESOURCE", "OTHER", "PATENT", "PREPRINT", "REGISTERED_COPYRIGHT", "REPORT", "RESEARCH_TECHNIQUE", "RESEARCH_TOOL", "SOFTWARE", "SPIN_OFF_COMPANY", "STANDARDS_AND_POLICY", "SUPERVISED_STUDENT_PUBLICATION", "TECHNICAL_STANDARD", "TEST", "TRADEMARK", "TRANSLATION", "WEBSITE", "WORKING_PAPER", "UNDEFINED"]]  # noqa: E501
+        allowed_values = [c.replace('_', '-').lower() for c in [
+                # General Publications
+                "BOOK",
+                "BOOK_CHAPTER",
+                "CONFERENCE_PAPER",
+                "CONFERENCE_OUTPUT",  # apiv3.0
+                "CONFERENCE_PRESENTATION",  # apiv3.0
+                "CONFERENCE_POSTER",
+                "CONFERENCE_PROCEEDINGS",  # apiv3.0
+                "JOURNAL_ARTICLE",
+                "PREPRINT",
+                "DISSERTATION_THESIS",  # apiv3.0
+                "WORKING_PAPER",
+                "OTHER",
+
+                # Reviews & Annotations
+                "ANNOTATION",  # apiv3.0
+                "BOOK_REVIEW",
+                "JOURNAL_ISSUE",
+                "REVIEW",  # apiv3.0
+                "TRANSCRIPTION",  # apiv3.0
+                "TRANSLATION",
+
+                # Articles & Online Content
+                "BLOG_POST",  # apiv3.0
+                "DICTIONARY_ENTRY",
+                "ENCYCLOPEDIA_ENTRY",
+                "MAGAZINE_ARTICLE",
+                "NEWSPAPER_ARTICLE",
+                "REPORT",
+                "PUBLIC_SPEECH",
+                "WEBSITE",
+
+                # Creative Works
+                "ARTISTIC_PERFORMANCE",
+                "DESIGN",  # apiv3.0
+                "IMAGE",  # apiv3.0
+                "ONLINE_RESOURCE",
+                "MOVING_IMAGE",  # apiv3.0
+                "MUSICAL_COMPOSITION",  # apiv3.0
+                "SOUND",  # apiv3.0
+
+                # Research & Technical Data
+                "CARTOGRAPHIC_MATERIAL",  # apiv3.0
+                "CLINICAL_STUDY",  # apiv3.0
+                "DATA_SET",
+                "DATA_MANAGEMENT_PLAN",  # apiv3.0
+                "PHYSICAL_OBJECT",  # apiv3.0
+                "RESEARCH_TECHNIQUE",
+                "RESEARCH_TOOL",
+                "SOFTWARE",
+
+                # Intellectual Property
+                "INVENTION",
+                "LICENSE",
+                "PATENT",
+                "REGISTERED_COPYRIGHT",
+                "STANDARDS_AND_POLICY",
+                "TRADEMARK",
+
+                # Educational & Learning
+                "LECTURE_SPEECH",
+                "LEARNING_OBJECT",  # apiv3.0
+                "SUPERVISED_STUDENT_PUBLICATION",
+
+                # Legacy Worktypes
+                "CONFERENCE_ABSTRACT",
+                "DISCLOSURE",
+                "EDITED_BOOK",
+                "MANUAL",
+                "NEWSLETTER_ARTICLE",
+                "SPIN_OFF_COMPANY",
+                "TECHNICAL_STANDARDS",
+                "TEST",
+            ]
+        ]
         if type not in allowed_values:
             raise ValueError(
                 "Invalid value for `type` ({0}), must be one of {1}"  # noqa: E501
