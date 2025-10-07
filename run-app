@@ -72,6 +72,8 @@ if [ -z "$EXTERNAL_SP" ] ; then
 
     echo "Rendering Shibboleth configuration template ..."
     /conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
+    # https://shibboleth.net/community/advisories/secadv_20250313.txt
+    sed -i -E '/<[^>]+urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign[^>]+/d' /etc/shibboleth/protocols.xml
 
     # Run Shibboleth:
     echo "Starting Shibboleth ..."
