@@ -20,7 +20,7 @@ git+https://github.com/nad2000/W3C-Validator
 twine
 coloredlogs
 #black
-black==24.3.0
+black==26.3.1
 #neovim
 mypy==0.770
 isort==4.3.21
