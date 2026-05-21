@@ -26,6 +26,9 @@ else
   # tar cjf ./backup/$TS_LABEL.tar.bz2 ./pgdata ; mv ./backup/$TS_LABEL.tar.bz2 ./archive/
   sudo bash -c 'sync; echo 3 > /proc/sys/vm/drop_caches'
   sudo XZ_OPT="-9 --memory=1000000000" tar cJf ./backup/$TS_LABEL.tar.xz -C $(psql -t -c "SHOW data_directory;")/.. ./data 
+  for db in orcidhub orcidhub_dev orcidhub_test ; do 
+      (pg_dumpall --globals-only -U postgres; pg_dump -U postgres ${db}) | xz -z -3 -c - >$HOME/backup/${db}_${TS_LABEL}.sql.xz
+  done
 fi
 sudo mv ./backup/$TS_LABEL.tar.xz ./archive/
 if docker-compose -q db &>/dev/null ; then
