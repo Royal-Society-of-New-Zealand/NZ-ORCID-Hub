@@ -29,6 +29,7 @@ EOF
 
 
 sed -i '/host all all all md5/d' $PGDATA/pg_hba.conf
+sed -i '/host all all all scram-sha-256/d' $PGDATA/pg_hba.conf
 cat >>$PGDATA/pg_hba.conf <<EOF
 
 # Add here the access from the "slave" DB servers:
@@ -47,6 +48,7 @@ psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d orcidhub  -c "CREATE EXTENSION IF
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d orcidhub <<-EOSQL
   CREATE USER orcidhub WITH PASSWORD '${POSTGRES_PASSWORD}';
   GRANT ALL PRIVILEGES ON DATABASE orcidhub TO orcidhub;
+  GRANT CREATE ON SCHEMA public TO orcidhub;
 
   CREATE OR REPLACE FUNCTION promote_standby() RETURNS VOID
   SECURITY DEFINER LANGUAGE SQL AS 'COPY (SELECT 1) TO ''$PGDATA/pg_failover_trigger.00''';

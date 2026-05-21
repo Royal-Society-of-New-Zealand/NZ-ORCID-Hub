@@ -1,10 +1,11 @@
 # pip install -U -r requirements.txt
 distro==1.5.0
 oauthlib==2.1.0
+chardet
 requests
 requests-oauthlib==1.0.0
 psycopg2-binary
-peewee>=3.9.6,<3.11.0
+peewee>=3.9.6,<3.17.0
 python-slugify
 emails
 WTForms<3.0.0 # https://dev.to/sm0ke/cannot-import-name-textfield-from-wtforms-58n8
@@ -13,7 +14,7 @@ pycountry
 html2text
 tablib<1.0.0
 openpyxl>=2.4.9,<2.5.0
-PyYAML<6.0
+PyYAML>=6.0,<7.0
 pykwalify
 pybtex
 pybtex-apa-style
@@ -39,7 +40,7 @@ croniter==0.3.20
 redis<4.6.0  # <3.5.0
 rq<1.14  # <0.14.0
 rq-scheduler<0.14  # <0.10
-Flask-RQ2[cli]<18.4  # <19.0
+Flask-RQ2<18.4  # <19.0
 Flask-Caching>=1.7.2,<2.0.0
 rq-dashboard<0.7.0  # <0.5.0
 zipstream

@@ -85,6 +85,7 @@ if [ -z "$EXTERNAL_SP" ] ; then
     fi
 
     echo "Rendering Shibboleth configuration template ..."
+    sed -i 's/\r$//' /conf/render_template 2>/dev/null || true
     /conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
 
     # Run Shibboleth:
@@ -116,5 +117,33 @@ export DATABASE_URL
 
 [ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://redis:6379/0
 export RQ_REDIS_URL
+
+
+# Parse host and port from DATABASE_URL for the check
+DB_HOST=$(echo "$DATABASE_URL" | sed -n 's|.*@\(.*\):\([0-9]*\)/.*|\1|p')
+DB_PORT=$(echo "$DATABASE_URL" | sed -n 's|.*@.*:\([0-9]*\)/.*|\1|p')
+
+DB_HOST=${DB_HOST:-db}
+DB_PORT=${DB_PORT:-5432}
+
+echo "Waiting for PostgreSQL to be ready at $DB_HOST:$DB_PORT..."
+
+for i in {1..30}; do
+  if nc -z "$DB_HOST" "$DB_PORT"; then
+    echo "PostgreSQL is up!"
+    break
+  else
+    echo "PostgreSQL not ready yet, sleeping 1s..."
+    sleep 1
+  fi
+done
+
+if ! nc -z "$DB_HOST" "$DB_PORT"; then
+  echo "PostgreSQL did not become ready in time, exiting."
+  exit 1
+fi
+
+echo "Initialising / migrating database schema..."
+cd /src && FLASK_APP=orcid_hub flask initdb
 
 exec httpd -DFOREGROUND

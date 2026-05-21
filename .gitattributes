@@ -1,1 +1,5 @@
 orcid_hub/__init__.py ident export-subst
+
+*.sh                  text eol=lf
+run-app               text eol=lf
+conf/render_template  text eol=lf

@@ -542,7 +542,7 @@ class UserAdmin(UserMergeMixin, AppModelView):
                     Organisation.id,
                     Organisation.name,
                 ).order_by(Organisation.name).tuples()
-            ),
+            ) if Organisation.table_exists() else [],
             name="Organisation",
         ),
     )

@@ -22,10 +22,10 @@ RUN python3.11 -m venv /app/venv \
  && /app/venv/bin/pip install 'setuptools<72'
 
 
-FROM rockylinux:9 AS orcidhub
+FROM rockylinux:9
 
 ENV LANG=en_US.UTF-8
-LABEL maintainer="PRODATA TAPUI Ltd." \
+LABEL maintainer="The University of Auckland" \
       description="NZ ORCiD Hub Application Image - Rocky Linux 9"
 
 ARG http_proxy
@@ -34,14 +34,16 @@ ENV http_proxy=${http_proxy} https_proxy=${http_proxy} ftp_proxy=${http_proxy}
 RUN dnf install -y 'dnf-command(config-manager)' \
  && dnf install -y epel-release \
  && dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-$(uname -m)/pgdg-redhat-repo-latest.noarch.rpm \
- && (curl -fsSL -o /etc/yum.repos.d/shibboleth.repo \
-      "https://shibboleth.net/cgi-bin/sp_repo.cgi?platform=rockylinux9" \
-   || curl -fsSL -o /etc/yum.repos.d/shibboleth.repo \
-      "http://shibboleth.net/cgi-bin/sp_repo.cgi?platform=rockylinux9") \
+ && if [ "$(uname -m)" = "x86_64" ]; then \
+      (curl -fsSL -o /etc/yum.repos.d/shibboleth.repo \
+        "https://shibboleth.net/cgi-bin/sp_repo.cgi?platform=rockylinux9" \
+       || curl -fsSL -o /etc/yum.repos.d/shibboleth.repo \
+        "http://shibboleth.net/cgi-bin/sp_repo.cgi?platform=rockylinux9"); \
+    fi \
  && dnf install -y --nodocs --setopt=install_weak_deps=False \
         python3.11 \
         httpd mod_ssl \
-        shibboleth \
+        $([ "$(uname -m)" = "x86_64" ] && echo "shibboleth") \
         postgresql15 \
         openssl \
         nmap-ncat \
@@ -57,14 +59,18 @@ COPY app.wsgi /var/www/orcidhub/
 COPY app.conf /etc/httpd/conf.d/ZZ-app.conf
 COPY ./conf /conf
 COPY run-app /usr/local/bin/run-app
+COPY worker.sh /usr/local/bin/worker.sh
+COPY scheduler.sh /usr/local/bin/scheduler.sh
 
 RUN /app/venv/bin/mod_wsgi-express module-config > /etc/httpd/conf.modules.d/10-wsgi.conf \
  && rm -f /etc/httpd/conf.d/ssl.conf \
  && mkdir -p /var/run/lock /var/lock/subsys \
- && echo 'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH' > /etc/sysconfig/shibd \
+ && (mkdir -p /etc/sysconfig && echo 'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH' > /etc/sysconfig/shibd) \
  && find /conf -type f -exec sed -i 's/\r$//' {} + \
- && find /usr/local/bin -name "run-app" -exec sed -i 's/\r$//' {} + \
- && chmod +x /usr/local/bin/run-app /conf/render_template /etc/shibboleth/shibd-redhat
+ && find /usr/local/bin -type f \( -name "run-app" -o -name "*.sh" \) -exec sed -i 's/\r$//' {} + \
+ && chmod +x /usr/local/bin/run-app /usr/local/bin/worker.sh /usr/local/bin/scheduler.sh \
+              /conf/render_template \
+ && (chmod +x /etc/shibboleth/shibd-redhat 2>/dev/null || true)
 
 EXPOSE 80 443
 CMD ["run-app"]

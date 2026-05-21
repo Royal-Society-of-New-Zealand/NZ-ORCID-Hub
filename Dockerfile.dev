@@ -1,27 +1,20 @@
 FROM orcidhub/app AS orcidhub-dev
 
 LABEL maintainer="The University of Auckland" \
-	description="NZ ORCiD Hub Application Image with Development support"
+      description="NZ ORCiD Hub Application Image with Development support"
 ARG http_proxy
+ENV http_proxy=${http_proxy} https_proxy=${http_proxy} ftp_proxy=${http_proxy}
+
 COPY dev_requirements.txt /dev_requirements.txt
 COPY test_requirements.txt /test_requirements.txt
 COPY requirements.txt /requirements.txt
 
-#    && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
-RUN test -n "${http_proxy}" && export ftp_proxy=$http_proxy https_proxy=$http_proxy \
-    && ldconfig \
-    && yum install -y git \
-    && pip install -U -r /dev_requirements.txt \
-    && pip install -U 'flask<2.2.3' \
-    && pip install -U 'flask<2.3.0' \
-    && cd /var/lib/rpm \
-    && rm -rf __db* \
-    && rpm --rebuilddb \
-    && yum -y clean all \
-    && chmod +x /etc/shibboleth/shibd-redhat \
-    && rm -rf /var/cache/yum \
-    && rm -rf $HOME/.pip/cache \
-    && rm -rf /var/cache/*/* /anaconda-post.log /dev_requirements.txt /requirements.txt
+RUN dnf install -y git \
+ && dnf clean all \
+ && rm -rf /var/cache/dnf \
+ && pip install -U -r /dev_requirements.txt \
+ && (chmod +x /etc/shibboleth/shibd-redhat 2>/dev/null || true) \
+ && rm -rf $HOME/.pip/cache /dev_requirements.txt /requirements.txt
 
 ENV DEBUG=1
 WORKDIR /src
