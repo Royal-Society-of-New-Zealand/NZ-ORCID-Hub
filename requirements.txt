@@ -1,6 +1,6 @@
 # pip install -U -r requirements.txt
 distro==1.5.0
-oauthlib==2.1.0
+oauthlib==4.0.0
 requests
 requests-oauthlib==1.0.0
 psycopg2-binary
